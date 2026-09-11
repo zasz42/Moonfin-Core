@@ -23,7 +23,7 @@ class MediaBarRepository {
   static const _fields =
       'Type,Genres,OfficialRating,CommunityRating,CriticRating,'
       'RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,'
-      'Overview,ProviderIds';
+      'Overview,ProviderIds,RemoteTrailers';
 
   MediaBarRepository(this._client, this._prefs);
 
@@ -140,7 +140,8 @@ class MediaBarRepository {
 
       if (selected.isEmpty && allParentIds.isNotEmpty) {
         final fallbackItems = <Map<String, dynamic>>[];
-        final targetTypes = allParentItemTypes[allParentIds.first] ?? includeTypes;
+        final targetTypes =
+            allParentItemTypes[allParentIds.first] ?? includeTypes;
         fallbackItems.addAll(
           await _fetchItems(
             targetTypes,
@@ -437,7 +438,11 @@ class MediaBarRepository {
       if (statusCode == 401 || statusCode == 403) {
         return const <Map<String, dynamic>>[];
       }
-      return _fetchItemsFromFallbackSource(itemTypes, limit, parentId: parentId);
+      return _fetchItemsFromFallbackSource(
+        itemTypes,
+        limit,
+        parentId: parentId,
+      );
     }
   }
 

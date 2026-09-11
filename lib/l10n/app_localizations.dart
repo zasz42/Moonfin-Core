@@ -6556,6 +6556,18 @@ abstract class AppLocalizations {
   /// **'Left Sidebar'**
   String get leftSidebar;
 
+  /// Setting to condense the left sidebar to a narrow rail without text labels
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get compactSidebar;
+
+  /// Explanation for the compact sidebar setting
+  ///
+  /// In en, this message translates to:
+  /// **'Reduces the sidebar width and hides button text. Only applies while the Navigation Style is set to Left Sidebar and the sidebar is expanded.'**
+  String get compactSidebarHint;
+
   /// Setting for showing shuffle button
   ///
   /// In en, this message translates to:
@@ -6921,6 +6933,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Aya'**
   String get mediaBarModeAya;
+
+  /// Setting to condense the Banner media bar into the compact layout
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get compactBannerEnabled;
+
+  /// Explanation for the Compact Banner setting
+  ///
+  /// In en, this message translates to:
+  /// **'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.'**
+  String get compactBannerEnabledHint;
+
+  /// Setting to show Upcoming Releases bar next to the Compact Banner media bar
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Upcoming Releases'**
+  String get compactBannerUpcomingReleases;
+
+  /// Explanation for the Enable Upcoming Releases setting
+  ///
+  /// In en, this message translates to:
+  /// **'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.'**
+  String get compactBannerUpcomingReleasesHint;
+
+  /// Header for the Upcoming Releases bar shown beside the Compact Banner media bar
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Releases'**
+  String get upcomingReleases;
 
   /// Setting for enabling media bar
   ///

@@ -90,6 +90,23 @@ class _NavigationCategoryScreenState extends State<_NavigationCategoryScreen> {
                 icon: Icons.unfold_more,
                 onChanged: _pushPersonalizationSync,
               ),
+              // The compact mode only applies to the left sidebar, so it's hidden
+              // unless Navigation Style is set to Left Sidebar. Watching the pref
+              // directly lets the tile appear/disappear the moment the style changes.
+              ListenableBuilder(
+                listenable: prefs,
+                builder: (context, _) =>
+                    prefs.get(UserPreferences.navbarPosition) ==
+                        NavbarPosition.left
+                    ? SwitchPreferenceTile(
+                        preference: UserPreferences.compactNavbar,
+                        title: l10n.compactSidebar,
+                        subtitle: l10n.compactSidebarHint,
+                        icon: Icons.vertical_align_center,
+                        onChanged: _pushPersonalizationSync,
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
           _SectionHeader(l10n.navButtons),

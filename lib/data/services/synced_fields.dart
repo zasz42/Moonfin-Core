@@ -155,6 +155,7 @@ final List<SyncedField> syncedFields = <SyncedField>[
   SyncedField('navbarOpacity', UserPreferences.navbarOpacity, SyncCodec.integer),
   SyncedField('navbarColor', UserPreferences.navbarColor, SyncCodec.text),
   SyncedField('navbarAlwaysExpanded', UserPreferences.navbarAlwaysExpanded, SyncCodec.boolean),
+  SyncedField('compactNavbar', UserPreferences.compactNavbar, SyncCodec.boolean),
   SyncedField('mediaBarAutoAdvance', UserPreferences.mediaBarAutoAdvance, SyncCodec.boolean),
   SyncedField('mediaBarIntervalMs', UserPreferences.mediaBarIntervalMs, SyncCodec.integer),
   SyncedField('mediaBarTrailerPreview', UserPreferences.mediaBarTrailerPreview, SyncCodec.boolean),

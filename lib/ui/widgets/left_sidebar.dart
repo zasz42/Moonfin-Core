@@ -50,6 +50,8 @@ const _kExpandedWidthMobile = 260.0;
 const _kExpandDuration = Duration(milliseconds: 200);
 const _kExpandedWidthTV = 280.0;
 const _kCollapsedWidthTV = 72.0;
+const _kCompactWidthTV = 60.0;
+const _kCompactWidthDesktop = 70.0;
 const _kExpandedBackdropWidthTV = _kExpandedWidthTV - 16.0;
 const _kBackdropEdgeBlendWidthTV =
     _kExpandedWidthTV - _kExpandedBackdropWidthTV;
@@ -63,6 +65,12 @@ class LeftSidebar extends StatefulWidget {
   /// Use this instead of walking the element tree to determine if the
   /// current focus is within the sidebar; it's resilient during teardown.
   static final ValueNotifier<bool> isFocusedNotifier = ValueNotifier<bool>(false);
+
+  /// Notifier for the compact-mode clock displayed in the top right of the
+  /// screen by [NavigationLayout]. Populated only when the sidebar is in
+  /// compact mode; empty string otherwise.
+  static final ValueNotifier<String> compactClockNotifier =
+      ValueNotifier<String>('');
 
   const LeftSidebar({
     super.key,
@@ -95,7 +103,12 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
 
   List<AggregatedLibrary> _libraries = [];
   bool _isExpanded = false;
-  bool _showLabels = false;
+  bool _showLabelsRaw = false;
+
+  bool get _isCompact => _prefs.get(UserPreferences.compactNavbar);
+
+  bool get _showLabelsEffective => _isCompact ? false : _showLabelsRaw;
+
   bool _librariesExpanded = false;
   bool _canExpandViaFocus = false;
   bool _skipExpandOnNextFocusFromNavigation = false;
@@ -241,6 +254,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     } catch (_) {}
     _prefs.removeListener(_onPrefsChanged);
     _currentTime.dispose();
+    LeftSidebar.compactClockNotifier.value = '';
     // Only clear the shared flag if this instance held focus, so a torn-down
     // route's sidebar can't wipe the state of the one the user is on.
     if (_sidebarHadFocus) {
@@ -277,6 +291,11 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     );
     if (mounted && _currentTime.value != newTime) {
       _currentTime.value = newTime;
+    }
+    // In compact mode on TV push the time to the static notifier so
+    // NavigationLayout can render it in the top-right corner.
+    if (_isCompact && PlatformDetection.isTV) {
+      LeftSidebar.compactClockNotifier.value = newTime;
     }
   }
 
@@ -342,14 +361,14 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
   }
 
   void _expand() {
-    if (_isExpanded) return;
+    if (_isExpanded || (PlatformDetection.isTV && _isCompact)) return;
     setState(() => _isExpanded = true);
     _labelTimer?.cancel();
     final delay = PlatformDetection.isTV
         ? const Duration(milliseconds: 150)
         : const Duration(milliseconds: 100);
     _labelTimer = Timer(delay, () {
-      if (mounted) setState(() => _showLabels = true);
+      if (mounted) setState(() => _showLabelsRaw = true);
     });
   }
 
@@ -358,7 +377,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     _labelTimer?.cancel();
     setState(() {
       _isExpanded = false;
-      _showLabels = false;
+      _showLabelsRaw = false;
       _librariesExpanded = false;
     });
   }
@@ -370,6 +389,10 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
       _expand();
     }
   }
+
+  /// Re-entrancy guard so `_restoreFocusOutsideSidebar` (called from the
+  /// compact+TV branch below) does not loop back into this callback.
+  bool _restoringFocusFromCompactSidebar = false;
 
   void _onSidebarFocusNodeChanged() {
     final hasFocus = _sidebarFocus.hasFocus;
@@ -396,6 +419,21 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
           if (!hasSpecificChild) {
             _homeFocusNode.requestFocus();
           }
+        });
+      } else if (PlatformDetection.isTV && _isCompact) {
+        // In compact+TV mode the sidebar can never expand, so focus landing
+        // on the rail root (e.g. after a route pop) would be stranded.
+        // Redirect to content immediately.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _restoringFocusFromCompactSidebar) return;
+          final primary = FocusManager.instance.primaryFocus;
+          // A specific sidebar child was targeted (e.g. avatar) – leave it.
+          if (primary != null &&
+              !identical(primary, _sidebarFocus) &&
+              _isDescendantOf(primary, _sidebarFocus)) return;
+          _restoringFocusFromCompactSidebar = true;
+          _restoreFocusOutsideSidebar();
+          _restoringFocusFromCompactSidebar = false;
         });
       }
     } else if (!hasFocus && _sidebarHadFocus && _canExpandViaFocus) {
@@ -717,7 +755,15 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     final isNeon = ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
     final desktopHoverRail =
         (PlatformDetection.isDesktop || (PlatformDetection.isWeb && !PlatformDetection.useMobileUi)) && !PlatformDetection.isTV;
-    final railWidth = _isExpanded ? _kExpandedWidthTV : _kCollapsedWidthTV;
+    final tvCompactRail = PlatformDetection.isTV && _isCompact;
+    final expandedWidth = _isCompact
+        ? (PlatformDetection.isTV ? _kCompactWidthTV : _kCompactWidthDesktop)
+        : _kExpandedWidthTV;
+    final railWidth = tvCompactRail
+        ? _kCompactWidthTV
+        : _isExpanded
+            ? expandedWidth
+            : _kCollapsedWidthTV;
 
     final rail = AnimatedContainer(
       duration: _kExpandDuration,
@@ -789,7 +835,9 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                 child: AnimatedContainer(
                   duration: _kExpandDuration,
                   curve: Curves.easeInOut,
-                  width: _isExpanded ? _kExpandedBackdropWidthTV : _kCollapsedWidthTV,
+                  width: _isExpanded
+                      ? _kExpandedBackdropWidthTV
+                      : (tvCompactRail ? _kCompactWidthTV : _kCollapsedWidthTV),
                   child: _buildContent(),
                 ),
               ),
@@ -822,7 +870,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
         baseColor: navColor,
         badgeCount: unread,
         focusNode: _serverMessagesFocusNode,
-        showLabel: _showLabels,
+        showLabel: _showLabelsEffective,
         onPressed: () async {
           _onNavigate();
           await showServerMessagesDialog(context);
@@ -852,13 +900,18 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
         clockBehavior == ClockBehavior.inMenus;
     return Column(
       children: [
-        Visibility(
-          visible: _isExpanded,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: _buildUserSection(),
-        ),
+        if (_isCompact && PlatformDetection.isTV)
+          const SizedBox(height: 300),
+        // In compact mode the user section is shown in the nav items list
+        // directly above Home; otherwise it lives at the top of the Column.
+        if (!_isCompact)
+          Visibility(
+            visible: _isExpanded,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: _buildUserSection(),
+          ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -877,13 +930,14 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
               }
 
               final items = <Widget>[
+                if (_isCompact) _buildUserSection(),
                 _SidebarItem(
                   key: const ValueKey('sidebar-home'),
                   icon: Icons.home_rounded,
                   label: l10n.home,
                   baseColor: nextMainSidebarColor(),
                   focusNode: _homeFocusNode,
-                  showLabel: _showLabels,
+                  showLabel: _showLabelsEffective,
                   onPressed: () {
                     _onNavigate();
                     if (_isActive(Destinations.home)) {
@@ -901,7 +955,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                   icon: Icons.search_rounded,
                   label: l10n.search,
                   baseColor: nextMainSidebarColor(),
-                  showLabel: _showLabels,
+                  showLabel: _showLabelsEffective,
                   onPressed: () {
                     _onNavigate();
                     if (_isActive(Destinations.search)) {
@@ -918,7 +972,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                     icon: Icons.shuffle_rounded,
                     label: l10n.shuffle,
                     baseColor: nextMainSidebarColor(),
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       showShuffleOverlay(context);
@@ -935,7 +989,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                       color: color,
                     ),
                     label: l10n.genres,
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       if (_isActive(Destinations.allGenres)) {
@@ -952,7 +1006,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                     icon: Icons.favorite_rounded,
                     label: l10n.favorites,
                     baseColor: nextMainSidebarColor(),
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       if (_isActive(Destinations.allFavorites)) {
@@ -969,7 +1023,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                     icon: Icons.folder_rounded,
                     label: l10n.folders,
                     baseColor: nextMainSidebarColor(),
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       if (_isActive(Destinations.folderView)) {
@@ -986,7 +1040,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                     icon: Icons.groups_rounded,
                     label: l10n.syncPlay,
                     baseColor: nextMainSidebarColor(),
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       _markNavigationAwayFromSidebar();
@@ -1002,11 +1056,20 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                   _SidebarItem(
                     key: const ValueKey('sidebar-seerr'),
                     baseColor: nextMainSidebarColor(),
-                    iconBuilder: (size, color) => seerrPrefs.isSeerrVariant
-                        ? SeerrIcon(size: size, color: color)
-                        : SeerrIcon(size: size, color: color),
+                    iconBuilder: (size, color) {
+                      final icon = seerrPrefs.isSeerrVariant
+                          ? SeerrIcon(size: size, color: color)
+                          : SeerrIcon(size: size, color: color);
+                      if (_isCompact) {
+                        return Transform.translate(
+                          offset: const Offset(0, -5),
+                          child: icon,
+                        );
+                      }
+                      return icon;
+                    },
                     label: seerrNavLabel,
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       if (_isActive(Destinations.seerrDiscover)) {
@@ -1029,8 +1092,8 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                       fit: BoxFit.contain,
                     ),
                     label: l10n.libraries,
-                    showLabel: _showLabels,
-                    trailing: _showLabels
+                    showLabel: _showLabelsEffective,
+                    trailing: _showLabelsEffective
                         ? AnimatedRotation(
                             turns: _librariesExpanded ? 0.5 : 0,
                             duration: _kExpandDuration,
@@ -1061,7 +1124,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                                     key: ObjectKey(lib.id),
                                     label: lib.name,
                                     baseColor: nextLibrarySidebarColor(),
-                                    showLabel: _showLabels,
+                                    showLabel: _showLabelsEffective,
                                     onPressed: () {
                                       _onNavigate();
                                       _markNavigationAwayFromSidebar();
@@ -1109,7 +1172,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                     icon: Icons.download_for_offline,
                     label: l10n.savedMedia,
                     baseColor: nextMainSidebarColor(),
-                    showLabel: _showLabels,
+                    showLabel: _showLabelsEffective,
                     onPressed: () {
                       _onNavigate();
                       showDownloadsDialog(context);
@@ -1129,7 +1192,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                   label: l10n.settings,
                   baseColor: nextMainSidebarColor(),
                   focusNode: _settingsFocusNode,
-                  showLabel: _showLabels,
+                  showLabel: _showLabelsEffective,
                   onPressed: () async {
                     _onNavigate();
                     await SettingsPanel.open(
@@ -1160,12 +1223,12 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
           ),
         ),
         SidebarMusicCard(
-          isExpanded: _showLabels,
+          isExpanded: _showLabelsEffective,
           focusNode: _musicCardFocusNode,
         ),
-        if (showClock)
+        if (showClock && !_isCompact)
           Visibility(
-            visible: _showLabels,
+            visible: _showLabelsEffective,
             maintainSize: true,
             maintainAnimation: true,
             maintainState: true,
@@ -1211,6 +1274,18 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
   }
 
   Widget _buildUserSection() {
+    // In compact mode on TV show a profile button that matches _SidebarItem
+    // styling exactly (same height, padding, icon slot, hover effect).
+    if (_isCompact) {
+      return _CompactProfileButton(
+        focusNode: _profileFocusNode,
+        homeFocusNode: _homeFocusNode,
+        onNavigate: _onNavigate,
+        onShowMenu: () => showUserMenu(context),
+      );
+    }
+
+    // Non-compact: show avatar with optional name label.
     final user = _userRepo.currentUser;
     final initial = (user?.name.isNotEmpty == true)
         ? user!.name[0].toUpperCase()
@@ -1226,7 +1301,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
       ),
     );
 
-    final tvCompact = PlatformDetection.isTV && !_showLabels;
+    final tvCompact = PlatformDetection.isTV && !_showLabelsEffective;
     final innerPad = tvCompact ? 0.0 : 6.0;
     final isFocused = _profileFocusNode.hasFocus;
 
@@ -1259,7 +1334,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
       duration: const Duration(milliseconds: 150),
       padding: EdgeInsets.all(innerPad),
       decoration: BoxDecoration(
-        color: (PlatformDetection.isTV && isFocused && _showLabels)
+        color: (PlatformDetection.isTV && isFocused && _showLabelsEffective)
             ? Colors.white
             : Colors.transparent,
         borderRadius: AppRadius.circular(24),
@@ -1267,7 +1342,7 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
       child: Row(
         children: [
           avatar,
-          if (_showLabels) ...[
+          if (_showLabelsEffective) ...[
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -1322,6 +1397,136 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
               },
               child: content,
             ),
+    );
+  }
+}
+
+/// Compact-mode profile button that matches `_SidebarItem` styling exactly,
+/// including the per-button hover/focus effect.
+class _CompactProfileButton extends StatefulWidget {
+  final FocusNode focusNode;
+  final FocusNode homeFocusNode;
+  final VoidCallback onNavigate;
+  final VoidCallback onShowMenu;
+
+  const _CompactProfileButton({
+    required this.focusNode,
+    required this.homeFocusNode,
+    required this.onNavigate,
+    required this.onShowMenu,
+  });
+
+  @override
+  State<_CompactProfileButton> createState() => _CompactProfileButtonState();
+}
+
+class _CompactProfileButtonState extends State<_CompactProfileButton> {
+  final _prefs = GetIt.instance<UserPreferences>();
+  late final VoidCallback _focusListener;
+  bool _isFocused = false;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusListener = () {
+      if (!mounted) return;
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+    };
+    widget.focusNode.addListener(_focusListener);
+    _isFocused = widget.focusNode.hasFocus;
+  }
+
+  @override
+  void didUpdateWidget(_CompactProfileButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode.removeListener(_focusListener);
+      widget.focusNode.addListener(_focusListener);
+      _isFocused = widget.focusNode.hasFocus;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_focusListener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final desktopSidebar =
+        (PlatformDetection.isDesktop || (PlatformDetection.isWeb && !PlatformDetection.useMobileUi)) &&
+        !PlatformDetection.isTV;
+    final highlighted =
+        (desktopSidebar && _isHovered) ||
+        (PlatformDetection.isTV && _isFocused);
+    final tvFocused = PlatformDetection.isTV && _isFocused;
+    final baseColor = Colors.white.withValues(alpha: 0.6);
+    final fgColor = tvFocused
+        ? Colors.black
+        : highlighted
+        ? baseColor
+        : baseColor;
+    final bgColor = tvFocused
+        ? Colors.white
+        : highlighted
+        ? baseColor.withValues(alpha: 0.12)
+        : Colors.transparent;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Focus(
+          focusNode: widget.focusNode,
+          onKeyEvent: (_, event) {
+            if (event is KeyDownEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter) {
+                widget.onNavigate();
+                widget.onShowMenu();
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                widget.homeFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: GestureDetector(
+            onTap: () {
+              widget.onNavigate();
+              widget.onShowMenu();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: PlatformDetection.isTV
+                    ? AppRadius.circular(24)
+                    : BorderRadius.zero,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Icon(
+                      Icons.person_rounded,
+                      size: 24,
+                      color: fgColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

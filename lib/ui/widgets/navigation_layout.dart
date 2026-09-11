@@ -355,6 +355,42 @@ class _NavigationLayoutState extends State<NavigationLayout> with WidgetsBinding
                   bottom: 0,
                   child: sidebar,
                 ),
+                if (PlatformDetection.isTV)
+                  ValueListenableBuilder<String>(
+                    valueListenable: LeftSidebar.compactClockNotifier,
+                    builder: (_, time, __) {
+                      if (time.isEmpty) return const SizedBox.shrink();
+                      final clockBehavior =
+                          GetIt.instance<UserPreferences>().get(UserPreferences.clockBehavior);
+                      final showClock =
+                          clockBehavior == ClockBehavior.always ||
+                          clockBehavior == ClockBehavior.inMenus;
+                      if (!showClock) return const SizedBox.shrink();
+                      final isNeon =
+                          ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
+                      return Positioned(
+                        top: 16,
+                        right: 24,
+                        child: Text(
+                          time,
+                          style: TextStyle(
+                            color: isNeon
+                                ? AppColorScheme.onSurface
+                                : Colors.white.withValues(alpha: 0.9),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w500,
+                            shadows: isNeon
+                                ? const [
+                                    Shadow(
+                                        color: Color(0x6600E5FF),
+                                        blurRadius: 8),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 if (widget.showBackButton && !PlatformDetection.isTV)
                   Positioned(
                     top: 16,

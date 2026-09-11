@@ -689,6 +689,11 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'transparency',
     ]),
     navigation.leaf(
+      'pref_navbar_compact',
+      l10n.compactSidebar,
+      keywords: ['compact', 'sidebar', 'rail', 'width', 'labels'],
+    ),
+    navigation.leaf(
       'pref_show_shuffle_button',
       l10n.showShuffleButton,
       subtitle: l10n.settingsShowShuffleButtonInNavigation,

@@ -4967,6 +4967,14 @@
   "@leftSidebar": {
     "description": "Navigation style: left sidebar"
   },
+  "compactSidebar": "Compact",
+  "@compactSidebar": {
+    "description": "Setting to condense the left sidebar to a narrow rail without text labels"
+  },
+  "compactSidebarHint": "Reduces the sidebar width and hides button text. Only applies while the Navigation Style is set to Left Sidebar and the sidebar is expanded.",
+  "@compactSidebarHint": {
+    "description": "Explanation for the compact sidebar setting"
+  },
   "showShuffleButton": "Show Shuffle Button",
   "@showShuffleButton": {
     "description": "Setting for showing shuffle button"
@@ -5215,6 +5223,26 @@
   "mediaBarModeAya": "Aya",
   "@mediaBarModeAya": {
     "description": "Media bar style option: Aya"
+  },
+  "compactBannerEnabled": "Compact",
+  "@compactBannerEnabled": {
+    "description": "Setting to condense the Banner media bar into the compact layout"
+  },
+  "compactBannerEnabledHint": "Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.",
+  "@compactBannerEnabledHint": {
+    "description": "Explanation for the Compact Banner setting"
+  },
+  "compactBannerUpcomingReleases": "Enable Upcoming Releases",
+  "@compactBannerUpcomingReleases": {
+    "description": "Setting to show Upcoming Releases bar next to the Compact Banner media bar"
+  },
+  "compactBannerUpcomingReleasesHint": "Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.",
+  "@compactBannerUpcomingReleasesHint": {
+    "description": "Explanation for the Enable Upcoming Releases setting"
+  },
+  "upcomingReleases": "Upcoming Releases",
+  "@upcomingReleases": {
+    "description": "Header for the Upcoming Releases bar shown beside the Compact Banner media bar"
   },
   "enableMediaBar": "Enable Media Bar",
   "@enableMediaBar": {

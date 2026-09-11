@@ -484,6 +484,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_home_rows_style',
     'pref_modern_home_rows_padding',
     'pref_classic_home_rows_padding',
+    'compactClassicHomeRowEnabled',
     'poster_size',
     'pref_display_favorites_rows',
     'pref_display_collections_rows',
@@ -503,6 +504,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_show_downloads_button',
     'pref_show_libraries_in_toolbar',
     'pref_navbar_always_expanded',
+    'pref_navbar_compact',
     'pref_shuffle_content_type',
     'pref_merge_continue_watching_next_up',
     'pref_next_up_max_days',
@@ -522,6 +524,8 @@ class UserPreferences extends ChangeNotifier {
     'mediaBarAutoAdvance',
     'mediaBarIntervalMs',
     'mediaBarTrailerPreview',
+'compactBannerUpcomingReleases',
+    'compactBannerEnabled',
     'mediaBarTrailerAudio',
     'mediaBarTrailerCaptions',
     'episodePreviewEnabled',
@@ -973,6 +977,11 @@ class UserPreferences extends ChangeNotifier {
   static final classicHomeRowsPadding = Preference<int>(
     key: 'pref_classic_home_rows_padding',
     defaultValue: 30,
+  );
+
+  static final compactClassicHomeRowEnabled = Preference(
+    key: 'compactClassicHomeRowEnabled',
+    defaultValue: false,
   );
 
   /// How far a mouse wheel notch scrolls, as a percentage of what the platform
@@ -1467,6 +1476,11 @@ class UserPreferences extends ChangeNotifier {
 
   static final navbarAlwaysExpanded = Preference(
     key: 'pref_navbar_always_expanded',
+    defaultValue: false,
+  );
+
+  static final compactNavbar = Preference(
+    key: 'pref_navbar_compact',
     defaultValue: false,
   );
 
@@ -2261,6 +2275,16 @@ class UserPreferences extends ChangeNotifier {
   static final mediaBarTrailerPreview = Preference(
     key: 'mediaBarTrailerPreview',
     defaultValue: true,
+  );
+
+  static final compactBannerEnabled = Preference(
+    key: 'compactBannerEnabled',
+    defaultValue: false,
+  );
+
+  static final compactBannerUpcomingReleases = Preference(
+    key: 'compactBannerUpcomingReleases',
+    defaultValue: false,
   );
 
   static final mediaBarTrailerAudio = Preference(

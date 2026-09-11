@@ -52,10 +52,16 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     if (!_validAutoAdvanceIntervals.contains(currentInterval)) {
       _prefs.set(UserPreferences.mediaBarIntervalMs, 10000);
     }
+    _prefs.addListener(_onPrefsChanged);
+  }
+
+  void _onPrefsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _prefs.removeListener(_onPrefsChanged);
     _mediaBarModeBinding.dispose();
     super.dispose();
   }
@@ -342,6 +348,12 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
 
   Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final currentMode = UserPreferences.normalizeMediaBarMode(
+      _prefs.get(UserPreferences.mediaBarMode),
+    );
+    // The compact banner is a toggle layered on top of the vanilla Banner mode.
+    final isBannerMode = currentMode == UserPreferences.mediaBarModeBanner;
+    final compactEnabled = _prefs.get(UserPreferences.compactBannerEnabled);
     return withCleanSettingsTypography(
       context,
       Scaffold(
@@ -410,6 +422,21 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                 ),
               ],
             ),
+
+            if (isBannerMode)
+              SwitchPreferenceTile(
+                preference: UserPreferences.compactBannerEnabled,
+                title: l10n.compactBannerEnabled,
+                subtitle: l10n.compactBannerEnabledHint,
+                icon: Icons.photo_size_select_small,
+              ),
+            if (isBannerMode && compactEnabled)
+              SwitchPreferenceTile(
+                preference: UserPreferences.compactBannerUpcomingReleases,
+                title: l10n.compactBannerUpcomingReleases,
+                subtitle: l10n.compactBannerUpcomingReleasesHint,
+                icon: Icons.calendar_month,
+              ),
 
             SettingsSectionHeader(l10n.mediaSources),
             adaptiveListSection(

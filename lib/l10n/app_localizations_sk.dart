@@ -3748,6 +3748,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get leftSidebar => 'Ľavý bočný panel';
 
   @override
+  String get compactSidebar => 'Compact';
+
+  @override
+  String get compactSidebarHint =>
+      'Reduces the sidebar width and hides button text. Only applies while the Navigation Style is set to Left Sidebar and the sidebar is expanded.';
+
+  @override
   String get showShuffleButton => 'Zobraziť tlačidlo Shuffle';
 
   @override
@@ -3943,6 +3950,23 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Aya';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => 'Povoliť panel médií';

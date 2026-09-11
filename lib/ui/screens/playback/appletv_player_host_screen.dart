@@ -1475,6 +1475,8 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
         _prompts?.handleNextUpDismiss();
       case 'skipSegment':
         _prompts?.handleSkipSegment();
+      case 'skipSegmentDismiss':
+        _prompts?.cancelDelayedAutoSkip();
       case 'next':
         unawaited(manager.next());
       case 'previous':
@@ -1642,6 +1644,7 @@ class _HostPromptCommands implements AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   }) {
     var label = 'Skip $segmentDisplayName';
     if (_host.mounted) {
@@ -1654,6 +1657,7 @@ class _HostPromptCommands implements AppleTvPromptCommands {
           countdownStyle: countdownStyle,
           segmentStartMs: segmentStartMs,
           segmentEndMs: segmentEndMs,
+          autoSkipDeadlineMs: autoSkipDeadlineMs,
         ) ??
         Future<void>.value();
   }

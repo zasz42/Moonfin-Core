@@ -62,6 +62,7 @@ import '../../widgets/left_sidebar.dart';
 import '../../widgets/library_row.dart';
 import '../../widgets/media_bar.dart';
 import '../../widgets/mediabar/banner_media_bar.dart';
+import '../../widgets/mediabar/upcoming_releases_bar.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/mobile_bottom_nav_bar.dart';
 import '../../widgets/navigation_layout.dart';
@@ -714,8 +715,10 @@ class _ContentRowsState extends State<_ContentRows>
   static const Duration _focusedRowSpacingDuration = Duration(
     milliseconds: 200,
   );
+  static const int _bannerScrollStartRowIndex = 2;
   final _scrollController = ScrollController();
   final _mediaBarFocusNode = FocusNode(debugLabel: 'home_media_bar_focus');
+  final _upcomingBarKey = GlobalKey<UpcomingReleasesBarState>();
   final _playbackManager = GetIt.instance<PlaybackManager>();
   final _audioArbiter = GetIt.instance<PlaybackArbiter>();
   // The playback module only registers a Media3 backend on some platforms, so
@@ -2025,6 +2028,12 @@ class _ContentRowsState extends State<_ContentRows>
     return widget.prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v2;
   }
 
+  // The compact classic layout is the "Compact" toggle layered on top of the
+  // vanilla Classic (v1) home row style.
+  bool get _isCompactClassicMode =>
+      !_isHomeRowsStyleV2() &&
+      widget.prefs.get(UserPreferences.compactClassicHomeRowEnabled);
+
   bool _showHomeRowInfoOverlay() {
     if (PlatformDetection.useMobileUi) {
       return false;
@@ -2155,9 +2164,9 @@ class _ContentRowsState extends State<_ContentRows>
     final screenWidth = size.width;
 
     if (_isBannerMode()) {
-      if (PlatformDetection.isTV) return 320.0;
-      if (!PlatformDetection.useMobileUi) return 240.0;
-      return 200.0;
+      // The banner card is a fixed 280px-tall 21:9 rectangle on every
+      // platform; only the compact Upcoming Releases rail scales around it.
+      return BannerMediaBar.fixedHeight;
     }
 
     if (_isAyaMode()) {
@@ -2196,6 +2205,16 @@ class _ContentRowsState extends State<_ContentRows>
       widget.prefs.get(UserPreferences.mediaBarMode),
     );
     return mode == UserPreferences.mediaBarModeBanner;
+  }
+
+  // In banner mode the media bar stays pinned at the top for the first
+  // [_bannerScrollStartRowIndex] rows. Focusing any of those rows must not
+  // scroll the page down, so the banner remains fully visible until focus
+  // reaches the third home row.
+  bool _bannerKeepsPositionAt(int rowIndex) {
+    if (!_isBannerMode()) return false;
+    if (rowIndex < 0 || rowIndex >= _rowTopOffsets.length) return false;
+    return rowIndex < _bannerScrollStartRowIndex;
   }
 
   bool _isAyaMode() {
@@ -2628,8 +2647,10 @@ class _ContentRowsState extends State<_ContentRows>
     final hasSubtitle = subtitle != null &&
         (row.rowType != HomeRowType.liveTv &&
             row.rowType != HomeRowType.libraryTilesSmall);
-    final headerPaddingTop = isRowsV2 ? 6.0 : 16.0;
-    final headerPaddingBottom = isRowsV2 ? 1.0 : 8.0;
+    final headerPaddingTop =
+        isRowsV2 ? 6.0 : (_isCompactClassicMode ? 4.0 : 16.0);
+    final headerPaddingBottom =
+        isRowsV2 ? 1.0 : (_isCompactClassicMode ? 2.0 : 8.0);
     final titleHeight = 20.0 * metadataScale;
     final subtitleHeight = hasSubtitle ? (18.0 * metadataScale) : 0.0;
     final headerHeight = headerPaddingTop + headerPaddingBottom + titleHeight + subtitleHeight;
@@ -2647,9 +2668,13 @@ class _ContentRowsState extends State<_ContentRows>
         }
         totalHeight += offset;
       } else if (_isLibraryRow(row)) {
-        final classicPadding = prefs
-            .get(UserPreferences.classicHomeRowsPadding)
-            .toDouble();
+        final storedClassicPadding =
+            prefs.get(UserPreferences.classicHomeRowsPadding);
+        final classicPadding =
+            (_isCompactClassicMode && storedClassicPadding == 30
+                    ? 20
+                    : storedClassicPadding)
+                .toDouble();
         totalHeight += (classicPadding - 10.0).clamp(0.0, 120.0);
       }
     }
@@ -2999,11 +3024,16 @@ class _ContentRowsState extends State<_ContentRows>
           _scrollController.hasClients &&
           rowIndex >= 0 &&
           rowIndex < _rowTopOffsets.length) {
-        final offsetAdjustment = _desktopRowFocusTargetTop();
-        final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
-            .clamp(0.0, _scrollController.position.maxScrollExtent);
-        if ((_scrollController.offset - targetOffset).abs() > 10) {
-          _scrollController.jumpTo(targetOffset);
+        if (_bannerKeepsPositionAt(rowIndex)) {
+          // Keep the banner pinned at the top on the first two rows.
+          _scrollController.jumpTo(0);
+        } else {
+          final offsetAdjustment = _desktopRowFocusTargetTop();
+          final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
+              .clamp(0.0, _scrollController.position.maxScrollExtent);
+          if ((_scrollController.offset - targetOffset).abs() > 10) {
+            _scrollController.jumpTo(targetOffset);
+          }
         }
       }
       final didRequestFocus = _requestRowFocusFromMemory(rowIndex);
@@ -3046,6 +3076,23 @@ class _ContentRowsState extends State<_ContentRows>
             targetState.requestFocusAt(0);
           } else {
             _requestRowFocusFromMemory(target, preferredIndex: 0);
+          }
+
+
+          // In banner mode focus on the first two rows keeps the media bar
+          // pinned at the top. Scroll back to 0 so the banner stays fully
+          // visible; the page only scrolls down once focus reaches the third
+          // row (_bannerScrollStartRowIndex).
+          if (_bannerKeepsPositionAt(target)) {
+            if (_scrollController.hasClients &&
+                _scrollController.offset > 0) {
+              await _scrollController.animateTo(
+                0,
+                duration: _focusHandoffDuration,
+                curve: _focusHandoffCurve,
+              );
+            }
+            return;
           }
 
           final navComplete = Completer<void>();
@@ -3399,6 +3446,14 @@ class _ContentRowsState extends State<_ContentRows>
     if (!fullScreenRows) return;
 
     if (_mediaBarFocusNode.hasFocus) return;
+
+    final activeRow = _activeFocusedRowIndex;
+    if (activeRow != null && _bannerKeepsPositionAt(activeRow)) {
+      // In banner mode the first two rows keep the media bar pinned at the
+      // top, so the page must not recenter or pull focus back to the bar
+      // while the user is resting on one of those rows.
+      return;
+    }
 
     final homeContentHadFocus = _homeContentHasRealFocus();
 
@@ -3915,7 +3970,7 @@ class _ContentRowsState extends State<_ContentRows>
 
   String? _rowSubtitle(HomeRow row, AppLocalizations l10n) {
     if (row.id == 'merged_calendar' || row.id == 'radarr_calendar' || row.id == 'sonarr_calendar') {
-      return 'Radarr and Sonarr Calendars';
+      return _isCompactClassicMode ? null : 'Radarr and Sonarr Calendars';
     }
     if (row.id.startsWith('seerr_')) return l10n.seerrDiscoveryRows;
     if (row.id.startsWith('tmdb_')) return 'TMDB Lists';
@@ -4004,13 +4059,17 @@ class _ContentRowsState extends State<_ContentRows>
         navbarIsTop && PlatformDetection.isTV && !PlatformDetection.useMobileUi
         ? 48.0
         : 0.0;
-    final navbarLeftInset = navbarIsTop ? 16.0 + tvTopNavbarInset : 56.0;
+    // 72px collapsed sidebar minus 16px gutter = 56; compact sidebar is 60px.
+    final isCompactSidebar = prefs.get(UserPreferences.compactNavbar);
+    final sidebarLeftOffset = isCompactSidebar ? 44.0 : 56.0;
+    final navbarLeftInset =
+        navbarIsTop ? 16.0 + tvTopNavbarInset : sidebarLeftOffset;
     final infoHeaderLeftInset = (!PlatformDetection.useMobileUi && navbarIsTop)
         ? 8.0
         : 0.0;
     final rowLeftInset =
         (navbarIsLeft && !PlatformDetection.useMobileUi
-            ? 56.0
+            ? sidebarLeftOffset
             : tvTopNavbarInset) +
         (!PlatformDetection.useMobileUi ? 16.0 : 0.0);
     final infoTopBasePadding =
@@ -4146,6 +4205,23 @@ class _ContentRowsState extends State<_ContentRows>
                                               (!PlatformDetection.isMobile &&
                                                   _isActivelyScrolling) ||
                                               chromeAudioActive;
+
+                                          // The compact banner must keep
+                                           // auto-advancing whenever the media
+                                           // bar does not have focus, such as
+                                           // while the user navigates the home
+                                           // rows. Only pause it when a preview
+                                           // is playing, or while it has focus
+                                           // and the user is hovering, the list
+                                           // is mid-scroll, or audio focus is
+                                           // elsewhere.
+                                           final bannerPaused =
+                                               _activePreviewKey != null ||
+                                               _mediaBarFocusNode.hasFocus &&
+                                                   (isHoverPaused ||
+                                                       (!PlatformDetection.isMobile &&
+                                                           _isActivelyScrolling) ||
+                                                       chromeAudioActive);
 
                                           return RepaintBoundary(
                                             child: bannerMode
@@ -4426,7 +4502,12 @@ class _ContentRowsState extends State<_ContentRows>
           itemSpacing: _rowItemSpacing(squarePosterSide, cardExpansion),
           leadingPadding: _isHomeRowsStyleV2() ? _kHomeRowLabelInset : 0,
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
-          padding: const EdgeInsets.fromLTRB(_kHomeRowLabelInset, 5, 20, 5),
+          padding: EdgeInsets.fromLTRB(
+            _kHomeRowLabelInset,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+            20,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+          ),
           onIndexChanged: (_, _) {
             _onHomeRowTileFocused(null);
           },
@@ -4488,7 +4569,12 @@ class _ContentRowsState extends State<_ContentRows>
           itemSpacing: _rowItemSpacing(squarePosterSide, cardExpansion),
           leadingPadding: _isHomeRowsStyleV2() ? _kHomeRowLabelInset : 0,
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
-          padding: const EdgeInsets.fromLTRB(_kHomeRowLabelInset, 5, 20, 5),
+          padding: EdgeInsets.fromLTRB(
+            _kHomeRowLabelInset,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+            20,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+          ),
           onIndexChanged: (_, item) {
             _onHomeRowTileFocused(item);
           },
@@ -4580,7 +4666,11 @@ class _ContentRowsState extends State<_ContentRows>
             ? (PlatformDetection.isTV && !PlatformDetection.useMobileUi
                   ? 48.0
                   : 0.0)
-            : (!PlatformDetection.useMobileUi ? 56.0 : 0.0)) +
+            : (!PlatformDetection.useMobileUi
+                  ? (widget.prefs.get(UserPreferences.compactNavbar)
+                        ? 44.0
+                        : 56.0)
+                  : 0.0)) +
         (!PlatformDetection.useMobileUi ? 16.0 : 0.0);
     final v2ExtendedWidth = isRowsV2
         ? (MediaQuery.of(context).size.width -
@@ -4648,7 +4738,12 @@ class _ContentRowsState extends State<_ContentRows>
           itemSpacing: _rowItemSpacing(firstCardWidth, cardExpansion),
           leadingPadding: isRowsV2 ? _kHomeRowLabelInset : 0,
           clipBehavior: (isRowsV2 || cardExpansion) ? Clip.none : Clip.hardEdge,
-          padding: const EdgeInsets.fromLTRB(_kHomeRowLabelInset, 5, 20, 5),
+          padding: EdgeInsets.fromLTRB(
+            _kHomeRowLabelInset,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+            20,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+          ),
           onFocusChange: (has) => _onRowFocusTracked(rowIndex, has),
           onVerticalNavigation: (isUp) => _onRowVerticalNavigation(
             rowIndex: rowIndex,
@@ -5205,9 +5300,9 @@ class _ContentRowsState extends State<_ContentRows>
           Padding(
             padding: EdgeInsets.fromLTRB(
               _kHomeRowLabelInset,
-              isRowsV2 ? 6 : 16,
+              isRowsV2 ? 6 : (_isCompactClassicMode ? 4 : 16),
               8,
-              isRowsV2 ? 1 : 8,
+              isRowsV2 ? 1 : (_isCompactClassicMode ? 2 : 8),
             ),
             child: Row(
               children: [

@@ -285,6 +285,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// True while the auto-hide cooldown is still running.
   bool _skipSegmentAutoHidePending = false;
   Timer? _skipSegmentAutoHideTimer;
+  Duration? _autoSkipDeadline;
+  Timer? _autoSkipDelayTimer;
   bool _showNextUp = false;
   AggregatedItem? _nextUpItem;
   bool _nextUpDismissed = false;
@@ -1005,6 +1007,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _cancelTvTemporarySpeedHold();
     _hideTimer?.cancel();
     _skipSegmentAutoHideTimer?.cancel();
+    _autoSkipDelayTimer?.cancel();
     _displayPlayingDebounce?.cancel();
     _endsAtTicker?.cancel();
     _volumeOverlayTimer?.cancel();
@@ -2446,6 +2449,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       }
       return;
     }
+    if (result.isDelayedSkip && result.skipTo != null) {
+      final pendingSame =
+          _autoSkipDelayTimer != null &&
+          _skipSegment?.id == result.segment!.id;
+      if (result.isNew && !pendingSame) {
+        _startDelayedAutoSkip(result.segment!, result.skipTo!);
+      }
+      return;
+    }
     if (result.shouldAsk && result.isNew && result.segment != null) {
       final isOutro = result.segment!.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUpOverlay()) {
@@ -2707,11 +2719,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   void _dismissSkipSegment() {
     _suppressBackNavigation(duration: const Duration(milliseconds: 500));
-    _clearSkipSegment();
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
   }
 
   void _clearSkipSegment() {
     _resetSkipSegmentAutoHide();
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
     setState(() {
       _skipSegment = null;
       _skipTo = null;
@@ -2723,6 +2740,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _skipSegmentAutoHideTimer = null;
     _skipSegmentAutoHideEnabled = false;
     _skipSegmentAutoHidePending = false;
+  }
+
+  void _startDelayedAutoSkip(MediaSegment segment, Duration skipTo) {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    setState(() {
+      _skipSegment = segment;
+      _skipTo = skipTo;
+      _controlsVisible = false;
+    });
+    _hideTimer?.cancel();
+    _focusTvSkipSegment();
+    _autoSkipDelayTimer = Timer(const Duration(seconds: 10), () {
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      if (!mounted) return;
+      if (_state.position >= segment.end) {
+        _clearSkipSegment();
+        return;
+      }
+      _manager.seekTo(skipTo);
+      _clearSkipSegment();
+    });
   }
 
   /// Whether the skip button is currently drawn. While the auto-hide cooldown
@@ -3984,6 +4024,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                           onDismiss: _clearSkipSegment,
                           positionStream: _state.positionStream,
                           initialPosition: _state.position,
+                          autoSkipDeadline: _autoSkipDeadline,
                         ),
                       if (_showNextUp && _nextUpItem != null)
                         NextUpOverlay(

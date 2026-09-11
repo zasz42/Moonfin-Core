@@ -74,12 +74,29 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
                 title: l10n.homeRowsPadding,
                 description: l10n.homeRowsPaddingDescription,
                 icon: Icons.unfold_more,
-                min: rowsStyle == HomeRowsStyle.v2 ? 360 : 10,
-                max: rowsStyle == HomeRowsStyle.v2 ? 560 : 130,
+                min: rowsStyle == HomeRowsStyle.v2
+                    ? 360
+                    : 10,
+                max: rowsStyle == HomeRowsStyle.v2
+                    ? 560
+                    : 130,
                 divisions: rowsStyle == HomeRowsStyle.v2 ? 10 : 6,
                 enabled: isPaddingEnabled,
                 onChangeEnd: _pushPersonalizationSync,
               ),
+              if (rowsStyle == HomeRowsStyle.v1)
+                SwitchPreferenceTile(
+                  preference: UserPreferences.compactClassicHomeRowEnabled,
+                  title: 'Compact',
+                  subtitle: 'Further reduce padding between rows.',
+                  icon: Icons.vertical_align_top,
+                  onChanged: () {
+                    _pushPersonalizationSync();
+                    _reloadHomeRows();
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                ),
               if (!PlatformDetection.useMobileUi)
                 SwitchPreferenceTile(
                   preference: UserPreferences.fullScreenRows,
