@@ -3008,6 +3008,9 @@ class HomeViewModel extends ChangeNotifier {
   List<AggregatedItem> _formatSonarrItems(List<AggregatedItem> rawItems) {
     final showDate = _prefs.get(UserPreferences.sonarrCalendarShowDate);
     final showEpisodeInfo = _prefs.get(UserPreferences.sonarrCalendarShowEpisodeInfo);
+    final stripNextEpisodePrefix =
+        _prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v1 &&
+        _prefs.get(UserPreferences.compactClassicHomeRowEnabled);
 
     return rawItems.map((item) {
       final airDateUtcStr = item.rawData['CalendarDate'] as String?;
@@ -3020,12 +3023,18 @@ class HomeViewModel extends ChangeNotifier {
       String? subtitleText;
       if (showDate && showEpisodeInfo) {
         final dateStr = _formatDateHuman(airDateUtc);
-        subtitleText = 'Next Episode: $dateStr (S$sNum:E$eNum)';
+        subtitleText = stripNextEpisodePrefix
+            ? '$dateStr (S$sNum:E$eNum)'
+            : 'Next Episode: $dateStr (S$sNum:E$eNum)';
       } else if (showDate) {
         final dateStr = _formatDateHuman(airDateUtc);
-        subtitleText = 'Next Episode: $dateStr';
+        subtitleText = stripNextEpisodePrefix
+            ? '$dateStr'
+            : 'Next Episode: $dateStr';
       } else if (showEpisodeInfo) {
-        subtitleText = 'Next Episode: (S$sNum:E$eNum)';
+        subtitleText = stripNextEpisodePrefix
+            ? '(S$sNum:E$eNum)'
+            : 'Next Episode: (S$sNum:E$eNum)';
       }
 
       final newRawData = Map<String, dynamic>.from(item.rawData);

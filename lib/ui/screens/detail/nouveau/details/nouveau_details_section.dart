@@ -8,6 +8,7 @@ import 'package:playback_core/playback_core.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../../../data/models/aggregated_item.dart';
+import '../../../../../data/services/media_server_client_factory.dart';
 import '../../../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../../../data/viewmodels/seerr_media_detail_view_model.dart';
 import '../../../../../l10n/app_localizations.dart';
@@ -878,6 +879,20 @@ class NouveauDetailsSectionState extends State<NouveauDetailsSection> {
 
     final requestedMediaSourceId = mediaSource['Id']?.toString();
 
+    // A merged source may live on a connected server other than the active one;
+    // PlaybackInfo must be asked of the server that owns it, or a local copy at
+    // the top of the Versions list gets its direct-play/transcode status
+    // answered by another server.
+    var playbackClient = GetIt.instance<MediaServerClient>();
+    var playbackItemId = requestedItemId;
+    final origin = mediaSource['_moonfinServerId']?.toString();
+    if (origin != null && origin.isNotEmpty && origin != playbackClient.baseUrl) {
+      playbackClient = GetIt.instance<MediaServerClientFactory>()
+              .getClientIfExists(origin) ??
+          playbackClient;
+      playbackItemId = mediaSource['_moonfinItemId']?.toString() ?? requestedItemId;
+    }
+
     final requestedAudioIndex = _vm.selectedAudioIndex;
 
     final requestedSubtitleIndex = _vm.selectedSubtitleIndex;
@@ -902,10 +917,11 @@ class NouveauDetailsSectionState extends State<NouveauDetailsSection> {
 
     try {
       final parsed = await fetchDetailPlaybackInfo(
-        itemId: requestedItemId,
+        itemId: playbackItemId,
         mediaSourceId: requestedMediaSourceId,
         audioStreamIndex: requestedAudioIndex,
         subtitleStreamIndex: requestedSubtitleIndex,
+        client: playbackClient,
       );
 
       if (!mounted || requestSerial != _playbackInfoRequestSerial) {

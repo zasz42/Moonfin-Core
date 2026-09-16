@@ -4141,6 +4141,14 @@ class AppLocalizationsIt extends AppLocalizations {
       'Combina le librerie separate dello stesso tipo nelle righe home Aggiunti di Recente e Usciti di Recente.';
 
   @override
+  String get primaryServerForLocalMedia =>
+        'Primary Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+        'Choose which server will be the backend for playing local media';
+
+  @override
   String get libraryView => 'Vista Libreria';
 
   @override
@@ -4242,6 +4250,23 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Aya';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => 'Abilita Barra Media';

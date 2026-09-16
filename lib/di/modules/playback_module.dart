@@ -784,7 +784,24 @@ void setActiveStreamResolver(MediaServerClient client) {
 Future<void> _ensureResolverForItem(dynamic item) async {
   if (item is! AggregatedItem) return;
   final factory = _getIt<MediaServerClientFactory>();
-  final client = factory.getClientIfExists(item.serverId);
+  final serverId = _resolverServerIdFor(item);
+  if (serverId == null || serverId.isEmpty) return;
+  final client = factory.getClientIfExists(serverId);
   if (client == null) return;
   setActiveStreamResolver(client);
+}
+
+/// The server a merged [AggregatedItem] must be resolved against: the origin
+/// server of its selected MediaSource when the source carries one (a merged
+/// version — the local copy on the selected primary server or another server's
+/// Debrid/remux encode — plays from the server that actually owns it), else the
+/// item's own server. The rewritten queue item carries the picked source as its
+/// single MediaSource, so this is what points PlaybackInfo and stream URLs at
+/// the right address instead of always asking the active server.
+String? _resolverServerIdFor(AggregatedItem item) {
+  for (final source in item.mediaSources) {
+    final origin = source['_moonfinServerId']?.toString();
+    if (origin != null && origin.isNotEmpty) return origin;
+  }
+  return item.serverId.isEmpty ? null : item.serverId;
 }

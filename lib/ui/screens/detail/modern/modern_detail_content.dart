@@ -16,6 +16,7 @@ import 'package:server_core/server_core.dart';
 import '../../../mixins/focus_state_mixin.dart';
 
 import '../../../../data/models/aggregated_item.dart';
+import '../../../../data/services/media_server_client_factory.dart';
 import '../../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../preference/detail_metadata_layout.dart';
@@ -334,11 +335,27 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         activeAudioIndex: effectiveAudio,
       );
 
+      // A merged source may live on a connected server other than the active
+      // one; PlaybackInfo must be asked of the server that actually owns the
+      // source.
+      var client = GetIt.instance<MediaServerClient>();
+      var itemId = item.id;
+      final origin = mediaSource?['_moonfinServerId']?.toString();
+      if (origin != null && origin.isNotEmpty && origin != client.baseUrl) {
+        client = GetIt.instance<MediaServerClientFactory>()
+                .getClientIfExists(origin) ??
+            client;
+        // The merged source belongs to the origin server, which knows it by
+        // its own item id, not the local one.
+        itemId = mediaSource?['_moonfinItemId']?.toString() ?? itemId;
+      }
+
       final parsed = await fetchDetailPlaybackInfo(
-        itemId: item.id,
+        itemId: itemId,
         mediaSourceId: mediaSource?['Id']?.toString(),
         audioStreamIndex: _vm.selectedAudioIndex ?? effectiveAudio,
         subtitleStreamIndex: _vm.selectedSubtitleIndex ?? effectiveSubtitle,
+        client: client,
       );
       if (mounted) {
         // Drop the result if the track selection changed mid-request.

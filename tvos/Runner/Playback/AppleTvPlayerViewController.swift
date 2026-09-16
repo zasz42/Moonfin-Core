@@ -70,6 +70,7 @@ final class AppleTvPlayerViewController: UIViewController {
     var onNextUpCancel: (() -> Void)?
     var onNextUpDismiss: (() -> Void)?
     var onSkipSegmentSelect: (() -> Void)?
+    var onSkipSegmentDismiss: (() -> Void)?
     /// Fires with the target after a scrub or a direct jump the user made.
     /// Carrying the position lets the host hand it to SyncPlay, which is the
     /// only way a seek made on this player reaches the rest of the group.
@@ -154,6 +155,7 @@ final class AppleTvPlayerViewController: UIViewController {
     private let skipSegmentRingIcon = UIImageView()
     private var skipSegmentStartMs = 0
     private var skipSegmentEndMs = 0
+    private var skipSegmentAutoSkipDeadlineMs: Int?
     private var skipSegmentCountdownStyle = "none"
     private let skipRingSize: CGFloat = 72
 
@@ -1319,13 +1321,15 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 
     func showSkipSegment(
-        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int
+        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int,
+        autoSkipDeadlineMs: Int? = nil
     ) {
         skipSegmentActive = true
         skipSegmentLabel.text = label
         skipSegmentCountdownStyle = countdownStyle
         skipSegmentStartMs = segmentStartMs
         skipSegmentEndMs = segmentEndMs
+        skipSegmentAutoSkipDeadlineMs = autoSkipDeadlineMs
         updateSkipSegmentCountdown()
         guard skipSegmentButton.isHidden else { return }
         skipSegmentButton.alpha = 0
@@ -1352,7 +1356,16 @@ final class AppleTvPlayerViewController: UIViewController {
         let positionMs = Int(player.currentTime * 1000)
         let remainingSec = min(max(0, (skipSegmentEndMs - positionMs) / 1000), durationMs / 1000)
         let numberInRing = showTimer && showRing && remainingSec < 60
-        let progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+
+        let progress: Double
+        if let deadlineMs = skipSegmentAutoSkipDeadlineMs {
+            let deadlineDuration = deadlineMs - skipSegmentStartMs
+            progress = deadlineDuration > 0
+                ? Double(deadlineMs - positionMs) / Double(deadlineDuration)
+                : 0
+        } else {
+            progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+        }
 
         skipSegmentTimerLabel.isHidden = !showTimer || numberInRing
         if !skipSegmentTimerLabel.isHidden {
@@ -1373,6 +1386,7 @@ final class AppleTvPlayerViewController: UIViewController {
 
     func hideSkipSegment() {
         skipSegmentActive = false
+        skipSegmentAutoSkipDeadlineMs = nil
         guard !skipSegmentButton.isHidden else { return }
         UIView.animate(withDuration: 0.15) {
             self.skipSegmentButton.alpha = 0
@@ -1514,11 +1528,18 @@ final class AppleTvPlayerViewController: UIViewController {
             onNextUpDismiss?()
             return
         }
-        // Back dismisses the skip button for the rest of the segment, the way
-        // the Flutter player does. The segment state machine keeps it from
-        // showing again until the segment is left and reentered.
+        // Back during a delayed skip cancels the auto-skip timer and reverts
+        // the ring to the segment countdown, but keeps the button up for the
+        // rest of the segment so the user can still skip manually. A plain
+        // skip prompt is dismissed for the segment.
         if skipSegmentActive {
-            hideSkipSegment()
+            if skipSegmentAutoSkipDeadlineMs != nil {
+                skipSegmentAutoSkipDeadlineMs = nil
+                onSkipSegmentDismiss?()
+                updateSkipSegmentCountdown()
+            } else {
+                hideSkipSegment()
+            }
             return
         }
         if panScrubEngaged {

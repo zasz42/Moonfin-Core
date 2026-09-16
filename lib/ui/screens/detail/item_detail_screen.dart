@@ -702,10 +702,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           backdropUrl: _backdropUrl,
           selectedMediaSourceId: _selectedMediaSourceId,
           initialFocusNode: _ensureInitialFocusNode(),
-          onSelectedMediaSourceChanged: (id) {
-            setState(() => _selectedMediaSourceId = id);
-            _viewModel.load(mediaSourceId: id);
-          },
+          onSelectedMediaSourceChanged: (id) =>
+              _onSelectedMediaSourceChanged(context, id),
           onBackdropItemFocused: _onBackdropItemFocused,
           autoPlay: widget.autoPlay,
         ),
@@ -716,10 +714,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           backdropUrl: _backdropUrl,
           selectedMediaSourceId: _selectedMediaSourceId,
           initialFocusNode: _ensureInitialFocusNode(),
-          onSelectedMediaSourceChanged: (id) {
-            setState(() => _selectedMediaSourceId = id);
-            _viewModel.load(mediaSourceId: id);
-          },
+          onSelectedMediaSourceChanged: (id) =>
+              _onSelectedMediaSourceChanged(context, id),
           onBackdropItemFocused: _onBackdropItemFocused,
           autoPlay: widget.autoPlay,
           onPlayFromChapter: (position) => unawaited(
@@ -743,10 +739,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           backdropUrl: _backdropUrl,
           selectedMediaSourceId: _selectedMediaSourceId,
           initialFocusNode: _ensureInitialFocusNode(),
-          onSelectedMediaSourceChanged: (id) {
-            setState(() => _selectedMediaSourceId = id);
-            _viewModel.load(mediaSourceId: id);
-          },
+          onSelectedMediaSourceChanged: (id) =>
+              _onSelectedMediaSourceChanged(context, id),
           onBackdropItemFocused: _onBackdropItemFocused,
           autoPlay: widget.autoPlay,
           onPlayFromChapter: (position) => unawaited(
@@ -771,10 +765,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           backdropUrl: _backdropUrl,
           selectedMediaSourceId: _selectedMediaSourceId,
           initialFocusNode: _ensureInitialFocusNode(),
-          onSelectedMediaSourceChanged: (id) {
-            setState(() => _selectedMediaSourceId = id);
-            _viewModel.load(mediaSourceId: id);
-          },
+          onSelectedMediaSourceChanged: (id) =>
+              _onSelectedMediaSourceChanged(context, id),
           onBackdropItemFocused: _onBackdropItemFocused,
           autoPlay: widget.autoPlay,
           onPlayFromChapter: (position) => unawaited(
@@ -791,6 +783,24 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         ),
       },
     };
+  }
+
+  void _onSelectedMediaSourceChanged(BuildContext context, String? id) {
+    setState(() => _selectedMediaSourceId = id);
+    final item = _viewModel.item;
+    // A merged source (e.g. a Debrid/remux version) lives on another server.
+    // The merged sources are already on the item, so just switch the selection
+    // instead of refetching from the active server (which cannot resolve a
+    // foreign id).
+    final selected = id != null && item != null
+        ? item.mediaSources
+            .where((s) => s['Id']?.toString() == id)
+            .firstOrNull
+        : null;
+    if (selected != null && selected['_moonfinServerId'] != null) {
+      return;
+    }
+    _viewModel.load(mediaSourceId: id);
   }
 }
 
@@ -8808,6 +8818,21 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     bool audioSelectionExplicit = false,
     bool subtitleSelectionExplicit = false,
   }) async {
+    // A merged source picked from another server plays from that server. Point
+    // the queue at the origin item (foreign id + server) so the resolver asks
+    // the right address for both PlaybackInfo and stream URLs.
+    if (mediaSourceId != null && mediaSourceId.isNotEmpty) {
+      final rewritten = _rewriteItemForMergedRemoteSource(
+        queue,
+        target,
+        mediaSourceId: mediaSourceId,
+      );
+      if (rewritten != null) {
+        queue = rewritten.queue;
+        target = rewritten.target;
+      }
+    }
+
     final applyNow = prerolls.isEmpty;
     Future<void> playItems() => manager.playItems(
       applyNow
@@ -8846,6 +8871,74 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       );
     }
     await playItemsFuture;
+  }
+
+  /// When [mediaSourceId] selects a merged source living on another server,
+  /// rebuilds the queue (and its target) around that origin item: the origin
+  /// server's item id, its server id, and the merged source as the only source.
+  /// Returns null when nothing is cross-server.
+  ({List<AggregatedItem> queue, AggregatedItem target})?
+      _rewriteItemForMergedRemoteSource(
+    List<AggregatedItem> queue,
+    AggregatedItem target, {
+    required String mediaSourceId,
+  }) {
+    final list = queue;
+    final targetItem = target;
+    Map<String, dynamic>? selectedSource;
+    for (final source in targetItem.mediaSources) {
+      if (source['Id']?.toString() == mediaSourceId) {
+        selectedSource = source;
+        break;
+      }
+    }
+    // The detail item carries the full merged version list (local copies first,
+    // other servers' copies tagged with their origin). TV queue items are
+    // re-fetched per episode from the active server, so the picked cross-server
+    // source may only appear on the detail item, not on the later queue item.
+    // Fall back to it so the rewrite can route playback to the server that owns
+    // the picked version instead of silently playing the active server with a
+    // foreign source id.
+    if (selectedSource == null) {
+      final detailItem = viewModel.item;
+      if (detailItem != null) {
+        for (final source in detailItem.mediaSources) {
+          if (source['Id']?.toString() == mediaSourceId) {
+            selectedSource = source;
+            break;
+          }
+        }
+      }
+    }
+    final originServer = selectedSource?['_moonfinServerId']?.toString();
+    final originItemId = selectedSource?['_moonfinItemId']?.toString();
+    if (selectedSource == null ||
+        originServer == null ||
+        originServer.isEmpty ||
+        originItemId == null ||
+        originItemId.isEmpty ||
+        // The source lives on the item's own server: nothing to redirect.
+        // Only id equality is not enough to skip the rewrite, because the same
+        // item id can exist on two servers (both key media by the same
+        // Tmdb/Imdb id), and a merged copy on another server — the local file
+        // selected as the primary-local copy, or a Debrid/remux encode — has
+        // to play from the origin server that owns it, not the active one.
+        originServer == targetItem.serverId) {
+      return null;
+    }
+
+    final rewrittenRaw = Map<String, dynamic>.from(targetItem.rawData)
+      ..['MediaSources'] = [selectedSource]
+      ..['Id'] = originItemId;
+    final originItem = AggregatedItem(
+      id: originItemId,
+      serverId: originServer,
+      rawData: rewrittenRaw,
+    );
+    final newQueue = [
+      for (final e in list) identical(e, targetItem) ? originItem : e,
+    ];
+    return (queue: newQueue, target: originItem);
   }
 
   Future<List<AggregatedItem>> _shuffleQueueForItem(AggregatedItem item) async {

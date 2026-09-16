@@ -52,6 +52,10 @@ class MultiServerRepository {
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
       'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio';
+  // MediaSources (versions) and ProviderIds (cross-server identity) are only
+  // needed when combining local + another server's copies of a title, so they
+  // ride on a dedicated field set rather than inflating every query.
+  static const _mergeFields = '$_fields,ProviderIds,MediaSources';
   // Cap image tags to one per type (server returns all by default)
   static const _imageTypes = 'Primary,Backdrop,Thumb,Banner';
   static const _imageTypeLimit = 1;
@@ -70,6 +74,18 @@ class MultiServerRepository {
   void clearOffsets() {
     _rowOffsets.clear();
     _rowTotals.clear();
+  }
+
+  String? get _localServerId => _sessionRepo.activeServerId;
+
+  /// The server the user picked to be the backend for playing local media, or
+  /// the active server when unset (Automatic).
+  String get _primaryServerId {
+    final chosen = GetIt.instance<UserPreferences>().get(
+      UserPreferences.primaryServerForLocalMedia,
+    );
+    if (chosen != null && chosen.isNotEmpty) return chosen;
+    return _localServerId ?? '';
   }
 
   MultiServerRepository(
@@ -1441,4 +1457,433 @@ class MultiServerRepository {
     List<AggregatedItem> items,
     MediaServerClient client,
   ) => enrichNextUpItemsWithSeriesLastPlayed(items, client);
+
+  /// Fetches the versions of [item] as they exist on every connected server and
+  /// returns the combined, origin-tagged [MediaSource] maps, the primary (local
+  /// media) server's copies first. Returns null when the caller should stick
+  /// with the item's own sources (single server, or the item has nothing to
+  /// join).
+  Future<List<Map<String, dynamic>>?> mergedMediaSourcesForItem(
+    AggregatedItem item,
+  ) async {
+    final localServerId = _localServerId;
+
+    final sessions = await getLoggedInServers();
+    if (sessions.length < 2) return null;
+
+    final localSources = item.mediaSources;
+    if (localSources.isEmpty) return null;
+
+    final sourceItems = <AggregatedItem>[];
+    for (final session in sessions) {
+      if (session.server.id == item.serverId ||
+          session.client.baseUrl == item.serverId) {
+        continue;
+      }
+      final match = await _findItemOnServerByIdentity(
+        item,
+        session,
+        fromLocalItemId: item.id,
+      );
+      if (match != null) {
+        sourceItems.add(match);
+      }
+    }
+    if (sourceItems.isEmpty) return null;
+
+    final mergedItems = _mergeSourcesAcrossServers(
+      [item, ...sourceItems],
+      localServerId: localServerId ?? item.serverId,
+      primaryServerId: _primaryServerId,
+    );
+    if (mergedItems.isEmpty) return null;
+
+    final mergedRaw = mergedItems.first.rawData['MediaSources'];
+    if (mergedRaw is! List) return null;
+    return mergedRaw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+  }
+
+  /// Finds the same title as [item] on [session]'s server by provider id, or
+  /// by series+season+episode identity for episodes, and returns it parsed onto
+  /// that server (with its own MediaSources populated).
+  Future<AggregatedItem?> _findItemOnServerByIdentity(
+    AggregatedItem item,
+    ServerUserSession session, {
+    required String fromLocalItemId,
+  }) async {
+    final type = item.type?.toLowerCase() ?? '';
+    try {
+      if (item.providerIds.isNotEmpty) {
+        for (final key in ['Tmdb', 'Imdb', 'Tvdb']) {
+          final providerId = item.providerIds[key];
+          if (providerId == null || providerId.isEmpty) continue;
+          final response = await session.client.itemsApi.getItems(
+            anyProviderIdEquals: providerId,
+            includeItemTypes: const ['Movie', 'Episode'],
+            recursive: true,
+            limit: 10,
+            fields:
+                'ProviderIds,MediaSources,SeriesName,ParentIndexNumber,IndexNumber',
+          );
+          final parsed = _parseItems(response, session.server.id);
+          if (parsed.isEmpty) continue;
+
+          // Prefer a same-type match carrying the same provider id.
+          final sameType = parsed
+              .where((p) => (p.type ?? '').toLowerCase() == type)
+              .firstOrNull;
+
+          // Episodes must also agree on season/episode numbers; a provider id
+          // can be shared by an episode and its series or another server's
+          // different-sourced edition.
+          if (sameType != null &&
+              (type != 'episode' || _sameEpisodePos(item, sameType))) {
+            return sameType;
+          }
+          final fallback = parsed.firstOrNull;
+          if (fallback != null &&
+              type == 'episode' &&
+              _sameEpisodePos(item, fallback)) {
+            return fallback;
+          }
+          break;
+        }
+      }
+
+      // No provider ids to key on: fall back to a series/name match.
+      if (type == 'episode' &&
+          item.seriesName != null &&
+          item.seriesName!.isNotEmpty) {
+        final response = await session.client.itemsApi.getItems(
+          includeItemTypes: const ['Episode'],
+          recursive: true,
+          limit: 50,
+          fields: 'ProviderIds,MediaSources,SeriesName,ParentIndexNumber,IndexNumber',
+        );
+        final parsed = _parseItems(response, session.server.id);
+        for (final p in parsed) {
+          if (_sameEpisodePos(item, p)) return p;
+        }
+        return null;
+      }
+
+      // Seasons sit under a series: match the series first, then compare by
+      // season number so a folder mark on one server lands on the same season
+      // (not another server's differently-numbered or same-named one).
+      if (type == 'season' || type == 'series') {
+        final series = await _findSeriesOnServer(item, session);
+        if (series == null) return null;
+        if (type == 'series') return series;
+        final seasonNumber = item.indexNumber;
+        if (seasonNumber == null) return null;
+        final seasonsData = await session.client.itemsApi.getSeasons(
+          series.id,
+          fields: 'IndexNumber',
+        );
+        final seasons = (seasonsData['Items'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (raw) => AggregatedItem(
+                id: raw['Id']?.toString() ?? '',
+                serverId: session.server.id,
+                rawData: raw.cast<String, dynamic>(),
+              ),
+            );
+        for (final season in seasons) {
+          if (season.indexNumber == seasonNumber) return season;
+        }
+        return null;
+      }
+
+      final response = await session.client.itemsApi.getItems(
+        searchTerm: item.name,
+        includeItemTypes: [item.type ?? 'Movie'],
+        recursive: true,
+        limit: 10,
+        fields: 'ProviderIds,MediaSources,SeriesName,ProductionYear',
+      );
+      final parsed = _parseItems(response, session.server.id);
+      for (final p in parsed) {
+        if (_sameNameAndYear(item, p)) return p;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  /// Finds the series counterpart of [item] on [session]'s server. [item] may
+  /// itself be the series, in which case it is matched directly; for a season
+  /// the parent series is located through its name/year (and provider ids when
+  /// present) so the season can then be resolved under it.
+  Future<AggregatedItem?> _findSeriesOnServer(
+    AggregatedItem item,
+    ServerUserSession session,
+  ) async {
+    // Seasons carry the series provider ids on themselves; use those first.
+    if (item.providerIds.isNotEmpty) {
+      for (final key in ['Tmdb', 'Imdb', 'Tvdb']) {
+        final providerId = item.providerIds[key];
+        if (providerId == null || providerId.isEmpty) continue;
+        final response = await session.client.itemsApi.getItems(
+          anyProviderIdEquals: providerId,
+          includeItemTypes: const ['Series'],
+          recursive: true,
+          limit: 10,
+          fields: 'ProviderIds,SeriesName,ProductionYear',
+        );
+        final parsed = _parseItems(response, session.server.id);
+        for (final p in parsed) {
+          if (p.type?.toLowerCase() == 'series') return p;
+        }
+      }
+    }
+    if (typeOfSeasonOrSeries(item)) {
+      final seriesName = item.seriesName ??
+          (item.type?.toLowerCase() == 'series' ? item.name : null);
+      if (seriesName != null && seriesName.isNotEmpty) {
+        final response = await session.client.itemsApi.getItems(
+          searchTerm: seriesName,
+          includeItemTypes: const ['Series'],
+          recursive: true,
+          limit: 10,
+          fields: 'ProviderIds,SeriesName,ProductionYear',
+        );
+        final parsed = _parseItems(response, session.server.id);
+        for (final p in parsed) {
+          if (_similarName(seriesName, p.name)) return p;
+        }
+      }
+    }
+    return null;
+  }
+
+  static bool _similarName(String lhs, String? rhs) {
+    if (rhs == null) return false;
+    final a = lhs.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final b = rhs.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return a == b || a.contains(b) || b.contains(a);
+  }
+
+  static bool typeOfSeasonOrSeries(AggregatedItem a) {
+    final t = a.type?.toLowerCase();
+    return t == 'season' || t == 'series';
+  }
+
+  static bool _sameEpisodePos(AggregatedItem a, AggregatedItem b) {
+    if (a.parentIndexNumber != b.parentIndexNumber) return false;
+    if (a.indexNumber != b.indexNumber) return false;
+    final aSeries = a.seriesName ?? '';
+    final bSeries = b.seriesName ?? '';
+    return aSeries.toLowerCase() == bSeries.toLowerCase();
+  }
+
+  static bool _sameNameAndYear(AggregatedItem a, AggregatedItem b) {
+    if ((a.name ?? '').toLowerCase() != (b.name ?? '').toLowerCase()) {
+      return false;
+    }
+    if (a.productionYear != null && b.productionYear != null) {
+      return a.productionYear == b.productionYear;
+    }
+    return true;
+  }
+
+  /// Combines the versions of matching items from different servers into one
+  /// row. The primary (local media) server's item survives as the row anchor
+  /// and its copies lead the merged source list; every other copy keeps its
+  /// origin server tagged on so playback routes to the server that owns it.
+  List<AggregatedItem> _mergeSourcesAcrossServers(
+    List<AggregatedItem> items, {
+    required String localServerId,
+    String? primaryServerId,
+  }) {
+    final knownServerIds = <String>{
+      for (final item in items) item.serverId,
+    }.toSet();
+    if (knownServerIds.length < 2) {
+      return items;
+    }
+
+    // The server whose copies lead a merged row. When a primary server is
+    // configured its item is the one that survives (so posters, details and
+    // episodes come from it); otherwise the active server keeps that role.
+    final primary =
+        (primaryServerId != null && primaryServerId.isNotEmpty)
+        ? primaryServerId
+        : localServerId;
+
+    // Primary-server items first so a single-server copy keeps its place at the
+    // front of the row and its sources lead the merged version list.
+    final ordered = <AggregatedItem>[
+      ...items.where((i) => i.serverId == primary),
+      ...items.where((i) => i.serverId != primary),
+    ];
+
+    final merged = <AggregatedItem>[];
+    final byKey = <String, AggregatedItem>{};
+    final knownSourcesByItem = <AggregatedItem, Set<String>>{};
+
+    for (final item in ordered) {
+      final key = _crossServerMatchKey(item);
+      final existing = byKey[key];
+      if (existing == null || existing.serverId == item.serverId) {
+        // A merged row's server id is the row's own server, but the picker can
+        // show another server's copies on top (the selected local server's file
+        // next to a Debrid/remux encode). Every source must carry its origin
+        // server so playback, direct-play checks and artwork route to the
+        // server that actually owns it instead of always asking the active one.
+        final tagged = _tagOwnSources(item);
+        byKey[key] = tagged;
+        merged.add(tagged);
+        continue;
+      }
+
+      final sources = knownSourcesByItem.putIfAbsent(
+        existing,
+        () => {
+          for (final s in existing.mediaSources) _sourceKey(existing, s),
+        },
+      );
+
+      // Two servers can expose the SAME physical local file (they share a
+      // library mount, or one mirrors the other). Only the primary local media
+      // server's copy is meaningful as a playback source — the Primary Server
+      // for Local Media is the designated direct-play/transcode backend — so a
+      // non-primary server's duplicate local copy is dropped instead of listed
+      // beside the primary's as a second, indistinguishable Version. Debrid and
+      // other remote (Http) sources are distinct encodes and always kept; they
+      // continue to play from whichever server owns them.
+      final anchorHasLocalCopy =
+          existing.mediaSources.any((s) => _isLocalFileSource(existing, s));
+      final additions = <Map<String, dynamic>>[];
+      for (final source in item.mediaSources) {
+        if (!_isLocalFileSource(item, source) || !anchorHasLocalCopy) {
+          if (sources.add(_sourceKey(existing, source))) {
+            additions.add(_mapWithOrigin(source, item.serverId, item.id));
+          }
+        }
+      }
+      if (additions.isEmpty) {
+        continue;
+      }
+
+      final raw = Map<String, dynamic>.from(existing.rawData);
+      raw['MediaSources'] = [
+        ...?((raw['MediaSources'] as List?)?.whereType<Map>() ?? const []),
+        ...additions,
+      ];
+      final index = merged.indexOf(existing);
+      final replacement = AggregatedItem(
+        id: existing.id,
+        serverId: existing.serverId,
+        rawData: raw,
+      );
+      if (index >= 0) {
+        merged[index] = replacement;
+      }
+      byKey[key] = replacement;
+      knownSourcesByItem
+        ..remove(existing)
+        ..[replacement] = sources;
+    }
+
+    // Primary copies already lead: _tagOwnSources stamped them at creation, and
+    // the merge appends other servers' sources onto a primary-anchored row.
+    return merged;
+  }
+
+  Map<String, dynamic> _mapOf(Map<String, dynamic> source) =>
+      Map<String, dynamic>.from(source);
+
+  Map<String, dynamic> _mapWithOrigin(
+    Map<String, dynamic> source,
+    String serverId,
+    String itemId,
+  ) {
+    final copy = _mapOf(source);
+    copy['_moonfinServerId'] = serverId;
+    copy['_moonfinItemId'] = itemId;
+    return copy;
+  }
+
+  /// Marks [item]'s own sources with the server on which they live, so a merged
+  /// row can route each version back to where it is stored. The row keeps only
+  /// one server id (its own), so an unmatched "own" source would otherwise be
+  /// played by whatever server is active when the row resolves — a local file
+  /// at the top of a Versions list ending up directly played or transcoded by
+  /// the Debrid/remux server instead of the selected local one.
+  AggregatedItem _tagOwnSources(AggregatedItem item) {
+    final sources = item.mediaSources;
+    if (sources.isEmpty) return item;
+    final tagged = <Map<String, dynamic>>[];
+    var changed = false;
+    for (final source in sources) {
+      if (source['_moonfinServerId'] == null) {
+        tagged.add(_mapWithOrigin(source, item.serverId, item.id));
+        changed = true;
+      } else {
+        tagged.add(source);
+      }
+    }
+    if (!changed) return item;
+    final raw = Map<String, dynamic>.from(item.rawData)
+      ..['MediaSources'] = tagged;
+    return AggregatedItem(
+      id: item.id,
+      serverId: item.serverId,
+      rawData: raw,
+    );
+  }
+
+  /// Stable match key across servers for an item.
+  String _crossServerMatchKey(AggregatedItem item) {
+    final type = item.type?.toLowerCase() ?? '';
+    // Episodes: the series is the identity, not the provider ids of the
+    // episode itself (a server may key them differently).
+    if (type == 'episode' ||
+        (type == 'video' && item.parentIndexNumber != null)) {
+      return 'ep|${item.seriesName ?? ''}|${item.parentIndexNumber ?? ''}|${item.indexNumber ?? ''}';
+    }
+
+    final provider = item.providerIds;
+    final tmdb = provider['Tmdb'] ?? provider['tmdb'] ?? provider['TMDB'];
+    final imdb = provider['Imdb'] ?? provider['imdb'] ?? provider['IMDB'];
+    final tvdb = provider['Tvdb'] ?? provider['tvdb'] ?? provider['TVDB'];
+    final providerKey = <String>[
+      if (tmdb != null) 'tmdb:$tmdb',
+      if (imdb != null) 'imdb:$imdb',
+      if (tvdb != null) 'tvdb:$tvdb',
+    ].join('|');
+    if (providerKey.isNotEmpty) {
+      return '$type|$providerKey';
+    }
+    return '$type|${item.name ?? ''}|${item.productionYear ?? ''}';
+  }
+
+  /// The identity of a single media source within an item, scoped so a remux
+  /// server's copies never shadow each other during the merge.
+  String _sourceKey(AggregatedItem item, Map<String, dynamic> source) {
+    final id = source['Id']?.toString() ?? '';
+    if (id.isNotEmpty) return '${item.serverId}|$id';
+    final path = source['Path']?.toString() ?? '';
+    if (path.isNotEmpty) return '${item.serverId}|$path';
+    return '${item.serverId}|${source['Name']?.toString() ?? ''}';
+  }
+
+  /// Whether [source] is a plain local file on [item]'s server rather than a
+  /// remote/debrid encode. A Jellyfin/Emby server reports local files as
+  /// `Protocol: File` with a filesystem `Path`; the mediaSourceId equals the
+  /// item id for the server's own single-file item. Remote `.strm`/debrid links
+  /// come back as `Protocol: Http` (URL `Path`) and are never local.
+  bool _isLocalFileSource(AggregatedItem item, Map<String, dynamic> source) {
+    final protocol = (source['Protocol'] as String?)?.toLowerCase();
+    if (protocol == 'file') return true;
+    if (protocol == 'http') return false;
+    final id = source['Id']?.toString() ?? '';
+    if (id.isNotEmpty) return id == item.id;
+    return false;
+  }
 }

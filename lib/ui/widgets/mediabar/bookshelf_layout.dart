@@ -6,6 +6,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../../data/models/bookshelf_detail.dart';
 import '../../../data/models/media_bar_slide_item.dart';
+import '../../../data/services/media_server_client_factory.dart';
 import 'bookshelf_glow.dart';
 
 class BookshelfLayout extends StatelessWidget {
@@ -277,7 +278,10 @@ class BookshelfLayout extends StatelessWidget {
     required bool isMobile,
   }) {
     final baseColor = glowColorForGenres(item.genres);
-    final imageApi = GetIt.instance<MediaServerClient>().imageApi;
+    final activeClient = GetIt.instance<MediaServerClient>();
+    final client = GetIt.instance<MediaServerClientFactory>()
+        .getClientIfExists(item.serverId);
+    final imageApi = (client ?? activeClient).imageApi;
     final posterUrl =
         item.posterUrl ?? imageApi.getPrimaryImageUrl(item.itemId, maxWidth: 600);
 

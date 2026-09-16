@@ -7300,6 +7300,18 @@ abstract class AppLocalizations {
   /// **'Combine separate libraries of the same type for Recently Added and Recently Released home rows.'**
   String get mergeRecentRowsByTypeDescription;
 
+  /// Setting for choosing which server plays back local media
+  ///
+  /// In en, this message translates to:
+  /// **'Primary Server for Local Media'**
+  String get primaryServerForLocalMedia;
+
+  /// Description for the primary local media server setting
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which server will be the backend for playing local media'**
+  String get primaryServerForLocalMediaDescription;
+
   /// Section title for library view settings
   ///
   /// In en, this message translates to:
@@ -7485,6 +7497,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Aya'**
   String get mediaBarModeAya;
+
+  /// Setting to condense the Banner media bar into the compact layout
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get compactBannerEnabled;
+
+  /// Explanation for the Compact Banner setting
+  ///
+  /// In en, this message translates to:
+  /// **'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.'**
+  String get compactBannerEnabledHint;
+
+  /// Setting to show Upcoming Releases bar next to the Compact Banner media bar
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Upcoming Releases'**
+  String get compactBannerUpcomingReleases;
+
+  /// Explanation for the Enable Upcoming Releases setting
+  ///
+  /// In en, this message translates to:
+  /// **'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.'**
+  String get compactBannerUpcomingReleasesHint;
+
+  /// Header for the Upcoming Releases bar shown beside the Compact Banner media bar
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Releases'**
+  String get upcomingReleases;
 
   /// Setting for enabling media bar
   ///

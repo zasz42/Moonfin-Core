@@ -47,6 +47,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     return {
       valueFor(MediaSegmentAction.askToSkip): l10n.settingsPromptUser,
       valueFor(MediaSegmentAction.skip): l10n.settingsSkip,
+      valueFor(MediaSegmentAction.delayedSkip): 'Delayed Skip',
       valueFor(MediaSegmentAction.nothing): l10n.settingsDoNothing,
     };
   }
@@ -57,8 +58,10 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     final nextUpBehavior = _prefs.get(UserPreferences.nextUpBehavior);
     final mediaSegmentActions = _prefs.get(UserPreferences.mediaSegmentActions);
     final segmentActions = parseMediaSegmentActions(mediaSegmentActions);
-    final promptsForAnySegment = segmentActions.values.any(
-      (action) => action == MediaSegmentAction.askToSkip,
+    final showsAnySkipButton = segmentActions.values.any(
+      (action) =>
+          action == MediaSegmentAction.askToSkip ||
+          action == MediaSegmentAction.delayedSkip,
     );
     final showNextUpOptions = nextUpBehavior != NextUpBehavior.disabled;
     // Gated on the outro, since this replaces the Skip Outro button.
@@ -108,7 +111,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
                     type,
                   ),
                 ),
-              if (promptsForAnySegment || showNextUpOptions)
+              if (showsAnySkipButton || showNextUpOptions)
                 EnumPreferenceTile<MediaSegmentCountdown>(
                   preference: UserPreferences.mediaSegmentCountdown,
                   title: l10n.settingsMediaSegmentCountdown,
@@ -121,7 +124,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
                     MediaSegmentCountdown.none => l10n.settingsNone,
                   },
                 ),
-              if (promptsForAnySegment)
+              if (showsAnySkipButton)
                 EnumPreferenceTile<MediaSegmentAutoHide>(
                   preference: UserPreferences.mediaSegmentAutoHide,
                   title: l10n.settingsSkipButtonAutoHide,

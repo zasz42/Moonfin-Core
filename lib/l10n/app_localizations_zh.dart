@@ -4001,6 +4001,14 @@ class AppLocalizationsZh extends AppLocalizations {
       '将同一类型的独立媒体库合并到“最近添加”和“最近发布”主页行中。';
 
   @override
+  String get primaryServerForLocalMedia =>
+        'Primary Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+        'Choose which server will be the backend for playing local media';
+
+  @override
   String get libraryView => '媒体库视图';
 
   @override
@@ -4095,6 +4103,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Aya';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => '启用媒体栏';
@@ -14980,6 +15005,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get mergeRecentRowsByTypeDescription =>
       '合併相同類型的媒體庫，並顯示於首頁的「最近新增」和「最近發行」。';
+
+  @override
+  String get primaryServerForLocalMedia =>
+        'Primary Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+        'Choose which server will be the backend for playing local media';
 
   @override
   String get enableFolderView => '啟用資料夾視圖';

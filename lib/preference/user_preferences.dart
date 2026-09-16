@@ -495,6 +495,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_modern_home_rows_padding',
     'pref_classic_home_rows_padding',
     'pref_modern_cards_my_media',
+    'compactClassicHomeRowEnabled',
     'poster_size',
     'pref_display_favorites_rows',
     'pref_display_collections_rows',
@@ -534,6 +535,8 @@ class UserPreferences extends ChangeNotifier {
     'mediaBarAutoAdvance',
     'mediaBarIntervalMs',
     'mediaBarTrailerPreview',
+'compactBannerUpcomingReleases',
+    'compactBannerEnabled',
     'mediaBarTrailerAudio',
     'mediaBarTrailerCaptions',
     'episodePreviewEnabled',
@@ -1011,6 +1014,11 @@ class UserPreferences extends ChangeNotifier {
   static final modernCardsOnMyMediaRow = Preference<bool>(
     key: 'pref_modern_cards_my_media',
     defaultValue: true,
+  );
+
+  static final compactClassicHomeRowEnabled = Preference(
+    key: 'compactClassicHomeRowEnabled',
+    defaultValue: false,
   );
 
   /// How far a mouse wheel notch scrolls, as a percentage of what the platform
@@ -1605,6 +1613,16 @@ class UserPreferences extends ChangeNotifier {
   static final mergeRecentRowsByType = Preference(
     key: 'pref_merge_recent_rows_by_type',
     defaultValue: false,
+  );
+
+  /// The server whose copy of local media is played back when a title also
+  /// exists on another connected server (e.g. a Debrid/remux one). Empty means
+  /// automatic: each version plays from whichever server owns it. Only the
+  /// playback backend changes; Debrid/remux links are always served by their
+  /// own server regardless of this value.
+  static final primaryServerForLocalMedia = Preference<String>(
+    key: 'pref_primary_server_for_local_media',
+    defaultValue: '',
   );
 
   static final diagnosticLoggingEnabled = Preference(
@@ -2401,6 +2419,16 @@ class UserPreferences extends ChangeNotifier {
   static final mediaBarTrailerPreview = Preference(
     key: 'mediaBarTrailerPreview',
     defaultValue: true,
+  );
+
+  static final compactBannerEnabled = Preference(
+    key: 'compactBannerEnabled',
+    defaultValue: false,
+  );
+
+  static final compactBannerUpcomingReleases = Preference(
+    key: 'compactBannerUpcomingReleases',
+    defaultValue: false,
   );
 
   static final mediaBarTrailerAudio = Preference(

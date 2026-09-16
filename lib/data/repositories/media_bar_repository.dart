@@ -11,6 +11,8 @@ import 'package:server_core/server_core.dart';
 import '../../preference/user_preferences.dart';
 import '../models/media_bar_slide_item.dart';
 import '../models/media_bar_state.dart';
+import '../services/media_server_client_factory.dart';
+import 'multi_server_repository.dart';
 
 class MediaBarRepository {
   static const _precacheBackdropCount = 1;
@@ -37,6 +39,8 @@ class MediaBarRepository {
     if (!UserPreferences.isMediaBarModeEnabled(mediaBarMode)) {
       return const MediaBarDisabled();
     }
+
+    await _loadSessionClients();
 
     final contentType = _prefs.get(UserPreferences.mediaBarContentType);
     final pluginSyncEnabled = _prefs.get(UserPreferences.pluginSyncEnabled);
@@ -66,8 +70,11 @@ class MediaBarRepository {
       _ => const ['tvshows', 'movies'],
     };
 
-    final allParentIds = <String>{};
-    final allParentItemTypes = <String, List<String>>{};
+    // A source is a `serverId|libraryId` pair; a bare libraryId belongs to the
+    // active server (the pre-multi-server stored form). Collections stay tied
+    // to the active server, like the source library picker writes them.
+    final allSources = <_MediaBarSource>[];
+    final allSourceItemTypes = <String, List<String>>{};
 
     try {
       final viewsResponse = await _client.userViewsApi.getUserViews().timeout(
@@ -88,48 +95,103 @@ class MediaBarRepository {
 
         // A mixed library is left off this map so it keeps the full type list
         final type = _normalizeCollectionType(view['CollectionType']);
-        if (type == 'movies') {
-          allParentItemTypes[viewId] = const ['Movie'];
-        } else if (type == 'tvshows') {
-          allParentItemTypes[viewId] = const ['Series'];
+        if (type == 'movies' || type == 'tvshows') {
+          allSourceItemTypes[viewId] = type == 'movies'
+              ? const ['Movie']
+              : const ['Series'];
         }
       }
 
-      // Filter libraryIds to only include valid movies/tvshows library IDs
-      final filteredLibraryIds = libraryIds
-          .where((id) => validLibraryIds.contains(id))
-          .toList();
+      // Filter libraryIds to only include valid movies/tvshows library IDs,
+      // resolving each stored token to the server that owns it.
+      final resolved = libraryIds.map(_parseSourceToken).toList();
+      final validBySource = <_MediaBarSource>[]; // sources whose lib is valid
+      for (final source in resolved) {
+        if (source.isActiveServer) {
+          if (validLibraryIds.contains(source.libraryId)) {
+            validBySource.add(source);
+          }
+        } else {
+          // A non-active server's library is listed by that server's views.
+          final client = _clientForSource(source);
+          try {
+            final remoteViews = await client.userViewsApi.getUserViews().timeout(
+              const Duration(seconds: 4),
+            );
+            final remoteItems = (remoteViews['Items'] as List? ?? [])
+                .cast<Map<String, dynamic>>();
+            final remoteValid = remoteItems
+                .where(
+                  (view) =>
+                      view['Id']?.toString() == source.libraryId &&
+                      supportsMediaBarLibrary(
+                        view,
+                        preferredCollectionTypes,
+                      ),
+                )
+                .toList();
+            if (remoteValid.isNotEmpty) {
+              validBySource.add(source);
+              _mapSourceType(source, remoteValid.first, allSourceItemTypes);
+            }
+          } catch (_) {
+            // A server that fails to list its views contributes nothing for a
+            // directly chosen library, but the selection is still kept below.
+            validBySource.add(source);
+          }
+        }
+      }
 
-      allParentIds.addAll(filteredLibraryIds);
-      allParentIds.addAll(collectionIds);
+      allSources.addAll(validBySource);
+      allSources.addAll(
+        collectionIds.map(
+          (id) => _MediaBarSource(serverId: '', libraryId: id),
+        ),
+      );
 
-      if (allParentIds.isEmpty) {
-        allParentIds.addAll(validLibraryIds);
+      if (allSources.isEmpty) {
+        allSources.addAll(
+          validLibraryIds.map(
+            (id) => _MediaBarSource(serverId: '', libraryId: id),
+          ),
+        );
       }
     } catch (_) {
-      // Fallback: If UserViews lookup fails, trust user's selection directly
-      allParentIds.addAll(libraryIds);
-      allParentIds.addAll(collectionIds);
+      // Fallback: If UserViews lookup fails, trust user's selection directly.
+      allSources.addAll(libraryIds.map(_parseSourceToken));
+      allSources.addAll(
+        collectionIds.map(
+          (id) => _MediaBarSource(serverId: '', libraryId: id),
+        ),
+      );
     }
 
     try {
       final allItems = <Map<String, dynamic>>[];
 
-      if (allParentIds.isEmpty) {
+      if (allSources.isEmpty) {
         return const MediaBarDisabled();
       } else {
-        for (final parentId in allParentIds) {
+        for (final source in allSources) {
           if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
               GetIt.instance<MediaBarRepository>() != this) {
             return const MediaBarDisabled();
           }
           try {
-            final targetTypes = allParentItemTypes[parentId] ?? includeTypes;
+            final targetTypes =
+                allSourceItemTypes[source.sourceKey] ?? includeTypes;
+            final client = _clientForSource(source);
             final batch = await _fetchItems(
               targetTypes,
               fetchLimit,
-              parentId: parentId,
+              parentId: source.libraryId,
+              client: client,
             );
+            for (final item in batch) {
+              if (source.serverId.isNotEmpty) {
+                item['_moonfinServerId'] = source.serverId;
+              }
+            }
             allItems.addAll(batch);
           } catch (_) {
             // Keep fetching remaining libraries if one fails
@@ -143,14 +205,18 @@ class MediaBarRepository {
         excludedGenres,
       );
 
-      if (selected.isEmpty && allParentIds.isNotEmpty) {
+      if (selected.isEmpty && allSources.isNotEmpty) {
+        final first = allSources.first;
         final fallbackItems = <Map<String, dynamic>>[];
-        final targetTypes = allParentItemTypes[allParentIds.first] ?? includeTypes;
+        final targetTypes =
+            allSourceItemTypes[first.sourceKey] ?? includeTypes;
+        final client = _clientForSource(first);
         fallbackItems.addAll(
           await _fetchItems(
             targetTypes,
             fetchLimit,
-            parentId: allParentIds.first,
+            parentId: first.libraryId,
+            client: client,
           ),
         );
 
@@ -220,6 +286,60 @@ class MediaBarRepository {
 
   List<String> _splitCsv(Preference<String> pref) =>
       _prefs.get(pref).split(',').where((s) => s.isNotEmpty).toList();
+
+  _MediaBarSource _parseSourceToken(String token) {
+    final sep = token.indexOf('|');
+    if (sep < 0) {
+      return _MediaBarSource(serverId: '', libraryId: token);
+    }
+    return _MediaBarSource(
+      serverId: token.substring(0, sep),
+      libraryId: token.substring(sep + 1),
+    );
+  }
+
+  /// The clients of every connected server, refreshed on each load so a source
+  /// library on another server resolves to a client even when no home row
+  /// triggered the session load yet.
+  Map<String, MediaServerClient> _sessionClients = const {};
+
+  Future<void> _loadSessionClients() async {
+    if (!_prefs.get(UserPreferences.enableMultiServerLibraries)) return;
+    try {
+      final sessions = await GetIt.instance<
+          MultiServerRepository
+        >().getLoggedInServers();
+      _sessionClients = {
+        for (final session in sessions) session.server.id: session.client,
+      };
+    } catch (_) {
+      _sessionClients = const {};
+    }
+  }
+
+  /// The client that owns [source]: its own server's when that server is
+  /// loaded, the active client otherwise.
+  MediaServerClient _clientForSource(_MediaBarSource source) {
+    if (source.isActiveServer) return _client;
+    return _sessionClients[source.serverId] ??
+        GetIt.instance<MediaServerClientFactory>().getClientIfExists(
+          source.serverId,
+        ) ??
+        _client;
+  }
+
+  void _mapSourceType(
+    _MediaBarSource source,
+    Map<String, dynamic> view,
+    Map<String, List<String>> types,
+  ) {
+    final type = _normalizeCollectionType(view['CollectionType']);
+    if (type == 'movies') {
+      types[source.sourceKey] = const ['Movie'];
+    } else if (type == 'tvshows') {
+      types[source.sourceKey] = const ['Series'];
+    }
+  }
 
   Future<List<Map<String, dynamic>>> _fetchItemsFromFirstSeriesOrMoviesLibrary(
     List<String>? itemTypes,
@@ -312,7 +432,9 @@ class MediaBarRepository {
     List<String>? itemTypes,
     int limit, {
     String? parentId,
+    MediaServerClient? client,
   }) async {
+    final effectiveClient = client ?? _client;
     if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
         GetIt.instance<MediaBarRepository>() != this) {
       return const <Map<String, dynamic>>[];
@@ -320,12 +442,18 @@ class MediaBarRepository {
     final sourceType = _prefs.get(UserPreferences.mediaBarSourceType);
     if (sourceType == UserPreferences.mediaBarSourceRecentlyAdded ||
         sourceType == UserPreferences.mediaBarSourceRecentlyReleased) {
-      return _fetchDatedItems(sourceType, itemTypes, limit, parentId: parentId);
+      return _fetchDatedItems(
+        sourceType,
+        itemTypes,
+        limit,
+        parentId: parentId,
+        client: effectiveClient,
+      );
     }
     try {
       // Get the total count for this parent so we can pick a random window.
       // Asking for a single item keeps it cheap.
-      final countResponse = await _client.itemsApi
+      final countResponse = await effectiveClient.itemsApi
           .getItems(
             includeItemTypes: itemTypes,
             sortBy: 'SortName',
@@ -354,7 +482,7 @@ class MediaBarRepository {
           ? _random.nextInt(maxStartIndex + 1)
           : 0;
 
-      final windowResponse = await _client.itemsApi
+      final windowResponse = await effectiveClient.itemsApi
           .getItems(
             includeItemTypes: itemTypes,
             sortBy: 'SortName',
@@ -380,6 +508,7 @@ class MediaBarRepository {
         itemTypes,
         limit,
         parentId: parentId,
+        client: effectiveClient,
       );
     } on DioException catch (e) {
       final statusCode = e.response?.statusCode ?? 0;
@@ -394,6 +523,7 @@ class MediaBarRepository {
         itemTypes,
         limit,
         parentId: parentId,
+        client: effectiveClient,
       );
     }
   }
@@ -406,11 +536,13 @@ class MediaBarRepository {
     List<String>? itemTypes,
     int limit, {
     String? parentId,
+    MediaServerClient? client,
   }) async {
+    final effectiveClient = client ?? _client;
     try {
       final response =
           sourceType == UserPreferences.mediaBarSourceRecentlyReleased
-          ? await _client.itemsApi
+          ? await effectiveClient.itemsApi
                 .getRecentlyReleasedItems(
                   includeItemTypes: itemTypes,
                   parentId: parentId,
@@ -420,7 +552,7 @@ class MediaBarRepository {
                   enableImageTypes: 'Backdrop,Logo',
                 )
                 .timeout(const Duration(seconds: 15))
-          : await _client.itemsApi
+          : await effectiveClient.itemsApi
                 .getLatestItems(
                   includeItemTypes: itemTypes,
                   parentId: parentId,
@@ -439,7 +571,12 @@ class MediaBarRepository {
       if (statusCode == 401 || statusCode == 403) {
         return const <Map<String, dynamic>>[];
       }
-      return _fetchItemsFromFallbackSource(itemTypes, limit, parentId: parentId);
+      return _fetchItemsFromFallbackSource(
+        itemTypes,
+        limit,
+        parentId: parentId,
+        client: effectiveClient,
+      );
     }
   }
 
@@ -447,11 +584,13 @@ class MediaBarRepository {
     List<String>? itemTypes,
     int limit, {
     String? parentId,
+    MediaServerClient? client,
   }) async {
+    final effectiveClient = client ?? _client;
     final reducedLimit = limit > 24 ? 24 : limit;
 
     try {
-      final latestResponse = await _client.itemsApi
+      final latestResponse = await effectiveClient.itemsApi
           .getLatestItems(
             includeItemTypes: itemTypes,
             parentId: parentId,
@@ -464,7 +603,7 @@ class MediaBarRepository {
     } catch (_) {}
 
     try {
-      final fallbackResponse = await _client.itemsApi
+      final fallbackResponse = await effectiveClient.itemsApi
           .getItems(
             includeItemTypes: itemTypes,
             sortBy: 'SortName',
@@ -528,12 +667,19 @@ class MediaBarRepository {
 
   MediaBarSlideItem _toSlideItem(Map<String, dynamic> data) {
     final itemId = data['Id']?.toString() ?? '';
-    final serverId = data['ServerId']?.toString() ?? '';
+    // Items fetched from another connected server carry the app-level server id
+    // that the factory keys clients by (the server's own ServerId field is not
+    // stable across reconnects). Active-server items keep the raw value.
+    final rawServerId = data['ServerId']?.toString() ?? '';
+    final serverId = data['_moonfinServerId']?.toString() ?? rawServerId;
+    final client = _clientForSource(
+      _MediaBarSource(serverId: serverId, libraryId: ''),
+    );
     final providerIds = data['ProviderIds'] as Map<String, dynamic>?;
 
     final backdropTags = data['BackdropImageTags'] as List?;
     final backdropUrl = (backdropTags != null && backdropTags.isNotEmpty)
-        ? _client.imageApi.getBackdropImageUrl(
+        ? client.imageApi.getBackdropImageUrl(
             itemId,
             tag: backdropTags[0] as String,
             maxWidth: 1280,
@@ -542,11 +688,11 @@ class MediaBarRepository {
 
     final logoTag = (data['ImageTags'] as Map?)?['Logo'] as String?;
     final logoUrl = logoTag != null
-        ? _client.imageApi.getLogoImageUrl(itemId, tag: logoTag, maxWidth: 600)
+        ? client.imageApi.getLogoImageUrl(itemId, tag: logoTag, maxWidth: 600)
         : null;
 
     final primaryTag = (data['ImageTags'] as Map?)?['Primary'] as String?;
-    final posterUrl = _client.imageApi.getPrimaryImageUrl(
+    final posterUrl = client.imageApi.getPrimaryImageUrl(
       itemId,
       tag: primaryTag,
       maxWidth: 600,
@@ -580,6 +726,20 @@ class MediaBarRepository {
           const [],
     );
   }
+}
+
+// A library source: the app-level server id (empty = the active server) plus
+// the library id on that server.
+class _MediaBarSource {
+  final String serverId;
+  final String libraryId;
+
+  const _MediaBarSource({required this.serverId, required this.libraryId});
+
+  bool get isActiveServer => serverId.isEmpty;
+
+  String get sourceKey =>
+      serverId.isEmpty ? libraryId : '$serverId|$libraryId';
 }
 
 // A mixed library names no collection type, so the bar takes it for either

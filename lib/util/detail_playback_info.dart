@@ -11,8 +11,9 @@ Future<PlaybackInfoResult> fetchDetailPlaybackInfo({
   required String? mediaSourceId,
   required int? audioStreamIndex,
   required int? subtitleStreamIndex,
+  MediaServerClient? client,
 }) async {
-  final client = GetIt.instance<MediaServerClient>();
+  final activeClient = client ?? GetIt.instance<MediaServerClient>();
   final profile =
       GetIt.instance<PlaybackManager>().backend?.getDeviceProfile() ??
       <String, dynamic>{};
@@ -31,10 +32,10 @@ Future<PlaybackInfoResult> fetchDetailPlaybackInfo({
     enableTranscoding: true,
   );
 
-  final raw = await client.playbackApi.getPlaybackInfo(
+  final raw = await activeClient.playbackApi.getPlaybackInfo(
     itemId,
     requestBody: request.toJson(),
-    userId: client.userId,
+    userId: activeClient.userId,
   );
 
   return PlaybackInfoResult.fromJson(raw);

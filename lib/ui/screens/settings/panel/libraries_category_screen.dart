@@ -1,11 +1,38 @@
 part of '../settings_side_panel.dart';
 
-class _LibrariesCategoryScreen extends StatelessWidget {
+class _LibrariesCategoryScreen extends StatefulWidget {
   const _LibrariesCategoryScreen();
+
+  @override
+  State<_LibrariesCategoryScreen> createState() =>
+      _LibrariesCategoryScreenState();
+}
+
+class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
+  List<ServerUserSession>? _servers;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServers();
+  }
+
+  Future<void> _loadServers() async {
+    try {
+      final servers =
+          await GetIt.instance<MultiServerRepository>().getLoggedInServers();
+      if (!mounted) return;
+      setState(() => _servers = servers);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _servers = const []);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final servers = _servers;
     return Scaffold(
       appBar: buildSettingsAppBar(context, Text(l10n.libraries)),
       body: ListView(
@@ -34,6 +61,19 @@ class _LibrariesCategoryScreen extends StatelessWidget {
                 icon: Icons.library_books,
                 onChanged: _pushPersonalizationSync,
               ),
+              if (servers != null && servers.length >= 2)
+                StringPickerPreferenceTile(
+                  preference: UserPreferences.primaryServerForLocalMedia,
+                  title: l10n.primaryServerForLocalMedia,
+                  description: l10n.primaryServerForLocalMediaDescription,
+                  icon: Icons.play_circle_outline,
+                  options: {
+                    '': l10n.interfaceStyleAutomatic,
+                    for (final session in servers)
+                      session.server.id: session.server.name,
+                  },
+                  onChanged: _pushPersonalizationSync,
+                ),
               SwitchPreferenceTile(
                 preference: UserPreferences.showBookDiscoverTab,
                 title: l10n.showBookDiscoverTab,
