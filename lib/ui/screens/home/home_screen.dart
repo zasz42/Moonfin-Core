@@ -27,6 +27,7 @@ import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/seerr_repository.dart';
 import '../../widgets/seerr/seerr_shortcuts.dart';
 import '../../../data/services/background_service.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../widgets/rating_display.dart';
 import '../../../data/services/theme_music_service.dart';
 import '../../../data/services/media_server_client_factory.dart';
@@ -3974,14 +3975,18 @@ class _ContentRowsState extends State<_ContentRows>
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     // MediaType belongs in the key: a Seerr genre card takes the TMDB genre id
     // as its item id, and a genre in both the movie row and the series row has
     // the same id in each, so the second row would reuse the first row's image.
+    // The external-posters flag belongs here too: toggling it swaps every
+    // resolvable poster between server and btttr.cc art for the same item.
     final key =
         '${item.serverId}|${item.id}|${item.rawData['MediaType']}'
         '|${imageType.index}|${height.round()}'
-        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow';
+        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow'
+        '|${BetterPostersService.enabled}|$includeExternal';
     final cached = _rowImageUrlCache[key];
     if (cached != null || _rowImageUrlCache.containsKey(key)) {
       return cached;
@@ -3997,6 +4002,7 @@ class _ContentRowsState extends State<_ContentRows>
       useSeriesThumbs,
       requestScale,
       isMyMediaRow: isMyMediaRow,
+      includeExternal: includeExternal,
     );
     _rowImageUrlCache[key] = url;
     return url;
@@ -5111,6 +5117,7 @@ class _ContentRowsState extends State<_ContentRows>
           late final double ar;
           late final double width;
           late final String? imageUrl;
+          String? fallbackImageUrl;
           final canUseExpandedV2Card =
               isRowsV2 && effectiveV2Focused && !row.isAudio && !isModernMyMediaStatic;
 
@@ -5151,6 +5158,24 @@ class _ContentRowsState extends State<_ContentRows>
                         ) ??
                         posterUrl)
                   : posterUrl;
+              // The focused URL is server art (never blank); only the plain
+              // poster row needs the server twin underneath the external one.
+              fallbackImageUrl = imageUrl == posterUrl
+                  ? _fallbackFor(
+                      posterUrl,
+                      _cachedRowImageUrl(
+                        item,
+                        imageApi,
+                        v2ImageHeight,
+                        ImageType.poster,
+                        item.type == 'Episode' ? true : useSeriesThumbs,
+                        requestScale,
+                        isMyMediaRow:
+                            row.rowType == HomeRowType.libraryTiles,
+                        includeExternal: false,
+                      ),
+                    )
+                  : null;
             }
           } else {
             final image = _unfocusedCardImage(
@@ -5164,6 +5189,7 @@ class _ContentRowsState extends State<_ContentRows>
             ar = image.aspectRatio;
             width = image.width;
             imageUrl = image.url;
+            fallbackImageUrl = image.fallbackUrl;
           }
 
           final canPreview = _supportsEpisodePreview(item);
@@ -5289,6 +5315,7 @@ class _ContentRowsState extends State<_ContentRows>
                     subtitle: cardSubtitle,
                     subtitleWidget: cardSubtitleWidget,
                     imageUrl: imageUrl,
+                    fallbackImageUrl: fallbackImageUrl,
                     width: width,
                     aspectRatio: ar,
                     // Safe to compare doubles here, since ar is assigned
@@ -5770,8 +5797,9 @@ class _ContentRowsState extends State<_ContentRows>
     ImageApi imageApi,
     double height,
     bool useSeriesThumbs,
-    double requestScale,
-  ) {
+    double requestScale, {
+    bool includeExternal = true,
+  }) {
     final maxH = artworkRequestWidth(height, requestScale, ArtworkShape.poster);
     if (useSeriesThumbs && item.type == 'Episode') {
       final sId = item.seriesId ?? item.parentPrimaryImageItemId;
@@ -5780,7 +5808,12 @@ class _ContentRowsState extends State<_ContentRows>
         return imageApi.getPrimaryImageUrl(sId, maxHeight: maxH, tag: sTag);
       }
     }
-    return _resolvePrimaryImageUrl(item, imageApi, maxHeight: maxH);
+    return _resolvePrimaryImageUrl(
+      item,
+      imageApi,
+      maxHeight: maxH,
+      includeExternal: includeExternal,
+    );
   }
 
   static String? _resolvePrimaryImageUrl(
@@ -5788,6 +5821,7 @@ class _ContentRowsState extends State<_ContentRows>
     ImageApi imageApi, {
     int? maxHeight,
     int? maxWidth,
+    bool includeExternal = true,
   }) {
     String? primary(String? id, String? tag) {
       if (id == null || tag == null) return null;
@@ -5797,6 +5831,31 @@ class _ContentRowsState extends State<_ContentRows>
         maxWidth: maxWidth,
         tag: tag,
       );
+    }
+
+    // Better Posters (btttr.cc) wins for home rows when an external id is
+    // available. Checked before any server artwork so known movies, series
+    // and seasons (and episodes via their series) never show the server
+    // default. Detail pages do not call this path, so they keep server art.
+    // Skipped when resolving the server fallback twin (see
+    // `_unfocusedCardImage`), which is what paints underneath while the
+    // external poster is still rendering (or when btttr.cc has none).
+    final externalPoster = includeExternal
+        ? BetterPostersService.posterUrlFor(item)
+        : null;
+    if (externalPoster != null) return externalPoster;
+    // Items that borrow another item's art (genre tiles, inherited primary
+    // ids) resolve the borrowed id against the registry as well.
+    for (final borrowedId in [
+      item.primaryImageItemId,
+      item.parentPrimaryImageItemId,
+    ]) {
+      if (borrowedId != null && borrowedId.isNotEmpty) {
+        final borrowed = includeExternal
+            ? BetterPostersService.urlForId(borrowedId)
+            : null;
+        if (borrowed != null) return borrowed;
+      }
     }
 
     if (item.type == 'Genre' || item.type == 'MusicGenre') {
@@ -6064,7 +6123,17 @@ class _ContentRowsState extends State<_ContentRows>
   /// The image an unfocused card in [row] paints for [item], with the width
   /// it paints it at. The item builder and the row prefetch both read this,
   /// so the prefetch always warms the entry the card looks up.
-  ({String? url, double width, double aspectRatio}) _unfocusedCardImage(
+  /// Pairs an external (btttr.cc) primary URL with its server fallback for
+  /// [MediaCard.fallbackImageUrl]: the server poster paints instantly and
+  /// stays if the external poster is slow or missing. Null when there is
+  /// nothing to fall back to (or from).
+  static String? _fallbackFor(String? primary, String? server) {
+    if (primary == null || server == null || primary == server) return null;
+    return server;
+  }
+
+  ({String? url, String? fallbackUrl, double width, double aspectRatio})
+  _unfocusedCardImage(
     HomeRow row,
     AggregatedItem item, {
     required UserPreferences prefs,
@@ -6095,7 +6164,22 @@ class _ContentRowsState extends State<_ContentRows>
         requestScale,
         isMyMediaRow: isMyMediaRow,
       );
-      return (url: url, width: v2ImageHeight * aspect, aspectRatio: aspect);
+      final fallbackUrl = _cachedRowImageUrl(
+        item,
+        imageApi,
+        v2ImageHeight,
+        ImageType.poster,
+        item.type == 'Episode' ? true : useSeriesThumbs,
+        requestScale,
+        isMyMediaRow: isMyMediaRow,
+        includeExternal: false,
+      );
+      return (
+        url: url,
+        fallbackUrl: _fallbackFor(url, fallbackUrl),
+        width: v2ImageHeight * aspect,
+        aspectRatio: aspect,
+      );
     }
     final ar = _aspectRatioForRowItem(item, row, rowImageType);
     final height =
@@ -6112,7 +6196,22 @@ class _ContentRowsState extends State<_ContentRows>
       requestScale,
       isMyMediaRow: isMyMediaRow,
     );
-    return (url: url, width: height * ar, aspectRatio: ar);
+    final fallbackUrl = _cachedRowImageUrl(
+      item,
+      imageApi,
+      height,
+      rowImageType,
+      useSeriesThumbs,
+      requestScale,
+      isMyMediaRow: isMyMediaRow,
+      includeExternal: false,
+    );
+    return (
+      url: url,
+      fallbackUrl: _fallbackFor(url, fallbackUrl),
+      width: height * ar,
+      aspectRatio: ar,
+    );
   }
 
   void _scheduleRowPrefetch() {
@@ -6153,7 +6252,8 @@ class _ContentRowsState extends State<_ContentRows>
         row.rowType != HomeRowType.liveTv &&
         row.rowType != HomeRowType.libraryTilesSmall;
 
-    ({String? url, double width, double aspectRatio}) imageOf(
+    ({String? url, String? fallbackUrl, double width, double aspectRatio})
+    imageOf(
       HomeRow row,
       AggregatedItem item,
     ) => _unfocusedCardImage(
@@ -6252,6 +6352,7 @@ class _ContentRowsState extends State<_ContentRows>
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     if (imageType == ImageType.poster && isMyMediaRow) {
       final primaryAr = item.rawData['PrimaryImageAspectRatio'] as num?;
@@ -6274,11 +6375,23 @@ class _ContentRowsState extends State<_ContentRows>
           requestScale,
           ArtworkShape.landscape,
         ),
+        includeExternal: includeExternal,
       );
       if (primaryUrl != null) return primaryUrl;
     }
 
     if (item.serverId == 'seerr') {
+      // Better Posters wins for external poster rows when an IMDb id is
+      // available (btttr.cc only resolves IMDb); thumb/banner rows keep
+      // TMDB landscape art since btttr.cc only provides portrait posters.
+      // Render-time (not stored) so toggling the feature applies instantly.
+      // Skipped for the server fallback twin (see `_unfocusedCardImage`).
+      if (includeExternal &&
+          BetterPostersService.enabled &&
+          imageType == ImageType.poster) {
+        final external = BetterPostersService.buildUrl(item);
+        if (external != null) return external;
+      }
       final backdrop = _seerrTmdbImageUrl(
         item.rawData['BackdropPath'] as String?,
         1280,
@@ -6445,6 +6558,7 @@ class _ContentRowsState extends State<_ContentRows>
       height,
       useSeriesThumbs,
       requestScale,
+      includeExternal: includeExternal,
     );
   }
 

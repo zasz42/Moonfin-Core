@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/services/plugin_sync_service.dart';
 import '../../../data/services/upcoming_calendar_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -154,14 +155,33 @@ class UpcomingReleasesBarState extends State<UpcomingReleasesBar> {
   }
 
   List<AggregatedItem> _withPoster(List<AggregatedItem> items) {
-    return items
-        .where(
-          (item) =>
-              item.rawData['PosterPath'] is String &&
-              (item.rawData['PosterPath'] as String).isNotEmpty,
-        )
-        .toList();
+    // Keep anything with a renderable poster: a stored PosterPath, or a
+    // btttr.cc poster that can be built from the item's TMDB id even when no
+    // TMDB artwork was found. Dropping the latter is what left the bar blank.
+    // Judged on the rendered URL so the disabled state matches the old
+    // stored-only behavior instead of showing empty cards.
+    return items.where((item) => _posterUrl(item).isNotEmpty).toList();
   }
+
+  /// Render-time poster resolution so toggling the feature never needs a
+  /// refetch: btttr.cc when enabled and buildable, otherwise the stored path.
+  /// Returns (primary, fallback): the stored TMDB artwork stays underneath
+  /// the external poster so slow or missing btttr.cc art never blanks the
+  /// card (see [MediaCard.fallbackImageUrl]).
+  static (String, String?) _posterUrls(AggregatedItem item) {
+    final stored = item.rawData['PosterPath'] as String? ?? '';
+    if (BetterPostersService.enabled) {
+      final external = BetterPostersService.buildUrl(item);
+      if (external != null &&
+          external.isNotEmpty &&
+          external != stored) {
+        return (external, stored.isNotEmpty ? stored : null);
+      }
+    }
+    return (stored, null);
+  }
+
+  static String _posterUrl(AggregatedItem item) => _posterUrls(item).$1;
 
   void _openItem(AggregatedItem item) {
     if (!mounted) return;
@@ -252,10 +272,12 @@ class UpcomingReleasesBarState extends State<UpcomingReleasesBar> {
           onLeftEdge: widget.onExitLeft,
           onTap: (_, item) => _openItem(item),
           itemBuilder: (context, item, index, isFocused) {
+            final posterUrls = _posterUrls(item);
             return MediaCard(
               title: item.name,
               subtitle: item.rawData['Subtitle'] as String? ?? '',
-              imageUrl: item.rawData['PosterPath'] as String,
+              imageUrl: posterUrls.$1,
+              fallbackImageUrl: posterUrls.$2,
               width: posterWidth,
               aspectRatio: 2 / 3,
               externalIsFocused: isFocused,

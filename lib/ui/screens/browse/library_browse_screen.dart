@@ -12,6 +12,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import 'package:playback_core/playback_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/utils/alphabet_bucket.dart';
 import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/services/background_service.dart';
@@ -552,7 +553,22 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         shape,
       );
 
-  String? _imageUrl(AggregatedItem item, {double? cellWidth}) {
+  /// (primary, fallback) poster URLs for a grid cell. When Better Posters
+  /// can render the item, its btttr.cc poster goes on top with the server
+  /// poster underneath (see [MediaCard.fallbackImageUrl]), so slow or
+  /// missing external art never blanks the card.
+  (String?, String?) _posterUrls(AggregatedItem item, {double? cellWidth}) {
+    final server = _serverImageUrl(item, cellWidth: cellWidth);
+    final external = BetterPostersService.posterUrlFor(item);
+    if (external != null &&
+        external.isNotEmpty &&
+        external != server) {
+      return (external, server);
+    }
+    return (server, null);
+  }
+
+  String? _serverImageUrl(AggregatedItem item, {double? cellWidth}) {
     final api = _vm.imageApi;
     final width = cellWidth ?? _cardWidth();
     final posterMaxW = _requestWidthFor(width, ArtworkShape.poster);
@@ -1470,11 +1486,13 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         (_vm.isPlaylistBrowse && _vm.groupByType) || _vm.isGrouping;
 
     Widget card(BuildContext? revealContext) {
+      final posterUrls = _posterUrls(item, cellWidth: cellWidth);
       return MediaCard(
         animeMarkerItemId: item.id,
         title: item.name,
         subtitle: _cardSubtitle(item),
-        imageUrl: _imageUrl(item, cellWidth: cellWidth),
+        imageUrl: posterUrls.$1,
+        fallbackImageUrl: posterUrls.$2,
         width: double.infinity,
         aspectRatio: itemAspectRatio,
         isBanner: _vm.imageType == ImageType.banner,
@@ -1726,10 +1744,15 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                       // what tells the sliver where the list ends.
                       if (index >= _vm.items.length) return null;
                       final item = _vm.items[index];
+                      final posterUrls = _posterUrls(
+                        item,
+                        cellWidth: actualCellWidth,
+                      );
                       return MediaCard(
                         title: item.name,
                         subtitle: _cardSubtitle(item),
-                        imageUrl: _imageUrl(item, cellWidth: actualCellWidth),
+                        imageUrl: posterUrls.$1,
+                        fallbackImageUrl: posterUrls.$2,
                         width: double.infinity,
                         aspectRatio: _itemAspectRatio(item),
                         focusColor: focusColor,
