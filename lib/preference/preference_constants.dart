@@ -131,6 +131,14 @@ enum HomeRowsStyle {
   v2,
 }
 
+/// Order of the Recently Added library rows on home: server default,
+/// TV Shows first, or Movies first.
+enum LibrarySorting {
+  auto,
+  series,
+  movies,
+}
+
 enum DesktopUiScale {
   small(0.9),
   medium(1.0),

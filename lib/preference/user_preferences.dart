@@ -1002,6 +1002,12 @@ class UserPreferences extends ChangeNotifier {
     values: HomeRowsStyle.values,
   );
 
+  static final librarySorting = EnumPreference(
+    key: 'pref_library_sorting',
+    defaultValue: LibrarySorting.auto,
+    values: LibrarySorting.values,
+  );
+
   static final fullScreenRows = Preference(
     key: 'pref_home_rows_fullscreen',
     defaultValue: false,

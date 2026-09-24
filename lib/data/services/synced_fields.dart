@@ -93,6 +93,7 @@ final List<SyncedField> syncedFields = <SyncedField>[
   SyncedField('watchedIndicator', UserPreferences.watchedIndicatorBehavior, SyncCodec.enumName, enumValues: prefs.WatchedIndicatorBehavior.values),
   SyncedField('cardFocusExpansion', UserPreferences.cardFocusExpansion, SyncCodec.boolean),
   SyncedField('homeRowsStyle', UserPreferences.homeRowsStyle, SyncCodec.enumName, enumValues: prefs.HomeRowsStyle.values),
+  SyncedField('librarySorting', UserPreferences.librarySorting, SyncCodec.enumName, enumValues: prefs.LibrarySorting.values),
   SyncedField('modernHomeRowsPadding', UserPreferences.modernHomeRowsPadding, SyncCodec.integer),
   SyncedField('classicHomeRowsPadding', UserPreferences.classicHomeRowsPadding, SyncCodec.integer),
   SyncedField('modernCardsOnMyMediaRow', UserPreferences.modernCardsOnMyMediaRow, SyncCodec.boolean),

@@ -638,6 +638,8 @@ class HomeViewModel extends ChangeNotifier {
         (cfg) => loadConfigItem(cfg),
       );
 
+      _rows = _applyLibrarySorting(_rows);
+
       for (final row in _rows) {
         BetterPostersService.registerAll(row.items);
       }
@@ -662,6 +664,56 @@ class HomeViewModel extends ChangeNotifier {
         await load(preserveExisting: nextPreserveExisting, forceRefresh: nextForceRefresh);
       }
     }
+  }
+
+  /// Orders Recently Added library rows per the Library Sorting setting:
+  /// server order (auto), TV Shows first, or Movies first. Only
+  /// `latestMedia` rows take part, and they only permute among the slots
+  /// already occupied by latest rows, so every other row stays exactly
+  /// where the server/config put it. Stable: equal classes keep order.
+  List<HomeRow> _applyLibrarySorting(List<HomeRow> rows) {
+    final mode = _prefs.get(UserPreferences.librarySorting);
+    if (mode == LibrarySorting.auto) return rows;
+    final wantTvFirst = mode == LibrarySorting.series;
+    final slots = <int>[];
+    final latests = <HomeRow>[];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].rowType == HomeRowType.latestMedia &&
+          _latestRowMediaClass(rows[i]) != null) {
+        slots.add(i);
+        latests.add(rows[i]);
+      }
+    }
+    if (latests.length < 2) return rows;
+    latests.sort((a, b) {
+      final ac = _latestRowMediaClass(a) == 'tv' ? 0 : 1;
+      final bc = _latestRowMediaClass(b) == 'tv' ? 0 : 1;
+      return wantTvFirst ? ac.compareTo(bc) : bc.compareTo(ac);
+    });
+    final reordered = List<HomeRow>.of(rows);
+    for (var k = 0; k < slots.length; k++) {
+      reordered[slots[k]] = latests[k];
+    }
+    return reordered;
+  }
+
+  /// 'tv' when a Recently Added row holds series, 'movie' for movies, null
+  /// when it cannot be told (mixed/empty) so the row keeps its slot.
+  String? _latestRowMediaClass(HomeRow row) {
+    var tv = 0;
+    var movies = 0;
+    for (final item in row.items) {
+      switch ((item.type ?? '').toLowerCase()) {
+        case 'series':
+        case 'season':
+        case 'episode':
+          tv++;
+        case 'movie':
+          movies++;
+      }
+    }
+    if (tv == 0 && movies == 0) return null;
+    return tv >= movies ? 'tv' : 'movie';
   }
 
   /// Repaints the watched ticks on the rows already built, without refetching
