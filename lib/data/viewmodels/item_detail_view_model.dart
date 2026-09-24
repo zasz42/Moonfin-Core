@@ -914,6 +914,23 @@ class ItemDetailViewModel extends ChangeNotifier {
     return multi.mergedMediaSourcesForItem(it);
   }
 
+  /// Resolves the playback target for [item] through the Default Server for
+  /// Local Media. Returns null when playback should continue with [item].
+  Future<ResolvedPlaybackItem?> resolvePlaybackTarget(
+    AggregatedItem item, {
+    String? mediaSourceId,
+  }) async {
+    try {
+      final multi = GetIt.instance<MultiServerRepository>();
+      return await multi.resolvePlaybackItem(
+        item,
+        mediaSourceId: mediaSourceId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadSecondary() async {
     final type = _item?.type;
     final futures = <Future>[];

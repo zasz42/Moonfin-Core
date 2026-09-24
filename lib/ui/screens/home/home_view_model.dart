@@ -131,7 +131,11 @@ class HomeViewModel extends ChangeNotifier {
     // an offline home (and vice versa).
     final offline = _isOffline;
     final shape = RowDataSource.fieldShapeToken;
-    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline|fields:$shape';
+    // Merged-row assembly version: bump when the merge/dedup logic changes
+    // so rows cached under the old assembly (e.g. with duplicates) are not
+    // replayed from disk for up to the 3-day cache age.
+    const mergedRowsVersion = 2;
+    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline|fields:$shape|merged:$mergedRowsVersion';
   }
 
   static bool _isFavoriteSectionType(HomeSectionType type) {
@@ -1708,19 +1712,31 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     final l10n = currentAppLocalizations();
+    // Server ids whose display name marks them as the Remux/Debrid source.
+    // Their copies win when a title exists on several servers; unknown when
+    // the names cannot be resolved, in which case the first copy wins.
+    Set<String> remuxServerIds = const {};
+    try {
+      final sessions = await _multiServerRepo.getLoggedInServers();
+      remuxServerIds = {
+        for (final session in sessions)
+          if (isRemuxServerName(session.server.name)) session.server.id,
+      };
+    } catch (_) {}
     final mergedRows = <HomeRow>[];
     for (final entry in grouped.entries) {
       final collectionType = entry.key;
       final loadedRows = (await Future.wait(entry.value.map(rowFor)))
           .whereType<HomeRow>();
 
-      // The same title can sit in more than one library, so it is kept once.
-      final seenIds = <String>{};
-      final allItems = [
-        for (final row in loadedRows)
-          for (final item in row.items)
-            if (seenIds.add(item.id)) item,
-      ];
+      // The same title can sit in more than one library (or server), so it
+      // is kept once. Jellyfin ids differ per library/server, and one side
+      // may only carry a TMDB id (or none) where the other has IMDb, so any
+      // shared identity key wins.
+      final allItems = dedupMergedRows(
+        [for (final row in loadedRows) for (final item in row.items) item],
+        remuxServerIds: remuxServerIds,
+      );
       if (allItems.isEmpty) continue;
 
       allItems.sort((a, b) {
