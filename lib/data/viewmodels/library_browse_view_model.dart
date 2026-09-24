@@ -11,6 +11,7 @@ import '../../util/accent_folding.dart';
 import '../../util/network_errors.dart';
 import '../../util/parental_rating_severity.dart';
 import '../models/aggregated_item.dart';
+import '../services/better_posters_service.dart';
 import '../utils/blocked_ratings.dart';
 import '../repositories/mdblist_repository.dart';
 import '../services/plugin_sync_service.dart';
@@ -49,7 +50,7 @@ class LibraryBrowseViewModel extends ChangeNotifier {
   // are only wanted for the focused one, and resolveTmdbId fetches that id on
   // its own behind a cache, so the grid doesn't carry ProviderIds.
   static const _browseFields =
-      'PrimaryImageAspectRatio,SortName,Type,IsFolder,UserData,CommunityRating,OfficialRating,RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,Album,AlbumId,AlbumArtist,Artists,Genres,Studios';
+      'PrimaryImageAspectRatio,SortName,Type,IsFolder,UserData,CommunityRating,OfficialRating,RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,Album,AlbumId,AlbumArtist,Artists,Genres,Studios,ProviderIds';
   // Cap image tags to one per type (server returns all by default)
   static const _imageTypes = 'Primary,Backdrop,Thumb,Banner';
   static const _imageTypeLimit = 1;
@@ -913,6 +914,8 @@ class LibraryBrowseViewModel extends ChangeNotifier {
         })
         .whereType<AggregatedItem>()
         .toList();
+
+    BetterPostersService.registerAll(mapped);
 
     var filtered = await _filterLibraryItems(mapped);
 

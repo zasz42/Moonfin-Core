@@ -25,6 +25,7 @@ import 'background/auto_download_background.dart';
 import 'background/auto_download_background_main.dart' as auto_download_bg;
 import 'data/services/auto_download_service.dart';
 import 'data/services/background_download_coordinator.dart';
+import 'data/services/better_posters_service.dart';
 import 'data/services/download_notification_service.dart';
 import 'data/services/push_messaging_service.dart';
 import 'data/services/seerr_notification_service.dart';
@@ -896,6 +897,9 @@ void main() async {
   }
 
   final prefs = GetIt.instance<UserPreferences>();
+  BetterPostersService.setEnabled(
+    prefs.get(UserPreferences.externalPostersEnabled),
+  );
   _bindScrollSensitivity(prefs);
   WidgetsBinding.instance.addObserver(_PreferenceWriteFlushObserver(prefs));
   WidgetsBinding.instance.addObserver(_ImageCacheSweepObserver(prefs));

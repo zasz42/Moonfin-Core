@@ -16,6 +16,7 @@ import '../../../data/repositories/multi_server_repository.dart';
 import '../../../data/repositories/user_views_repository.dart';
 import '../../../data/utils/latest_media_row_normalizer.dart';
 import '../../../data/services/connectivity_service.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/services/home_row_cache_store.dart';
 import '../../../data/services/row_data_source.dart';
 import '../../../data/services/topshelf_service.dart';
@@ -381,6 +382,9 @@ class HomeViewModel extends ChangeNotifier {
         if (cached != null && _rows.isEmpty) {
           _rows = cached;
           hydratedFromCache = true;
+          for (final row in _rows) {
+            BetterPostersService.registerAll(row.items);
+          }
           notifyListeners();
         }
       }
@@ -633,6 +637,10 @@ class HomeViewModel extends ChangeNotifier {
         3,
         (cfg) => loadConfigItem(cfg),
       );
+
+      for (final row in _rows) {
+        BetterPostersService.registerAll(row.items);
+      }
 
       unawaited(_cacheStore.write(_homeCacheKey(), _rows));
       _topShelf.update(_rows);
@@ -3020,6 +3028,9 @@ class HomeViewModel extends ChangeNotifier {
   List<AggregatedItem> _formatSonarrItems(List<AggregatedItem> rawItems) {
     final showDate = _prefs.get(UserPreferences.sonarrCalendarShowDate);
     final showEpisodeInfo = _prefs.get(UserPreferences.sonarrCalendarShowEpisodeInfo);
+    final stripNextEpisodePrefix =
+        _prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v1 &&
+        _prefs.get(UserPreferences.compactClassicHomeRowEnabled);
 
     return rawItems.map((item) {
       final airDateUtcStr = item.rawData['CalendarDate'] as String?;
@@ -3032,12 +3043,18 @@ class HomeViewModel extends ChangeNotifier {
       String? subtitleText;
       if (showDate && showEpisodeInfo) {
         final dateStr = _formatDateHuman(airDateUtc);
-        subtitleText = 'Next Episode: $dateStr (S$sNum:E$eNum)';
+        subtitleText = stripNextEpisodePrefix
+            ? '$dateStr (S$sNum:E$eNum)'
+            : 'Next Episode: $dateStr (S$sNum:E$eNum)';
       } else if (showDate) {
         final dateStr = _formatDateHuman(airDateUtc);
-        subtitleText = 'Next Episode: $dateStr';
+        subtitleText = stripNextEpisodePrefix
+            ? '$dateStr'
+            : 'Next Episode: $dateStr';
       } else if (showEpisodeInfo) {
-        subtitleText = 'Next Episode: (S$sNum:E$eNum)';
+        subtitleText = stripNextEpisodePrefix
+            ? '(S$sNum:E$eNum)'
+            : 'Next Episode: (S$sNum:E$eNum)';
       }
 
       final newRawData = Map<String, dynamic>.from(item.rawData);

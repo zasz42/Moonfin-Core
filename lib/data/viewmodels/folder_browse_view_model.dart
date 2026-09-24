@@ -5,6 +5,7 @@ import 'package:server_core/server_core.dart';
 
 import '../models/aggregated_item.dart';
 import '../repositories/user_views_repository.dart';
+import '../services/better_posters_service.dart';
 import '../utils/blocked_ratings.dart';
 import '../utils/playlist_utils.dart';
 
@@ -24,7 +25,7 @@ class FolderBrowseViewModel extends ChangeNotifier {
 
   static const _pageSize = 100;
   static const _fields =
-      'Path,FileName,Type,ProductionYear,ImageTags,BackdropImageTags,ChildCount,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag';
+      'Path,FileName,Type,ProductionYear,ImageTags,BackdropImageTags,ChildCount,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,ProviderIds';
   // Cap image tags to one per type (server returns all by default)
   static const _imageTypes = 'Primary,Backdrop,Thumb,Banner';
   static const _imageTypeLimit = 1;
@@ -228,6 +229,8 @@ class FolderBrowseViewModel extends ChangeNotifier {
         rawData: raw,
       );
     }).toList();
+
+    BetterPostersService.registerAll(mapped);
 
     final filtered = await _filterItemsForFolder(mapped);
 

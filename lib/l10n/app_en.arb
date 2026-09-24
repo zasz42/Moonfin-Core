@@ -5614,6 +5614,22 @@
   "@showLibrariesFromAllServers": {
     "description": "Description for multi-server libraries"
   },
+  "primaryServerForLocalMedia": "Default Server for Local Media",
+  "@primaryServerForLocalMedia": {
+    "description": "Setting for choosing the default server used to play local media"
+  },
+  "primaryServerForLocalMediaDescription": "Choose a default server for playing all local media",
+  "@primaryServerForLocalMediaDescription": {
+    "description": "Explanation for the default server for local media setting"
+  },
+  "mergeMediaBarLibraries": "Merge Libraries from Multiple Servers",
+  "@mergeMediaBarLibraries": {
+    "description": "Setting for adding libraries from all connected servers as media bar sources"
+  },
+  "mergeMediaBarLibrariesDescription": "Libraries from multiple servers will be available as sources for the media bar",
+  "@mergeMediaBarLibrariesDescription": {
+    "description": "Explanation for merging media bar libraries across servers"
+  },
   "mergeRecentRowsByType": "Merge Recent Rows by Type",
   "@mergeRecentRowsByType": {
     "description": "Setting for merging recently added and recently released libraries by media type"
@@ -5750,6 +5766,26 @@
   "mediaBarModeAya": "Aya",
   "@mediaBarModeAya": {
     "description": "Media bar style option: Aya"
+  },
+  "compactBannerEnabled": "Compact",
+  "@compactBannerEnabled": {
+    "description": "Setting to condense the Banner media bar into the compact layout"
+  },
+  "compactBannerEnabledHint": "Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.",
+  "@compactBannerEnabledHint": {
+    "description": "Explanation for the Compact Banner setting"
+  },
+  "compactBannerUpcomingReleases": "Enable Upcoming Releases",
+  "@compactBannerUpcomingReleases": {
+    "description": "Setting to show Upcoming Releases bar next to the Compact Banner media bar"
+  },
+  "compactBannerUpcomingReleasesHint": "Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.",
+  "@compactBannerUpcomingReleasesHint": {
+    "description": "Explanation for the Enable Upcoming Releases setting"
+  },
+  "upcomingReleases": "Upcoming Releases",
+  "@upcomingReleases": {
+    "description": "Header for the Upcoming Releases bar shown beside the Compact Banner media bar"
   },
   "enableMediaBar": "Enable Media Bar",
   "@enableMediaBar": {

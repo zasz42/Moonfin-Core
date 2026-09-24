@@ -20,6 +20,7 @@ import '../utils/genre_browse_utils.dart';
 import '../utils/next_up_cutoff.dart';
 import '../utils/next_up_enrichment.dart';
 import '../utils/playlist_utils.dart';
+import 'better_posters_service.dart';
 import 'package:flutter/foundation.dart';
 import '../repositories/seerr_repository.dart';
 import '../repositories/user_views_repository.dart';
@@ -2318,6 +2319,7 @@ class RowDataSource {
         rawData: data,
       );
     }).toList();
+    BetterPostersService.registerAll(items);
     return withoutBlockedItems(items);
   }
 
@@ -2710,6 +2712,7 @@ class RowDataSource {
 
     final rowId = 'sinceYouWatched$rowIndex';
     _scoredRecommendationsCache[rowId] = recommendedItems;
+    BetterPostersService.registerAll(recommendedItems);
 
     return HomeRow(
       id: rowId,
