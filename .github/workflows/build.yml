@@ -354,8 +354,28 @@ jobs:
       # has written the project settings and the assets.
       - name: Prepare Flutter build settings
         run: |
-          flutter-tvos build tvos --release --no-tree-shake-icons --dart-define=MOONFIN_TVOS=true || true
-          test -f tvos/Flutter/Generated.xcconfig
+          # This full flutter-tvos build is expected to fail at ITS OWN final
+          # xcodebuild (no signing identity on the runner) — that is fine and
+          # the reason it was historically masked with `|| true`. But the mask
+          # also swallowed genuine failures that happen EARLIER in the tool's
+          # pipeline (engine staging, AOT/gen_snapshot, and especially the
+          # internal `pod install`, step 7 of NativeTvosBundle). When those die,
+          # tvos/Pods is never created, Generated.xcconfig still exists (the
+          # tool writes it first), the trailing `test -f` passes, and the
+          # standalone xcodebuild below then fails on the missing
+          # Pods-Runner.frameworks file lists with a confusing PODS_ROOT-less
+          # "/Target Support Files/..." error. Capture the output so a real
+          # failure stays visible instead of disappearing into the mask.
+          if ! flutter-tvos build tvos --release --no-tree-shake-icons \
+               --dart-define=MOONFIN_TVOS=true > "$RUNNER_TEMP/flutter_tvos_prepare.log" 2>&1; then
+            echo "::warning::flutter-tvos build tvos exited non-zero. Its own device"
+            echo "xcodebuild is expected to fail (unsigned runner); inspect the tail"
+            echo "below for engine/AOT/pod errors that would cause the *next* step"
+            echo "to fail on missing Pods file lists instead:"
+            tail -n 40 "$RUNNER_TEMP/flutter_tvos_prepare.log"
+          fi
+          test -f tvos/Flutter/Generated.xcconfig \
+            || { echo "::error::Generated.xcconfig was not produced by flutter-tvos build tvos"; tail -n 80 "$RUNNER_TEMP/flutter_tvos_prepare.log"; exit 1; }
           grep -q '^FLUTTER_ROOT=' tvos/Flutter/Generated.xcconfig \
             || echo "FLUTTER_ROOT=$HOME/flutter-tvos" >> tvos/Flutter/Generated.xcconfig
 
@@ -368,6 +388,9 @@ jobs:
         run: |
           python3 tvos/scripts/restore_tvos_plugins.py
           cd tvos && pod install
+          test -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist" \
+            && test -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-output-files.xcfilelist" \
+            || { echo "::error::pod install did not produce the Pods-Runner framework xcfilelists"; exit 1; }
 
       - name: Stage flutter_assets for the Xcode copy phase
         run: |
