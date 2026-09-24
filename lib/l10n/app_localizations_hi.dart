@@ -10050,6 +10050,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get settingsSkip => 'छोडना';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'कुछ भी नहीं है';
 
   @override

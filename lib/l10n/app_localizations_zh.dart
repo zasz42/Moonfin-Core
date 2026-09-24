@@ -9721,6 +9721,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsSkip => '跳过';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => '什么都不做';
 
   @override

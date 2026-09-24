@@ -10107,6 +10107,9 @@ class AppLocalizationsUg extends AppLocalizations {
   String get settingsSkip => 'ئاتلاش';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ھېچ ئىش قىلماڭ';
 
   @override

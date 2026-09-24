@@ -10151,6 +10151,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get settingsSkip => 'Пропустити';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Нічого не робити';
 
   @override

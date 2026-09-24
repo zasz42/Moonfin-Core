@@ -10061,6 +10061,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get settingsSkip => 'এড়িয়ে যান';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'কিছুই করবেন না';
 
   @override

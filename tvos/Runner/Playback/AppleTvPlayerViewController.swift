@@ -153,6 +153,9 @@ final class AppleTvPlayerViewController: UIViewController {
     private var skipSegmentStartMs = 0
     private var skipSegmentEndMs = 0
     private var skipSegmentCountdownStyle = "none"
+    /// Delayed auto-skip deadline (segment start + 10s) in ms, or 0 when the
+    /// countdown ring tracks the full segment instead.
+    private var skipSegmentAutoSkipDeadlineMs = 0
     private let skipRingSize: CGFloat = 72
 
     private let loadingOverlay = UIView()
@@ -1335,13 +1338,15 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 
     func showSkipSegment(
-        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int
+        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int,
+        autoSkipDeadlineMs: Int = 0
     ) {
         skipSegmentActive = true
         skipSegmentLabel.text = label
         skipSegmentCountdownStyle = countdownStyle
         skipSegmentStartMs = segmentStartMs
         skipSegmentEndMs = segmentEndMs
+        skipSegmentAutoSkipDeadlineMs = autoSkipDeadlineMs
         updateSkipSegmentCountdown()
         guard skipSegmentButton.isHidden else { return }
         skipSegmentButton.alpha = 0
@@ -1368,7 +1373,18 @@ final class AppleTvPlayerViewController: UIViewController {
         let positionMs = Int(player.currentTime * 1000)
         let remainingSec = min(max(0, (skipSegmentEndMs - positionMs) / 1000), durationMs / 1000)
         let numberInRing = showTimer && showRing && remainingSec < 60
-        let progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+        // With a delayed auto-skip deadline the ring counts down the 10s
+        // window to the deadline; the timer above always tracks the full
+        // segment length.
+        let progress: Double
+        if skipSegmentAutoSkipDeadlineMs > skipSegmentStartMs {
+            let windowMs = skipSegmentAutoSkipDeadlineMs - skipSegmentStartMs
+            progress = windowMs > 0
+                ? Double(max(0, skipSegmentAutoSkipDeadlineMs - positionMs)) / Double(windowMs)
+                : 0
+        } else {
+            progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+        }
 
         skipSegmentTimerLabel.isHidden = !showTimer || numberInRing
         if !skipSegmentTimerLabel.isHidden {

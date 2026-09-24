@@ -10138,6 +10138,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get settingsSkip => 'ಬಿಟ್ಟುಬಿಡಿ';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ಏನೂ ಮಾಡಬೇಡಿ';
 
   @override

@@ -10088,6 +10088,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get settingsSkip => 'Atla';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Hiçbir şey yapma';
 
   @override

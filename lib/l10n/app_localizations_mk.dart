@@ -10147,6 +10147,9 @@ class AppLocalizationsMk extends AppLocalizations {
   String get settingsSkip => 'Прескокни';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Не правете ништо';
 
   @override

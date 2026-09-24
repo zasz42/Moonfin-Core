@@ -10239,6 +10239,9 @@ class AppLocalizationsCa extends AppLocalizations {
   String get settingsSkip => 'Saltar';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'No fer res';
 
   @override

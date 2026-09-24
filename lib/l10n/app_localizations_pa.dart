@@ -10041,6 +10041,9 @@ class AppLocalizationsPa extends AppLocalizations {
   String get settingsSkip => 'ਛੱਡੋ';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ਕੁਝ ਨਾ ਕਰੋ';
 
   @override

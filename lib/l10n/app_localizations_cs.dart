@@ -10111,6 +10111,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsSkip => 'Přeskočit';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nedělat nic';
 
   @override

@@ -10133,6 +10133,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get settingsSkip => 'Praleisti';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nieko nedaryti';
 
   @override

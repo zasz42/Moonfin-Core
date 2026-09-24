@@ -10080,6 +10080,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get settingsSkip => 'Lewati';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Jangan Lakukan Apa-apa';
 
   @override

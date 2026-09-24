@@ -10077,6 +10077,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get settingsSkip => 'Nhảy';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Không làm gì cả';
 
   @override

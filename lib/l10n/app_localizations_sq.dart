@@ -10160,6 +10160,9 @@ class AppLocalizationsSq extends AppLocalizations {
   String get settingsSkip => 'Kapërce';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Mos bëni asgjë';
 
   @override

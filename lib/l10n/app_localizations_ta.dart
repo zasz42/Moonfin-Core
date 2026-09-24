@@ -10149,6 +10149,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get settingsSkip => 'தவிர்க்கவும்';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'எதுவும் செய்யாதே';
 
   @override

@@ -10148,6 +10148,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settingsSkip => 'Pular';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Não faça nada';
 
   @override

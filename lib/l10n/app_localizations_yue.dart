@@ -9766,6 +9766,9 @@ class AppLocalizationsYue extends AppLocalizations {
   String get settingsSkip => '跳過';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => '什麼都不做';
 
   @override

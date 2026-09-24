@@ -10124,6 +10124,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get settingsSkip => 'Ohita';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Älä tee mitään';
 
   @override

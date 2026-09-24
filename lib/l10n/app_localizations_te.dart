@@ -10142,6 +10142,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get settingsSkip => 'దాటవేయి';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ఏమీ చేయవద్దు';
 
   @override

@@ -10150,6 +10150,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get settingsSkip => 'Ruka';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Usifanye Chochote';
 
   @override

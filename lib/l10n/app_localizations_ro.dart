@@ -10154,6 +10154,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get settingsSkip => 'Sari peste';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nu face nimic';
 
   @override

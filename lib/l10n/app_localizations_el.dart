@@ -10218,6 +10218,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get settingsSkip => 'Παραλείπω';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Μην κάνετε τίποτα';
 
   @override

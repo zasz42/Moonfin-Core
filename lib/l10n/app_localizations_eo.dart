@@ -10067,6 +10067,9 @@ class AppLocalizationsEo extends AppLocalizations {
   String get settingsSkip => 'Saltu';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Faru Nenion';
 
   @override

@@ -10202,6 +10202,9 @@ class AppLocalizationsGl extends AppLocalizations {
   String get settingsSkip => 'Saltar';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Non facer nada';
 
   @override

@@ -10161,6 +10161,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settingsSkip => 'Kihagyás';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nincs művelet';
 
   @override

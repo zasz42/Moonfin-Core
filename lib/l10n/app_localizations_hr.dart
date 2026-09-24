@@ -10295,6 +10295,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get settingsSkip => 'Preskočiti';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Ne čini ništa';
 
   @override

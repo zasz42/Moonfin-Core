@@ -10186,6 +10186,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get settingsSkip => 'ഒഴിവാക്കുക';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ഒന്നും ചെയ്യരുത്';
 
   @override

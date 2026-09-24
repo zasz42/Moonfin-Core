@@ -9828,6 +9828,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsSkip => 'スキップ';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => '何もしない';
 
   @override

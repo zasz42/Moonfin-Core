@@ -9801,6 +9801,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsSkip => '건너뛰다';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => '아무것도 하지 않음';
 
   @override

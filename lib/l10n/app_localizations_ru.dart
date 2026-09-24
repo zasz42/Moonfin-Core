@@ -10151,6 +10151,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsSkip => 'Пропускать';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Ничего не делать';
 
   @override

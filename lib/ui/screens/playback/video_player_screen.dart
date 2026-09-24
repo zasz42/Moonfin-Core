@@ -312,6 +312,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   Timer? _skipSegmentAutoHideTimer;
   Duration? _autoSkipDeadline;
   Timer? _autoSkipDelayTimer;
+
+  /// True after back/Remote-Menu cancels a delayed countdown while the
+  /// segment is still active. A second press then hides the skip button
+  /// entirely instead of cancelling again.
+  bool _delayedSkipCountdownCancelled = false;
   bool _showNextUp = false;
   AggregatedItem? _nextUpItem;
   bool _nextUpDismissed = false;
@@ -2826,9 +2831,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   void _dismissSkipSegment() {
     _suppressBackNavigation(duration: const Duration(milliseconds: 500));
-    _autoSkipDelayTimer?.cancel();
-    _autoSkipDelayTimer = null;
-    _autoSkipDeadline = null;
+    if (_autoSkipDelayTimer != null) {
+      // First press during a delayed countdown: cancel the auto-skip (and
+      // its progress bar) but leave the skip button up with the segment
+      // timer still running for a manual skip.
+      _autoSkipDelayTimer?.cancel();
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      _delayedSkipCountdownCancelled = true;
+      return;
+    }
+    if (_delayedSkipCountdownCancelled && _skipSegment != null) {
+      // Second press while the segment is still active: hide the skip
+      // button entirely.
+      _clearSkipSegment();
+    }
   }
 
   void _clearSkipSegment() {
@@ -2836,6 +2853,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _autoSkipDelayTimer?.cancel();
     _autoSkipDelayTimer = null;
     _autoSkipDeadline = null;
+    _delayedSkipCountdownCancelled = false;
     setState(() {
       _skipSegment = null;
       _skipTo = null;
@@ -2845,6 +2863,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   void _startDelayedAutoSkip(MediaSegment segment, Duration skipTo) {
     _autoSkipDelayTimer?.cancel();
     _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    _delayedSkipCountdownCancelled = false;
     setState(() {
       _skipSegment = segment;
       _skipTo = skipTo;

@@ -10130,6 +10130,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settingsSkip => 'Overslaan';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Doe niets';
 
   @override

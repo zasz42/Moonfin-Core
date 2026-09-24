@@ -10168,6 +10168,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get settingsSkip => 'Пропускане';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Не правете нищо';
 
   @override

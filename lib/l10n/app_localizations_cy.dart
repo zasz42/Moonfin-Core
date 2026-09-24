@@ -10129,6 +10129,9 @@ class AppLocalizationsCy extends AppLocalizations {
   String get settingsSkip => 'Sgipio';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Gwneud Dim';
 
   @override

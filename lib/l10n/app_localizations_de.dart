@@ -10229,6 +10229,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsSkip => 'Überspringen';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nichts tun';
 
   @override

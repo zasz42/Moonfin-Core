@@ -10082,6 +10082,9 @@ class AppLocalizationsAf extends AppLocalizations {
   String get settingsSkip => 'Slaan oor';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Doen niks';
 
   @override

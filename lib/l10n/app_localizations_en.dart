@@ -10036,6 +10036,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSkip => 'Skip';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Do Nothing';
 
   @override

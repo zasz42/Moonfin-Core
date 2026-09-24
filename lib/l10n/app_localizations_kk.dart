@@ -10121,6 +10121,9 @@ class AppLocalizationsKk extends AppLocalizations {
   String get settingsSkip => 'Өткізіп жіберу';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Ештеңе жасама';
 
   @override

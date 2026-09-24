@@ -10088,6 +10088,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get settingsSkip => 'Hoppa';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Gör ingenting';
 
   @override

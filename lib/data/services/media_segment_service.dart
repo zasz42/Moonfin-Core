@@ -82,6 +82,14 @@ class MediaSegmentService {
               isNew: false,
             );
           }
+          if (action == MediaSegmentAction.delayedSkip) {
+            return SegmentCheckResult(
+              action: MediaSegmentAction.delayedSkip,
+              segment: segment,
+              skipTo: skipTo,
+              isNew: false,
+            );
+          }
           return SegmentCheckResult.none;
         }
 
@@ -90,7 +98,9 @@ class MediaSegmentService {
           return SegmentCheckResult.none;
         }
 
-        final minDuration = action == MediaSegmentAction.skip
+        final minDuration =
+            (action == MediaSegmentAction.skip ||
+                    action == MediaSegmentAction.delayedSkip)
             ? const Duration(seconds: 1)
             : const Duration(seconds: 3);
         if (segment.duration < minDuration) {
@@ -101,6 +111,13 @@ class MediaSegmentService {
           if (!_autoSkipped.add(segment)) return SegmentCheckResult.none;
           return SegmentCheckResult(
             action: MediaSegmentAction.skip,
+            segment: segment,
+            skipTo: skipTo,
+          );
+        }
+        if (action == MediaSegmentAction.delayedSkip) {
+          return SegmentCheckResult(
+            action: MediaSegmentAction.delayedSkip,
             segment: segment,
             skipTo: skipTo,
           );
@@ -135,5 +152,6 @@ class SegmentCheckResult {
 
   bool get shouldSkip => action == MediaSegmentAction.skip;
   bool get shouldAsk => action == MediaSegmentAction.askToSkip;
+  bool get isDelayedSkip => action == MediaSegmentAction.delayedSkip;
   bool get isNone => action == MediaSegmentAction.nothing;
 }

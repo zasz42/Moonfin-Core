@@ -17842,6 +17842,12 @@ abstract class AppLocalizations {
   /// **'Skip'**
   String get settingsSkip;
 
+  /// No description provided for @settingsDelayedSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delayed Skip'**
+  String get settingsDelayedSkip;
+
   /// No description provided for @settingsDoNothing.
   ///
   /// In en, this message translates to:

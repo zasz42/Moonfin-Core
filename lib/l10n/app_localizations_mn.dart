@@ -10099,6 +10099,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get settingsSkip => 'Алгасах';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Юу ч хийхгүй';
 
   @override

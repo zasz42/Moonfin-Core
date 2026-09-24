@@ -10014,6 +10014,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get settingsSkip => 'ข้าม';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'ไม่ต้องทำอะไรเลย';
 
   @override

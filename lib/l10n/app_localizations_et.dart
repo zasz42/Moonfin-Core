@@ -10087,6 +10087,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get settingsSkip => 'Jäta vahele';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Ära tee midagi';
 
   @override

@@ -99,7 +99,8 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
                 label: (args["label"] as? String) ?? "Skip",
                 countdownStyle: (args["countdownStyle"] as? String) ?? "both",
                 segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
-                segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0)
+                segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
+                autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
         case "hideSkipSegment":
             playerVC?.hideSkipSegment()
         case "showRemoteSubtitles":

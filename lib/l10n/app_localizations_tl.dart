@@ -10174,6 +10174,9 @@ class AppLocalizationsTl extends AppLocalizations {
   String get settingsSkip => 'Laktawan';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Walang Gawin';
 
   @override

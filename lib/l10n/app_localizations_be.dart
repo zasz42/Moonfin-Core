@@ -10128,6 +10128,9 @@ class AppLocalizationsBe extends AppLocalizations {
   String get settingsSkip => 'Прапусціць';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Нічога не рабіць';
 
   @override

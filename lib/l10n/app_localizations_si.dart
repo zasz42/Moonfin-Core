@@ -10069,6 +10069,9 @@ class AppLocalizationsSi extends AppLocalizations {
   String get settingsSkip => 'මඟ හරින්න';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'කිසිවක් නොකරන්න';
 
   @override

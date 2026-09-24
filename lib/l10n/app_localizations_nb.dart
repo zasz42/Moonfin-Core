@@ -10073,6 +10073,9 @@ class AppLocalizationsNb extends AppLocalizations {
   String get settingsSkip => 'Hopp over';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Gjør ingenting';
 
   @override

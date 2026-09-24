@@ -10129,6 +10129,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get settingsSkip => 'Izlaist';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Nedariet neko';
 
   @override

@@ -10020,6 +10020,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get settingsSkip => 'پرش کنید';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'هیچ کاری نکن';
 
   @override

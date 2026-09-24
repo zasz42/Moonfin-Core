@@ -10205,6 +10205,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsSkip => 'Sauter';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'Ne rien faire';
 
   @override

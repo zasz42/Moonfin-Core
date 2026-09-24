@@ -9728,6 +9728,7 @@
   "settingsSkipButtonAutoHideDescription": "Automatically dismiss the skip intro and outro button after a few seconds.",
   "settingsPromptUser": "Prompt User",
   "settingsSkip": "Skip",
+  "settingsDelayedSkip": "Delayed Skip",
   "settingsDoNothing": "Do Nothing",
   "settingsMaxBitrateDescription": "Cap the streaming bitrate. Content above this threshold will be transcoded to fit.",
   "settingsMaxResolutionDescription": "Limit the maximum resolution the player will request. Higher-resolution content will be transcoded down.",

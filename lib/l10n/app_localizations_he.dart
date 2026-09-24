@@ -9956,6 +9956,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settingsSkip => 'לְדַלֵג';
 
   @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get settingsDoNothing => 'אל תעשה כלום';
 
   @override
