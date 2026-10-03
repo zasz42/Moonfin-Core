@@ -28,7 +28,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     setState(() {});
   }
 
-  /// The three choices for one segment type, each carrying the whole
+  /// The four choices for one segment type, each carrying the whole
   /// preference value.
   ///
   /// The selected action maps back to [current] verbatim rather than to a
@@ -47,6 +47,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     return {
       valueFor(MediaSegmentAction.askToSkip): l10n.settingsPromptUser,
       valueFor(MediaSegmentAction.skip): l10n.settingsSkip,
+      valueFor(MediaSegmentAction.delayedSkip): l10n.settingsDelayedSkip,
       valueFor(MediaSegmentAction.nothing): l10n.settingsDoNothing,
     };
   }
@@ -58,7 +59,10 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     final mediaSegmentActions = _prefs.get(UserPreferences.mediaSegmentActions);
     final segmentActions = parseMediaSegmentActions(mediaSegmentActions);
     final promptsForAnySegment = segmentActions.values.any(
-      (action) => action == MediaSegmentAction.askToSkip,
+      (action) =>
+          action == MediaSegmentAction.askToSkip ||
+          // Delayed skip shows the same skip button with countdown/timer.
+          action == MediaSegmentAction.delayedSkip,
     );
     final showNextUpOptions = nextUpBehavior != NextUpBehavior.disabled;
     // Gated on the outro, since this replaces the Skip Outro button.

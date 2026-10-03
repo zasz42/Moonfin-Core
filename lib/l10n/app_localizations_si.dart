@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -4385,6 +4384,20 @@ class AppLocalizationsSi extends AppLocalizations {
       'සියලුම සම්බන්ධිත සර්වර් වලින් පුස්තකාල පෙන්වන්න';
 
   @override
+  String get primaryServerForLocalMedia => 'Default Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+      'Choose a default server for playing all local media';
+
+  @override
+  String get mergeMediaBarLibraries => 'Merge Libraries from Multiple Servers';
+
+  @override
+  String get mergeMediaBarLibrariesDescription =>
+      'Libraries from multiple servers will be available as sources for the media bar';
+
+  @override
   String get mergeRecentRowsByType => 'Merge Recent Rows by Type';
 
   @override
@@ -4508,6 +4521,23 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Aya';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => 'මාධ්‍ය තීරුව සබල කරන්න';
@@ -10231,6 +10261,9 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get settingsSkip => 'මඟ හරින්න';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
 
   @override
   String get settingsDoNothing => 'කිසිවක් නොකරන්න';
