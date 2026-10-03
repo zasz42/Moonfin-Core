@@ -16,6 +16,7 @@ import 'package:server_core/server_core.dart' hide ImageType;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/services/achievements_service.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/services/auto_download_service.dart';
 import '../../../data/services/plugin_sync_service.dart';
 import '../../../data/services/custom_external_lists_service.dart';
@@ -46,6 +47,7 @@ import '../../widgets/app_update_dialog.dart';
 
 import '../../../auth/store/authentication_preferences.dart';
 import '../../../auth/repositories/session_repository.dart';
+import '../../../data/repositories/multi_server_repository.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../util/error_message.dart';
 import '../../../playback/audio_capability_profile.dart';

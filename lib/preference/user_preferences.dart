@@ -498,6 +498,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_modern_home_rows_padding',
     'pref_classic_home_rows_padding',
     'pref_modern_cards_my_media',
+    'compactClassicHomeRowEnabled',
     'poster_size',
     'pref_display_favorites_rows',
     'pref_display_collections_rows',
@@ -537,6 +538,8 @@ class UserPreferences extends ChangeNotifier {
     'mediaBarAutoAdvance',
     'mediaBarIntervalMs',
     'mediaBarTrailerPreview',
+'compactBannerUpcomingReleases',
+    'compactBannerEnabled',
     'mediaBarTrailerAudio',
     'mediaBarTrailerCaptions',
     'episodePreviewEnabled',
@@ -1014,6 +1017,11 @@ class UserPreferences extends ChangeNotifier {
   static final modernCardsOnMyMediaRow = Preference<bool>(
     key: 'pref_modern_cards_my_media',
     defaultValue: true,
+  );
+
+  static final compactClassicHomeRowEnabled = Preference(
+    key: 'compactClassicHomeRowEnabled',
+    defaultValue: false,
   );
 
   /// How far a mouse wheel notch scrolls, as a percentage of what the platform
@@ -2519,6 +2527,16 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: true,
   );
 
+  static final compactBannerEnabled = Preference(
+    key: 'compactBannerEnabled',
+    defaultValue: false,
+  );
+
+  static final compactBannerUpcomingReleases = Preference(
+    key: 'compactBannerUpcomingReleases',
+    defaultValue: false,
+  );
+
   static final mediaBarTrailerAudio = Preference(
     key: 'mediaBarTrailerAudio',
     defaultValue: false,
@@ -2542,6 +2560,16 @@ class UserPreferences extends ChangeNotifier {
   static final mediaBarExcludedGenres = Preference(
     key: 'mediaBarExcludedGenres',
     defaultValue: '',
+  );
+
+  static final primaryServerForLocalMedia = Preference(
+    key: 'pref_primary_server_for_local_media',
+    defaultValue: '',
+  );
+
+  static final mergeMediaBarLibraries = Preference(
+    key: 'pref_merge_media_bar_libraries',
+    defaultValue: false,
   );
 
   static final episodePreviewEnabled = Preference(
@@ -2655,6 +2683,11 @@ class UserPreferences extends ChangeNotifier {
   static final lastExternalRowsRefreshTime = Preference(
     key: 'last_external_rows_refresh_time',
     defaultValue: 0,
+  );
+
+  static final externalPostersEnabled = Preference(
+    key: 'external_posters_enabled',
+    defaultValue: false,
   );
 
   static final imdbTop250MoviesEnabled = Preference(
