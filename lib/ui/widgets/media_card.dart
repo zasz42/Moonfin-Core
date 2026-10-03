@@ -86,6 +86,12 @@ class MediaCard extends StatefulWidget {
   final String? subtitle;
   final Widget? subtitleWidget;
   final String? imageUrl;
+
+  /// Server poster painted underneath [imageUrl] while an external overlay
+  /// poster (e.g. btttr.cc) is still loading, and kept when it fails. Pass
+  /// null (the default) to preserve the classic single-image behavior used
+  /// by detail pages and every other caller.
+  final String? fallbackImageUrl;
   final double width;
   final double aspectRatio;
   final VoidCallback? onTap;
@@ -139,6 +145,7 @@ class MediaCard extends StatefulWidget {
     this.subtitle,
     this.subtitleWidget,
     this.imageUrl,
+    this.fallbackImageUrl,
     this.width = 150,
     this.aspectRatio = 2 / 3,
     this.onTap,
@@ -403,6 +410,7 @@ class _MediaCardState extends State<MediaCard> with FocusStateMixin {
                         : Alignment.center,
                     child: _CardImage(
                       imageUrl: widget.imageUrl,
+                      fallbackImageUrl: widget.fallbackImageUrl,
                       title: widget.title,
                       aspectRatio: widget.aspectRatio,
                       isFavorite: widget.isFavorite,
@@ -657,6 +665,7 @@ class _TvFocusParallaxState extends State<_TvFocusParallax>
 
 class _CardImage extends StatelessWidget {
   final String? imageUrl;
+  final String? fallbackImageUrl;
   final String? title;
   final double aspectRatio;
   final bool isFavorite;
@@ -680,6 +689,7 @@ class _CardImage extends StatelessWidget {
 
   const _CardImage({
     this.imageUrl,
+    this.fallbackImageUrl,
     this.title,
     required this.aspectRatio,
     required this.isFavorite,
@@ -765,26 +775,57 @@ class _CardImage extends StatelessWidget {
                       ? const EdgeInsets.all(8.0)
                       : EdgeInsets.zero,
                   child: imageUrl != null
-                      ? Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            BoundedNetworkImage(
-                              imageUrl: imageUrl!,
-                              fit:
-                                  (itemType == 'Network' ||
-                                      itemType == 'Studio')
-                                  ? BoxFit.contain
-                                  : BoxFit.cover,
-                              fadeInDuration: Duration.zero,
-                              maxWidth: MediaCard.decodeMaxWidthFor(
-                                aspectRatio,
-                              ),
-                              errorBuilder: (_, _, _) => _PlaceholderIcon(
-                                itemType: itemType,
-                                title: title,
-                              ),
-                            ),
-                            if (isGenreFallback) ...[
+                      ? Builder(
+                          builder: (context) {
+                            // Server art underneath an external overlay poster:
+                            // visible instantly and while the overlay is still
+                            // rendering, and kept when the overlay 404s. The
+                            // overlay rides the low-priority lane so slow
+                            // external renders never starve real artwork (e.g.
+                            // episode thumbnails) in the shared fetch queue.
+                            final fallback = fallbackImageUrl;
+                            final useFallback =
+                                fallback != null &&
+                                fallback.isNotEmpty &&
+                                fallback != imageUrl;
+                            final fit =
+                                (itemType == 'Network' ||
+                                        itemType == 'Studio')
+                                    ? BoxFit.contain
+                                    : BoxFit.cover;
+                            final decodeWidth =
+                                MediaCard.decodeMaxWidthFor(aspectRatio);
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (useFallback)
+                                  BoundedNetworkImage(
+                                    imageUrl: fallback,
+                                    fit: fit,
+                                    fadeInDuration: Duration.zero,
+                                    maxWidth: decodeWidth,
+                                    errorBuilder: (_, _, _) =>
+                                        _PlaceholderIcon(
+                                          itemType: itemType,
+                                          title: title,
+                                        ),
+                                  ),
+                                BoundedNetworkImage(
+                                  imageUrl: imageUrl!,
+                                  fit: fit,
+                                  fadeInDuration: Duration.zero,
+                                  maxWidth: decodeWidth,
+                                  priority: useFallback
+                                      ? ImageFetchPriority.low
+                                      : ImageFetchPriority.normal,
+                                  errorBuilder: (_, _, _) => useFallback
+                                      ? const SizedBox.shrink()
+                                      : _PlaceholderIcon(
+                                          itemType: itemType,
+                                          title: title,
+                                        ),
+                                ),
+                                if (isGenreFallback) ...[
                               Container(
                                 color: Colors.black.withValues(alpha: 0.45),
                               ),
@@ -823,7 +864,8 @@ class _CardImage extends StatelessWidget {
                                 ),
                             ],
                           ],
-                        )
+                        );
+                      })
                       : _PlaceholderIcon(itemType: itemType, title: title),
                 ),
                 if (isFavorite ||
