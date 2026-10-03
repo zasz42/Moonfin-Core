@@ -207,6 +207,24 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
                 onTap: () =>
                     context.pushSettingsScreen(const HomeRowTogglesScreen()),
               ),
+              EnumPreferenceTile<LibrarySorting>(
+                preference: UserPreferences.librarySorting,
+                title: 'Library Sorting',
+                description:
+                    'Order Recently Added Movies and TV Shows rows: server default, TV first, or Movies first.',
+                icon: Icons.sort,
+                labelOf: (v) => switch (v) {
+                  LibrarySorting.auto => l10n.auto,
+                  LibrarySorting.series => l10n.series,
+                  LibrarySorting.movies => l10n.movies,
+                },
+                onChanged: () {
+                  _pushPersonalizationSync();
+                  _reloadHomeRows();
+                  if (!mounted) return;
+                  setState(() {});
+                },
+              ),
               if (rowsStyle == HomeRowsStyle.v1)
                 _TvSettingsListTile(
                   leading: const Icon(Icons.image_outlined),
