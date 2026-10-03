@@ -96,17 +96,123 @@ List<AggregatedItem> normalizeLatestMediaItems(
 }
 
 List<AggregatedItem> _collapseLatestTvItems(List<AggregatedItem> items) {
-  final collapsed = <AggregatedItem>[];
-  final seenIds = <String>{};
+  return dedupMergedRows(
+    [for (final item in items) _seriesCardForLatestTvItem(item) ?? item],
+  );
+}
 
-  for (final item in items) {
-    final normalized = _seriesCardForLatestTvItem(item) ?? item;
-    if (seenIds.add(normalized.id)) {
-      collapsed.add(normalized);
+/// Whether a server with display [name] is the Remux/Debrid source whose
+/// copies should represent a title found on several servers.
+bool isRemuxServerName(String? name) =>
+    (name ?? '').toLowerCase().contains('remux');
+
+/// All identity keys for [item]: provider ids plus a normalized title+year
+/// key. Episodes and seasons key by their series, since rows collapse them
+/// to series cards.
+List<String> _mergedRowIdentityKeys(AggregatedItem item) {
+  final keys = <String>[];
+  final imdb = item.imdbId;
+  if (imdb != null && imdb.isNotEmpty) keys.add('imdb:$imdb');
+  final tmdb = item.tmdbId;
+  if (tmdb != null && tmdb.isNotEmpty) keys.add('tmdb:$tmdb');
+  final type = item.type?.toLowerCase() ?? '';
+  if (type == 'episode' || type == 'season') {
+    final seriesName = (item.seriesName ?? '').toLowerCase().trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (seriesName.isNotEmpty) {
+      final numbers =
+          's${item.parentIndexNumber ?? 0}e${item.indexNumber ?? 0}';
+      keys.add('episode:$seriesName|${item.productionYear ?? 0}|$numbers');
+    }
+  } else {
+    final name = item.name.toLowerCase().trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (name.isNotEmpty) {
+      keys.add('title:$name|${item.productionYear ?? 0}');
     }
   }
+  if (keys.isEmpty) keys.add('${item.serverId}|${item.id}');
+  return keys;
+}
 
-  return collapsed;
+/// Returns [base] with any provider ids it lacks filled in from [extra].
+/// Only global ids travel across servers; artwork tags never do (a tag is
+/// only valid for the item id it was issued with).
+AggregatedItem _withBackfilledProviderIds(
+  AggregatedItem base,
+  AggregatedItem extra,
+) {
+  final baseLower = <String>{
+    for (final k in base.providerIds.keys) k.toLowerCase(),
+  };
+  final merged = Map<String, String>.from(base.providerIds);
+  var changed = false;
+  extra.providerIds.forEach((k, v) {
+    if (v.isNotEmpty && !baseLower.contains(k.toLowerCase())) {
+      merged[k] = v;
+      changed = true;
+    }
+  });
+  if (!changed) return base;
+  final raw = Map<String, dynamic>.from(base.rawData)
+    ..['ProviderIds'] = merged;
+  return AggregatedItem(
+    id: base.id,
+    serverId: base.serverId,
+    rawData: raw,
+  );
+}
+
+/// Merges [items] to one card per title for combined rows. An item is
+/// dropped when ANY of its identity keys was already kept, so copies that
+/// share only a TMDB id, only a title, or only an IMDb id still collapse
+/// together. Of the copies, a Remux one wins (it exposes both the local
+/// and the Debrid versions); otherwise the first one seen wins. The
+/// survivor backfills provider ids it lacks from the dropped copies.
+List<AggregatedItem> dedupMergedRows(
+  Iterable<AggregatedItem> items, {
+  Set<String> remuxServerIds = const {},
+}) {
+  final keyToIndex = <String, int>{};
+  final result = <AggregatedItem>[];
+  bool isRemux(AggregatedItem item) => remuxServerIds.contains(item.serverId);
+
+  for (final item in items) {
+    final keys = _mergedRowIdentityKeys(item);
+    int? match;
+    for (final key in keys) {
+      final index = keyToIndex[key];
+      if (index != null) {
+        match = index;
+        break;
+      }
+    }
+    if (match == null) {
+      final index = result.length;
+      result.add(item);
+      for (final key in keys) {
+        keyToIndex[key] = index;
+      }
+      continue;
+    }
+    final survivor = result[match];
+    if (isRemux(item) && !isRemux(survivor)) {
+      result[match] = _withBackfilledProviderIds(item, survivor);
+      for (final key in _mergedRowIdentityKeys(survivor)) {
+        keyToIndex[key] = match;
+      }
+    } else {
+      result[match] = _withBackfilledProviderIds(survivor, item);
+    }
+    for (final key in keys) {
+      keyToIndex[key] = match;
+    }
+  }
+  return result;
 }
 
 AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
@@ -130,6 +236,13 @@ AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
   rawData['Name'] = seriesName;
   rawData.remove('IndexNumber');
   rawData.remove('ParentIndexNumber');
+  // An episode's provider ids identify the episode, never the show: left in
+  // place the card would build (and dedup by) a poster id that cannot
+  // resolve to series art. Seasons keep theirs (usable for per-season
+  // posters via the parent series id).
+  if (item.type == 'Episode') {
+    rawData.remove('ProviderIds');
+  }
 
   // A season's parent is the series so its tag fits the id set below, but an
   // episode's parent is the season and that tag would not match the series.
