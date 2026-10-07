@@ -62,6 +62,7 @@ abstract class AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   });
 
   Future<void> hideSkipSegment();
@@ -114,6 +115,8 @@ class AppleTvPlaybackPromptController {
   DateTime? _suppressSeekPromptsUntil;
   Timer? _nextUpTimer;
   Timer? _skipSegmentAutoHideTimer;
+  Timer? _autoSkipDelayTimer;
+  Duration? _autoSkipDeadline;
   bool _skipSegmentVisible = false;
   Duration? _skipTo;
   MediaSegmentType? _skipSegmentType;
@@ -358,6 +361,16 @@ class AppleTvPlaybackPromptController {
       return;
     }
 
+    if (result.isDelayedSkip && result.skipTo != null && result.segment != null) {
+      final pendingSame =
+          _autoSkipDelayTimer != null &&
+          _skipSegmentType == result.segment!.type;
+      if (result.isNew && !pendingSame) {
+        _startDelayedAutoSkip(result.segment!, result.skipTo!);
+      }
+      return;
+    }
+
     if (result.shouldAsk && result.isNew && result.segment != null) {
       final isOutro = result.segment!.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUp()) {
@@ -467,6 +480,9 @@ class AppleTvPlaybackPromptController {
   void _clearSkipSegmentState() {
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
     _skipSegmentVisible = false;
     _skipTo = null;
     _skipSegmentType = null;
@@ -477,6 +493,39 @@ class AppleTvPlaybackPromptController {
     unawaited(_commands.hideSkipSegment());
   }
 
+  void _startDelayedAutoSkip(MediaSegment segment, Duration skipTo) {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    _skipSegmentVisible = true;
+    _skipTo = skipTo;
+    _skipSegmentType = segment.type;
+    unawaited(
+      _commands.showSkipSegment(
+        segment.type.displayName,
+        countdownStyle: _prefs.get(UserPreferences.mediaSegmentCountdown).name,
+        segmentStartMs: segment.start.inMilliseconds,
+        segmentEndMs: segment.end.inMilliseconds,
+        autoSkipDeadlineMs: _autoSkipDeadline!.inMilliseconds,
+      ),
+    );
+    _autoSkipDelayTimer = Timer(const Duration(seconds: 10), () {
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      if (_disposed) return;
+      unawaited(_commands.seekTo(skipTo));
+      _clearSkipSegment();
+    });
+  }
+
+  /// Called from the native side when the user presses Menu/back during a
+  /// delayed skip countdown. Cancels the auto-skip timer but leaves the
+  /// skip button visible for manual skipping.
+  void cancelDelayedAutoSkip() {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
+  }
+
   void dispose() {
     if (_disposed) return;
     _disposed = true;
@@ -484,6 +533,8 @@ class AppleTvPlaybackPromptController {
     _nextUpTimer = null;
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
     final completer = _stillWatchingCompleter;
     if (completer != null && !completer.isCompleted) {
       // The awaiting code checks the disposed flag after this resolves, so
