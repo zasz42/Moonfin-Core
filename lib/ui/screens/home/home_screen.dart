@@ -53,6 +53,7 @@ import '../../widgets/focus/locked_focus_row.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/focus/input_mode_tracker.dart';
 import '../../../util/artwork_request_size.dart';
+import '../../../util/clock_format.dart';
 import '../../../util/device_performance.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/server_url.dart';
@@ -67,6 +68,7 @@ import '../../widgets/library_row.dart';
 import '../../widgets/media_bar.dart';
 import '../../widgets/mediabar/banner_media_bar.dart';
 import '../../widgets/image_source.dart';
+import '../../widgets/mediabar/upcoming_releases_bar.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/selector_builder.dart';
 import '../../widgets/bottom_nav/bottom_navbar.dart';
@@ -756,8 +758,10 @@ class _ContentRowsState extends State<_ContentRows>
   static const Duration _focusedRowSpacingDuration = Duration(
     milliseconds: 200,
   );
+  static const int _bannerScrollStartRowIndex = 2;
   final _scrollController = ScrollController();
   final _mediaBarFocusNode = FocusNode(debugLabel: 'home_media_bar_focus');
+  final _upcomingBarKey = GlobalKey<UpcomingReleasesBarState>();
   final _playbackManager = GetIt.instance<PlaybackManager>();
   final _audioArbiter = GetIt.instance<PlaybackArbiter>();
   // The playback module only registers a Media3 backend on some platforms, so
@@ -2177,6 +2181,12 @@ class _ContentRowsState extends State<_ContentRows>
     return widget.prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v2;
   }
 
+  // The compact classic layout is the "Compact" toggle layered on top of the
+  // vanilla Classic (v1) home row style.
+  bool get _isCompactClassicMode =>
+      !_isHomeRowsStyleV2() &&
+      widget.prefs.get(UserPreferences.compactClassicHomeRowEnabled);
+
   bool _showHomeRowInfoOverlay() {
     if (PlatformDetection.useMobileUi) {
       return false;
@@ -2318,9 +2328,18 @@ class _ContentRowsState extends State<_ContentRows>
     final screenWidth = size.width;
 
     if (_isBannerMode()) {
-      if (PlatformDetection.isTV) return 320.0;
-      if (!PlatformDetection.useMobileUi) return 240.0;
-      return 200.0;
+      // Compact banner: half the display width at 21:9 proportions (the
+      // Upcoming Releases rail takes the other half when enabled), so the
+      // layout slot tracks the responsive card size. Full banner stays fixed.
+      if (widget.prefs.get(UserPreferences.compactBannerEnabled)) {
+        return BannerMediaBar.compactHeightFor(
+          screenWidth,
+          withUpcoming: widget.prefs.get(
+            UserPreferences.compactBannerUpcomingReleases,
+          ),
+        );
+      }
+      return BannerMediaBar.fixedHeight;
     }
 
     if (_isAyaMode()) {
@@ -2359,6 +2378,16 @@ class _ContentRowsState extends State<_ContentRows>
       widget.prefs.get(UserPreferences.mediaBarMode),
     );
     return mode == UserPreferences.mediaBarModeBanner;
+  }
+
+  // In banner mode the media bar stays pinned at the top for the first
+  // [_bannerScrollStartRowIndex] rows. Focusing any of those rows must not
+  // scroll the page down, so the banner remains fully visible until focus
+  // reaches the third home row.
+  bool _bannerKeepsPositionAt(int rowIndex) {
+    if (!_isBannerMode()) return false;
+    if (rowIndex < 0 || rowIndex >= _rowTopOffsets.length) return false;
+    return rowIndex < _bannerScrollStartRowIndex;
   }
 
   bool _isAyaMode() {
@@ -2843,8 +2872,10 @@ class _ContentRowsState extends State<_ContentRows>
     final hasSubtitle = subtitle != null &&
         (row.rowType != HomeRowType.liveTv &&
             row.rowType != HomeRowType.libraryTilesSmall);
-    final headerPaddingTop = isRowsV2 ? 6.0 : 16.0;
-    final headerPaddingBottom = isRowsV2 ? 1.0 : 8.0;
+    final headerPaddingTop =
+        isRowsV2 ? 6.0 : (_isCompactClassicMode ? 4.0 : 16.0);
+    final headerPaddingBottom =
+        isRowsV2 ? 1.0 : (_isCompactClassicMode ? 2.0 : 8.0);
     final titleHeight = 20.0 * metadataScale;
     final subtitleHeight = hasSubtitle ? (18.0 * metadataScale) : 0.0;
     final headerHeight = headerPaddingTop + headerPaddingBottom + titleHeight + subtitleHeight;
@@ -2862,9 +2893,13 @@ class _ContentRowsState extends State<_ContentRows>
         }
         totalHeight += offset;
       } else if (_isLibraryRow(row)) {
-        final classicPadding = prefs
-            .get(UserPreferences.classicHomeRowsPadding)
-            .toDouble();
+        final storedClassicPadding =
+            prefs.get(UserPreferences.classicHomeRowsPadding);
+        final classicPadding =
+            (_isCompactClassicMode && storedClassicPadding == 30
+                    ? 20
+                    : storedClassicPadding)
+                .toDouble();
         totalHeight += (classicPadding - 10.0).clamp(0.0, 120.0);
       }
     }
@@ -3213,11 +3248,16 @@ class _ContentRowsState extends State<_ContentRows>
           _scrollController.hasClients &&
           rowIndex >= 0 &&
           rowIndex < _rowTopOffsets.length) {
-        final offsetAdjustment = _desktopRowFocusTargetTop();
-        final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
-            .clamp(0.0, _scrollController.position.maxScrollExtent);
-        if ((_scrollController.offset - targetOffset).abs() > 10) {
-          _scrollController.jumpTo(targetOffset);
+        if (_bannerKeepsPositionAt(rowIndex)) {
+          // Keep the banner pinned at the top on the first two rows.
+          _scrollController.jumpTo(0);
+        } else {
+          final offsetAdjustment = _desktopRowFocusTargetTop();
+          final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
+              .clamp(0.0, _scrollController.position.maxScrollExtent);
+          if ((_scrollController.offset - targetOffset).abs() > 10) {
+            _scrollController.jumpTo(targetOffset);
+          }
         }
       }
       final didRequestFocus = _requestRowFocusFromMemory(rowIndex);
@@ -3260,6 +3300,23 @@ class _ContentRowsState extends State<_ContentRows>
             targetState.requestFocusAt(0);
           } else {
             _requestRowFocusFromMemory(target, preferredIndex: 0);
+          }
+
+
+          // In banner mode focus on the first two rows keeps the media bar
+          // pinned at the top. Scroll back to 0 so the banner stays fully
+          // visible; the page only scrolls down once focus reaches the third
+          // row (_bannerScrollStartRowIndex).
+          if (_bannerKeepsPositionAt(target)) {
+            if (_scrollController.hasClients &&
+                _scrollController.offset > 0) {
+              await _scrollController.animateTo(
+                0,
+                duration: _focusHandoffDuration,
+                curve: _focusHandoffCurve,
+              );
+            }
+            return;
           }
 
           final navComplete = Completer<void>();
@@ -3614,6 +3671,14 @@ class _ContentRowsState extends State<_ContentRows>
     if (!fullScreenRows) return;
 
     if (_mediaBarFocusNode.hasFocus) return;
+
+    final activeRow = _activeFocusedRowIndex;
+    if (activeRow != null && _bannerKeepsPositionAt(activeRow)) {
+      // In banner mode the first two rows keep the media bar pinned at the
+      // top, so the page must not recenter or pull focus back to the bar
+      // while the user is resting on one of those rows.
+      return;
+    }
 
     final homeContentHadFocus = _homeContentHasRealFocus();
 
@@ -4088,7 +4153,7 @@ class _ContentRowsState extends State<_ContentRows>
 
   String? _rowSubtitle(HomeRow row, AppLocalizations l10n) {
     if (row.id == 'merged_calendar' || row.id == 'radarr_calendar' || row.id == 'sonarr_calendar') {
-      return 'Radarr and Sonarr Calendars';
+      return _isCompactClassicMode ? null : 'Radarr and Sonarr Calendars';
     }
     if (row.id.startsWith('seerr_')) return l10n.seerrDiscoveryRows;
     if (row.id.startsWith('tmdb_')) return 'TMDB Lists';
@@ -4388,6 +4453,23 @@ class _ContentRowsState extends State<_ContentRows>
                                                   _isActivelyScrolling) ||
                                               chromeAudioActive;
 
+                                          // The compact banner must keep
+                                           // auto-advancing whenever the media
+                                           // bar does not have focus, such as
+                                           // while the user navigates the home
+                                           // rows. Only pause it when a preview
+                                           // is playing, or while it has focus
+                                           // and the user is hovering, the list
+                                           // is mid-scroll, or audio focus is
+                                           // elsewhere.
+                                           final bannerPaused =
+                                               _activePreviewKey != null ||
+                                               _mediaBarFocusNode.hasFocus &&
+                                                   (isHoverPaused ||
+                                                       (!PlatformDetection.isMobile &&
+                                                           _isActivelyScrolling) ||
+                                                       chromeAudioActive);
+
                                           return RepaintBoundary(
                                             child: bannerMode
                                               ? BannerMediaBar(
@@ -4395,9 +4477,8 @@ class _ContentRowsState extends State<_ContentRows>
                                                   prefs: prefs,
                                                   height: mediaBarHeight,
                                                   externallyPaused:
-                                                      barPaused ||
-                                                      !mediaBarVisible ||
-                                                      _activePreviewKey != null,
+                                                      bannerPaused ||
+                                                      !mediaBarVisible,
                                                   focusNode: _mediaBarFocusNode,
                                                   onNavigateDown: _moveFocusFromMediaBarToRows,
                                                   onNavigateUp: _navigateFromMediaBarToNavbar,
@@ -4611,6 +4692,15 @@ class _ContentRowsState extends State<_ContentRows>
             return const SizedBox.shrink();
           },
         ),
+        // TV builds with the left sidebar navbar have no top toolbar, so the
+        // toolbar's top-right clock is gone too. Re-enable a clock overlay in
+        // the same corner on the home screen (compact-banner owns this).
+        if (PlatformDetection.isTV && navbarIsLeft)
+          Positioned(
+            top: safeTop + 27.0,
+            right: 48.0,
+            child: _TvSidebarClock(prefs: prefs),
+          ),
       ],
     ),
   );
@@ -4662,7 +4752,12 @@ class _ContentRowsState extends State<_ContentRows>
           itemSpacing: _rowItemSpacing(squarePosterSide, cardExpansion),
           leadingPadding: _isHomeRowsStyleV2() ? _kHomeRowLabelInset : 0,
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
-          padding: const EdgeInsets.fromLTRB(_kHomeRowLabelInset, 5, 20, 5),
+          padding: EdgeInsets.fromLTRB(
+            _kHomeRowLabelInset,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+            20,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+          ),
           onIndexChanged: (_, _) {
             _onHomeRowTileFocused(null);
           },
@@ -4728,9 +4823,10 @@ class _ContentRowsState extends State<_ContentRows>
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
           padding: EdgeInsets.fromLTRB(
             _kHomeRowLabelInset,
-            5 + headroom,
+            (_isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5)) +
+                headroom,
             20,
-            5,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
           ),
           onIndexChanged: (_, item) {
             _onHomeRowTileFocused(item);
@@ -4889,7 +4985,8 @@ class _ContentRowsState extends State<_ContentRows>
           (_classicCardMetadataHeight * metadataScale);
     }
 
-    final rowPadding = 5.0 * metadataScale;
+    final rowPadding =
+        (_isCompactClassicMode ? 2.0 : 5.0) * metadataScale;
     final topPadding =
         rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
     final lockedRowHeight = maxCardHeight + topPadding + rowPadding;
@@ -5524,9 +5621,9 @@ class _ContentRowsState extends State<_ContentRows>
           Padding(
             padding: EdgeInsets.fromLTRB(
               _kHomeRowLabelInset,
-              isRowsV2 ? 6 : 16,
+              isRowsV2 ? 6 : (_isCompactClassicMode ? 4 : 16),
               8,
-              isRowsV2 ? 1 : 8,
+              isRowsV2 ? 1 : (_isCompactClassicMode ? 2 : 8),
             ),
             child: Row(
               children: [
@@ -6471,6 +6568,77 @@ class _ContentRowsState extends State<_ContentRows>
     final tags = item.rawData['ImageTags'];
     if (tags is! Map) return null;
     return tags[imageType] as String?;
+  }
+}
+
+/// TV-only clock overlay for the home screen when the left sidebar is the
+/// navbar. The top toolbar (and its top-right clock) is not built in that
+/// mode, so without this the home screen has no clock. Non-interactive and
+/// never focusable; mirrors the toolbar clock prefs ([ClockBehavior], the
+/// 24-hour toggle) and tick cadence (30s). Owned by compact-banner.
+class _TvSidebarClock extends StatefulWidget {
+  final UserPreferences prefs;
+
+  const _TvSidebarClock({required this.prefs});
+
+  @override
+  State<_TvSidebarClock> createState() => _TvSidebarClockState();
+}
+
+class _TvSidebarClockState extends State<_TvSidebarClock> {
+  Timer? _timer;
+  late String _time;
+
+  @override
+  void initState() {
+    super.initState();
+    _time = _formattedNow();
+    widget.prefs.addListener(_onPrefsChanged);
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    widget.prefs.removeListener(_onPrefsChanged);
+    super.dispose();
+  }
+
+  void _onPrefsChanged() {
+    if (!mounted) return;
+    setState(() => _time = _formattedNow());
+  }
+
+  void _tick() {
+    if (!mounted) return;
+    final now = _formattedNow();
+    if (now != _time) setState(() => _time = now);
+  }
+
+  String _formattedNow() => formatClockTime(
+    DateTime.now(),
+    use24Hour: widget.prefs.get(UserPreferences.use24HourClock),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final behavior = widget.prefs.get(UserPreferences.clockBehavior);
+    final show =
+        behavior == ClockBehavior.always ||
+        behavior == ClockBehavior.inMenus;
+    if (!show) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: Text(
+        _time,
+        textDirection: TextDirection.ltr,
+        style: const TextStyle(
+          color: Color(0xE6FFFFFF),
+          fontSize: 22,
+          fontWeight: FontWeight.w500,
+          shadows: [Shadow(color: Color(0xB3000000), blurRadius: 8)],
+        ),
+      ),
+    );
   }
 }
 
