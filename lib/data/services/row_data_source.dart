@@ -47,16 +47,17 @@ class RowDataSource {
       'ParentIndexNumber,IndexNumber,Status,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio';
+      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio,'
+      'ProviderIds';
   static const _fallbackFields =
       'DateCreated,Type,UserData,OfficialRating,RunTimeTicks,ProductionYear,SeriesName,'
       'ParentIndexNumber,IndexNumber,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag';
+      'ParentLogoItemId,ParentLogoImageTag,ProviderIds';
   static const _minimalFields =
       'Type,UserData,RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,'
-      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId';
+      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId,ProviderIds';
 
   /// An album or track card names its artist under the title. An artist card
   /// has the name as its title, so those rows read neither of these.

@@ -304,6 +304,9 @@ class UpcomingCalendarService {
       // this still works when a remote client cant reach a LAN only Radarr.
       final results = await repo.getRadarrCalendar(start: start, end: end);
 
+      // TMDB id -> IMDb id resolved from the Seerr details lookups below.
+      // Shared across the bounded workers; Dart runs them on one thread.
+      final imdbByTmdb = <String, String>{};
       final enrichCompleters = await mapBounded(
         results,
         5,
@@ -316,6 +319,13 @@ class UpcomingCalendarService {
           final title = res['title'] as String? ?? 'Unknown';
           final overview = res['overview'] as String? ?? '';
           final year = res['year'] as int?;
+
+          // The arr payload often carries the IMDb id directly; the details
+          // lookup below fills it in when it doesn't.
+          final arrImdb = res['imdbId'] as String?;
+          if (arrImdb != null && arrImdb.isNotEmpty) {
+            imdbByTmdb[tmdbId] = arrImdb;
+          }
 
           final inCinemasStr = res['inCinemas'] as String?;
           final digitalReleaseStr = res['digitalRelease'] as String?;
@@ -361,14 +371,31 @@ class UpcomingCalendarService {
             }
           }
 
-          if (posterPath == null || posterPath.isEmpty) {
+          if (posterPath == null ||
+              posterPath.isEmpty ||
+              imdbByTmdb[tmdbId] == null) {
             try {
               final details = await repo.getMovieDetails(int.parse(tmdbId));
-              posterPath = _tmdbImageUrl(details.posterPath, 300) ?? '';
-              backdropPath = _tmdbImageUrl(details.backdropPath, 1280) ?? '';
+              // Only fill gaps: a present arr poster/backdrop wins over TMDB.
+              if (posterPath == null || posterPath.isEmpty) {
+                posterPath =
+                    _tmdbImageUrl(details.posterPath, 300) ?? posterPath;
+              }
+              if (backdropPath == null || backdropPath.isEmpty) {
+                backdropPath =
+                    _tmdbImageUrl(details.backdropPath, 1280) ?? backdropPath;
+              }
+              // btttr.cc raw URLs only resolve IMDb ids: keep the IMDb id so
+              // the upcoming bar can render the external poster. Without it
+              // the stored TMDB artwork is used (never blank).
+              final imdbId = details.externalIds?.imdbId;
+              if (imdbId != null && imdbId.isNotEmpty) {
+                imdbByTmdb[tmdbId] = imdbId;
+              }
             } catch (_) {}
           }
 
+          final imdbId = imdbByTmdb[tmdbId];
           return _CalendarItemWithDate(
             item: AggregatedItem(
               id: tmdbId,
@@ -385,7 +412,8 @@ class UpcomingCalendarService {
                 'DigitalRelease': digitalReleaseStr,
                 'PhysicalRelease': physicalReleaseStr,
                 'CalendarDate': defaultReleaseDate.toIso8601String(),
-                'CacheVerV2': true,
+                'CacheVerV3': true,
+                if (imdbId != null) 'ProviderIds': {'Imdb': imdbId},
               },
             ),
             date: defaultReleaseDate,
@@ -457,6 +485,7 @@ class UpcomingCalendarService {
           final airDateUtc = episodeInfo['airDate'] as DateTime;
 
           int? tmdbId;
+          String? imdbId;
           final tmdbIdVal = seriesMap['tmdbId'];
           if (tmdbIdVal != null && tmdbIdVal != 0) {
             tmdbId = tmdbIdVal as int;
@@ -464,7 +493,19 @@ class UpcomingCalendarService {
             try {
               final tvDetails = await repo.getTvDetailsByTvdb(tvdbId);
               tmdbId = tvDetails.id;
+              // btttr.cc raw URLs only resolve IMDb ids: keep it so the
+              // upcoming bar can render the external poster.
+              final resolved = tvDetails.externalIds?.imdbId;
+              if (resolved != null && resolved.isNotEmpty) {
+                imdbId = resolved;
+              }
             } catch (_) {}
+          }
+          // The Sonarr payload often carries the IMDb id on the series
+          // itself; prefer it over anything resolved above.
+          final arrImdb = seriesMap['imdbId'] as String?;
+          if (arrImdb != null && arrImdb.isNotEmpty) {
+            imdbId = arrImdb;
           }
 
           if (tmdbId == null || tmdbId == 0) return null;
@@ -489,11 +530,22 @@ class UpcomingCalendarService {
             }
           }
 
-          if (posterPath == null || posterPath.isEmpty) {
+          if (posterPath == null || posterPath.isEmpty || imdbId == null) {
             try {
               final details = await repo.getTvDetails(tmdbId);
-              posterPath = _tmdbImageUrl(details.posterPath, 300) ?? '';
-              backdropPath = _tmdbImageUrl(details.backdropPath, 1280) ?? '';
+              // Only fill gaps: a present arr poster/backdrop wins over TMDB.
+              if (posterPath == null || posterPath.isEmpty) {
+                posterPath =
+                    _tmdbImageUrl(details.posterPath, 300) ?? posterPath;
+              }
+              if (backdropPath == null || backdropPath.isEmpty) {
+                backdropPath =
+                    _tmdbImageUrl(details.backdropPath, 1280) ?? backdropPath;
+              }
+              final resolved = details.externalIds?.imdbId;
+              if (resolved != null && resolved.isNotEmpty) {
+                imdbId = resolved;
+              }
             } catch (_) {}
           }
 
@@ -514,7 +566,8 @@ class UpcomingCalendarService {
                 'SeasonNumber': sNum,
                 'EpisodeNumber': eNum,
                 'CalendarDate': airDateUtc.toIso8601String(),
-                'CacheVerV2': true,
+                'CacheVerV3': true,
+                if (imdbId != null) 'ProviderIds': {'Imdb': imdbId},
               },
             ),
             date: airDateUtc,
@@ -578,12 +631,13 @@ class UpcomingCalendarService {
     return '$month $day$suffix';
   }
 
-  /// Entries written before CacheVerV2 have a different shape, so the marker on
-  /// its own decides staleness. Artwork fields are deliberately not checked,
+  /// Entries written before CacheVerV3 predate the IMDb provider ids the
+  /// upcoming bar needs for btttr.cc posters, so the marker on its own
+  /// decides staleness. Artwork fields are deliberately not checked,
   /// because an entry whose poster is genuinely missing is still valid and
   /// refetching it only writes the same empty value back.
   static bool _isStaleCalendarCache(List<AggregatedItem> items) =>
-      items.any((x) => !x.rawData.containsKey('CacheVerV2'));
+      items.any((x) => !x.rawData.containsKey('CacheVerV3'));
 
   Future<List<AggregatedItem>> _loadRadarrCalendarFromCache() async {
     try {
