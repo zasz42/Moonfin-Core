@@ -758,6 +758,28 @@ class _ContentRowsState extends State<_ContentRows>
   static const Duration _focusedRowSpacingDuration = Duration(
     milliseconds: 200,
   );
+
+  /// TV rows never drop on focus: the poster selection box is the only focus
+  /// indication. Zero here (and in the row padding below) removes the
+  /// fall-into-place motion while keeping the scroll offsets aligned with
+  /// the unmoved rows. Narrow to `PlatformDetection.isAppleTV` for tvOS-only.
+  static double _focusedRowExtraSpacingFor() =>
+      PlatformDetection.isTV ? 0.0 : _focusedRowExtraSpacing;
+
+  /// TV compact-classic rows sit tighter now the focused row no longer
+  /// drops (at least 10px less inter-row padding). Only the untouched
+  /// default is remapped; a customized classic padding is always honoured.
+  /// Mirrors the 30 -> 20 default remap compact mode already applies to
+  /// library rows.
+  static const double _tvCompactClassicRowSpacingTrim = 10.0;
+
+  /// Room reserved above the rail so the poster selection border (~3.5px
+  /// past the card) never clips against the row's top edge on TV.
+  static const double _tvCompactClassicRailHeadroom = 2.0;
+
+  /// Bottom rail padding of the Continue Watching & Next Up row in
+  /// compact-classic mode: the row sits tight to the row below it.
+  static const double _compactClassicResumeBottomPadding = 0.0;
   static const int _bannerScrollStartRowIndex = 2;
   final _scrollController = ScrollController();
   final _mediaBarFocusNode = FocusNode(debugLabel: 'home_media_bar_focus');
@@ -1382,7 +1404,7 @@ class _ContentRowsState extends State<_ContentRows>
     }
     final focusedRowSpacing =
         PlatformDetection.isTV && !fullScreenRows && !showInfoOverlay
-        ? _focusedRowExtraSpacing * 2
+        ? _focusedRowExtraSpacingFor() * 2
         : 0.0;
 
     for (var i = 0; i < rowExtents.length; i++) {
@@ -4059,7 +4081,13 @@ class _ContentRowsState extends State<_ContentRows>
   /// since their grid sizes itself and padding there overlaps the next row.
   double _classicRowPadding(HomeRow row, UserPreferences prefs) {
     if (_fullScreenRowsEnabled(prefs) || _isLibraryRow(row)) return 0.0;
-    return prefs.get(UserPreferences.classicHomeRowsPadding).toDouble();
+    final stored = prefs.get(UserPreferences.classicHomeRowsPadding);
+    if (PlatformDetection.isTV &&
+        _isCompactClassicMode &&
+        stored == 30) {
+      return stored - _tvCompactClassicRowSpacingTrim;
+    }
+    return stored.toDouble();
   }
 
   double _v2MetadataHeightBudget(UserPreferences prefs) {
@@ -4632,7 +4660,7 @@ class _ContentRowsState extends State<_ContentRows>
                                       !fullScreenRows &&
                                       !showInfoOverlay &&
                                       rowIndex == activeRowIndex)
-                                  ? _focusedRowExtraSpacing
+                                  ? _focusedRowExtraSpacingFor()
                                   : 0,
                             ),
                             child: ValueListenableBuilder<double>(
@@ -4987,9 +5015,15 @@ class _ContentRowsState extends State<_ContentRows>
 
     final rowPadding =
         (_isCompactClassicMode ? 2.0 : 5.0) * metadataScale;
+    // The Continue Watching & Next Up row sits tight to the row below it
+    // in compact-classic: its bottom rail padding is dropped.
+    final bottomPadding =
+        (_isCompactClassicMode && row.id == 'resume')
+            ? _compactClassicResumeBottomPadding
+            : rowPadding;
     final topPadding =
         rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
-    final lockedRowHeight = maxCardHeight + topPadding + rowPadding;
+    final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);
     final hasSubtitle = subtitle != null && subtitle.isNotEmpty;
@@ -5029,16 +5063,23 @@ class _ContentRowsState extends State<_ContentRows>
           itemKey: _rowItemIdentity,
           hubKey: _hubKeyForRow(row),
           controller: _rowHorizontalController(rowIndex),
-          height: lockedRowHeight,
+          height:
+              lockedRowHeight +
+              (PlatformDetection.isTV && _isCompactClassicMode
+                  ? _tvCompactClassicRailHeadroom
+                  : 0.0),
           itemExtent: firstCardWidth,
           itemSpacing: _rowItemSpacing(firstCardWidth, cardExpansion),
           leadingPadding: isRowsV2 ? _kHomeRowLabelInset : 0,
           clipBehavior: (isRowsV2 || cardExpansion) ? Clip.none : Clip.hardEdge,
           padding: EdgeInsets.fromLTRB(
             _kHomeRowLabelInset,
-            topPadding,
+            topPadding +
+                (PlatformDetection.isTV && _isCompactClassicMode
+                    ? _tvCompactClassicRailHeadroom
+                    : 0.0),
             20,
-            rowPadding,
+            bottomPadding,
           ),
           onFocusChange: (has) => _onRowFocusTracked(rowIndex, has),
           onVerticalNavigation: (isUp) => _onRowVerticalNavigation(
