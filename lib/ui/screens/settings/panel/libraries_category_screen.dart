@@ -74,6 +74,19 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
                   },
                   onChanged: _pushPersonalizationSync,
                 ),
+              if (servers != null && servers.length >= 2)
+                StringPickerPreferenceTile(
+                  preference: UserPreferences.defaultServerForNextUp,
+                  title: l10n.defaultServerForNextUp,
+                  description: l10n.defaultServerForNextUpDescription,
+                  icon: Icons.skip_next,
+                  options: {
+                    '': l10n.auto,
+                    for (final session in servers)
+                      session.server.id: session.server.name,
+                  },
+                  onChanged: _pushPersonalizationSync,
+                ),
               SwitchPreferenceTile(
                 preference: UserPreferences.mergeRecentRowsByType,
                 title: l10n.mergeRecentRowsByType,

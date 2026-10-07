@@ -140,7 +140,11 @@ class HomeViewModel extends ChangeNotifier {
     // an offline home (and vice versa).
     final offline = _isOffline;
     final shape = RowDataSource.fieldShapeToken;
-    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline|fields:$shape';
+    // Merged-row assembly version: bump when the merge/dedup logic changes
+    // so rows cached under the old assembly (e.g. with duplicates) are not
+    // replayed from disk for up to the 3-day cache age.
+    const mergedRowsVersion = 2;
+    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline|fields:$shape|merged:$mergedRowsVersion';
   }
 
   /// Called again when the resume and next up rows refresh on their own, or
@@ -861,14 +865,17 @@ class HomeViewModel extends ChangeNotifier {
           () => _multiServerEnabled
               ? _multiServerRepo.getAggregatedResume()
               : _dataSource.loadResume(_serverId),
-          _prefs.filterContinueWatching,
+          (items) => _filterToNextUpServer(
+            _prefs.filterContinueWatching(items),
+          ),
         ),
         _refreshRowInPlace(
           'nextUp',
           () => _multiServerEnabled
               ? _multiServerRepo.getAggregatedNextUp()
               : _dataSource.loadNextUp(_serverId),
-          _prefs.filterNextUp,
+          (items) =>
+              _filterToNextUpServer(_prefs.filterNextUp(items)),
         ),
         _refreshRowInPlace(
           'resumeAudio',
@@ -1636,19 +1643,31 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     final l10n = currentAppLocalizations();
+    // Server ids whose display name marks them as the Remux/Debrid source.
+    // Their copies win when a title exists on several servers; unknown when
+    // the names cannot be resolved, in which case the first copy wins.
+    Set<String> remuxServerIds = const {};
+    try {
+      final sessions = await _multiServerRepo.getLoggedInServers();
+      remuxServerIds = {
+        for (final session in sessions)
+          if (isRemuxServerName(session.server.name)) session.server.id,
+      };
+    } catch (_) {}
     final mergedRows = <HomeRow>[];
     for (final entry in grouped.entries) {
       final collectionType = entry.key;
       final loadedRows = (await Future.wait(entry.value.map(rowFor)))
           .whereType<HomeRow>();
 
-      // The same title can sit in more than one library, so it is kept once.
-      final seenIds = <String>{};
-      final allItems = [
-        for (final row in loadedRows)
-          for (final item in row.items)
-            if (seenIds.add(item.id)) item,
-      ];
+      // The same title can sit in more than one library (or server), so it
+      // is kept once. Jellyfin ids differ per library/server, and one side
+      // may only carry a TMDB id (or none) where the other has IMDb, so any
+      // shared identity key wins.
+      final allItems = dedupMergedRows(
+        [for (final row in loadedRows) for (final item in row.items) item],
+        remuxServerIds: remuxServerIds,
+      );
       if (allItems.isEmpty) continue;
 
       allItems.sort((a, b) {
@@ -1662,10 +1681,20 @@ class HomeViewModel extends ChangeNotifier {
 
       // Trimmed to the same length a single library row gets, so merging
       // changes what a row holds rather than how big it is.
-      final items = normalizeLatestMediaItems(
+      final normalized = normalizeLatestMediaItems(
         allItems,
         collectionType: collectionType,
         limit: _mergedRowItemLimit,
+        remuxServerIds: remuxServerIds,
+      );
+      if (normalized.isEmpty) continue;
+
+      // Collapse strands same-name series cards (disjoint provider ids,
+      // clashing years, uncollapsed episodes): fold them so each show keeps
+      // one card, Remux preferred. Order is already set; folding only drops.
+      final items = dedupMergedSeriesByName(
+        normalized,
+        remuxServerIds: remuxServerIds,
       );
       if (items.isEmpty) continue;
 
@@ -2205,25 +2234,27 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   /// Merges a fresh first page of Continue Watching and Next Up into the
-  /// resume row. Resume items win the dedupe.
+  /// resume row. Continue Watching titles lead in server order and Next Up
+  /// arrivals follow (newest first); resume items win the dedupe. The row is
+  /// deliberately never sorted as a whole: a Next Up episode carries its
+  /// series' last-played date, so a whole-row date sort would interleave
+  /// unwatched episodes among (or ahead of) titles already in progress —
+  /// the same reason [appendNewArrivals] only sorts the incoming page.
   void _applyMergedResumeRows(HomeRow? resumeRow, HomeRow? nextUpRow) {
     if (resumeRow == null && nextUpRow == null) return;
-    final merged = <String, AggregatedItem>{};
-    for (final item in _prefs.filterContinueWatching(
-      resumeRow?.items ?? const [],
-    )) {
-      merged[item.id] = item;
-    }
-    for (final item in _prefs.filterNextUp(nextUpRow?.items ?? const [])) {
-      merged.putIfAbsent(item.id, () => item);
-    }
-    final sorted = merged.values.toList()..sort(_byLastPlayedDate);
+    final resumeItems = _filterToNextUpServer(
+      _prefs.filterContinueWatching(resumeRow?.items ?? const []),
+    );
+    final nextUpItems = _filterToNextUpServer(
+      _prefs.filterNextUp(nextUpRow?.items ?? const []),
+    );
+    final merged = appendNewArrivals(resumeItems, nextUpItems);
     final existing = _rows.firstWhereOrNull((r) => r.id == 'resume');
     if (existing != null &&
         keepsPagedRow(
           pagedDuringLoad: _rowsPagedThisLoad.contains('resume'),
           existingItemCount: existing.items.length,
-          freshItemCount: sorted.length,
+          freshItemCount: merged.length,
         )) {
       return;
     }
@@ -2232,9 +2263,18 @@ class HomeViewModel extends ChangeNotifier {
     // page no matter how many unique items the merge kept.
     _rowOffsets['resume'] = _rowPageSize;
     _applyMergedResumeResult(
-      sorted,
+      merged,
       totalCount: (resumeRow?.totalCount ?? 0) + (nextUpRow?.totalCount ?? 0),
     );
+  }
+
+  /// Keeps only the Default Server for Next Up's titles (`''`/Auto keeps
+  /// everything), so the Continue Watching & Next Up row shows a single
+  /// server's content with no cross-server duplicates to merge.
+  List<AggregatedItem> _filterToNextUpServer(List<AggregatedItem> items) {
+    final selected = _prefs.get(UserPreferences.defaultServerForNextUp);
+    if (selected == null || selected.isEmpty) return items;
+    return [for (final item in items) if (item.serverId == selected) item];
   }
 
   void _applyMergedResumeResult(
@@ -2281,8 +2321,12 @@ class HomeViewModel extends ChangeNotifier {
     _rowOffsets[row.id] = offset + _rowPageSize;
 
     final appended = appendNewArrivals(row.items, [
-      ..._prefs.filterContinueWatching(resumeRow?.items ?? const []),
-      ..._prefs.filterNextUp(nextUpRow?.items ?? const []),
+      ..._filterToNextUpServer(
+        _prefs.filterContinueWatching(resumeRow?.items ?? const []),
+      ),
+      ..._filterToNextUpServer(
+        _prefs.filterNextUp(nextUpRow?.items ?? const []),
+      ),
     ]);
     final addedNothing = appended.length == row.items.length;
 

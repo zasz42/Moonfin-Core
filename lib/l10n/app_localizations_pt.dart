@@ -4532,6 +4532,13 @@ class AppLocalizationsPt extends AppLocalizations {
       'Choose a default server for playing all local media';
 
   @override
+  String get defaultServerForNextUp => 'Default Server for Next Up';
+
+  @override
+  String get defaultServerForNextUpDescription =>
+      'Choose a default server for displaying Continue Watching & Next Up content. This removes duplicates from Multi-Server Libraries';
+
+  @override
   String get mergeMediaBarLibraries => 'Merge Libraries from Multiple Servers';
 
   @override

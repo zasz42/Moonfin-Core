@@ -2698,6 +2698,11 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: '',
   );
 
+  static final defaultServerForNextUp = Preference(
+    key: 'pref_default_server_for_next_up',
+    defaultValue: '',
+  );
+
   static final mergeMediaBarLibraries = Preference(
     key: 'pref_merge_media_bar_libraries',
     defaultValue: false,

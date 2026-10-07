@@ -5967,6 +5967,14 @@
   "@primaryServerForLocalMediaDescription": {
     "description": "Explanation for the default server for local media setting"
   },
+  "defaultServerForNextUp": "Default Server for Next Up",
+  "@defaultServerForNextUp": {
+    "description": "Setting for choosing the default server for Continue Watching and Next Up content"
+  },
+  "defaultServerForNextUpDescription": "Choose a default server for displaying Continue Watching & Next Up content. This removes duplicates from Multi-Server Libraries",
+  "@defaultServerForNextUpDescription": {
+    "description": "Explanation for the default server for Next Up setting"
+  },
   "mergeMediaBarLibraries": "Merge Libraries from Multiple Servers",
   "@mergeMediaBarLibraries": {
     "description": "Setting for adding libraries from all connected servers as media bar sources"

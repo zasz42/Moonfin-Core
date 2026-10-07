@@ -7996,6 +7996,18 @@ abstract class AppLocalizations {
   /// **'Choose a default server for playing all local media'**
   String get primaryServerForLocalMediaDescription;
 
+  /// Setting for choosing the default server for Continue Watching and Next Up content
+  ///
+  /// In en, this message translates to:
+  /// **'Default Server for Next Up'**
+  String get defaultServerForNextUp;
+
+  /// Explanation for the default server for Next Up setting
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a default server for displaying Continue Watching & Next Up content. This removes duplicates from Multi-Server Libraries'**
+  String get defaultServerForNextUpDescription;
+
   /// Setting for adding libraries from all connected servers as media bar sources
   ///
   /// In en, this message translates to:
