@@ -359,6 +359,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// True while the auto-hide cooldown is still running.
   bool _skipSegmentAutoHidePending = false;
   Timer? _skipSegmentAutoHideTimer;
+  Duration? _autoSkipDeadline;
+  Timer? _autoSkipDelayTimer;
+
+  /// True after back/Remote-Menu cancels a delayed countdown while the
+  /// segment is still active. A second press then hides the skip button
+  /// entirely instead of cancelling again.
+  bool _delayedSkipCountdownCancelled = false;
+  // Segment id whose delayed countdown back cancelled. The service re-emits
+  // isNew after a segment reload, so without this the cancelled 10s timer
+  // restarts for the same segment. Cleared on a fresh countdown or a full
+  // segment clear.
+  String? _delayedSkipCancelledSegmentId;
   bool _showNextUp = false;
   AggregatedItem? _nextUpItem;
   bool _nextUpDismissed = false;
@@ -968,6 +980,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _cancelTvTemporarySpeedHold();
     _hideTimer?.cancel();
     _skipSegmentAutoHideTimer?.cancel();
+    _autoSkipDelayTimer?.cancel();
     _displayPlayingDebounce?.cancel();
     _endsAtTicker?.cancel();
     _volumeOverlayTimer?.cancel();
@@ -2510,6 +2523,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       }
       return;
     }
+    if (result.isDelayedSkip && result.skipTo != null) {
+      final pendingSame =
+          _autoSkipDelayTimer != null &&
+          _skipSegment?.id == result.segment!.id;
+      final cancelledSame =
+          _delayedSkipCancelledSegmentId == result.segment!.id;
+      if (result.isNew && !pendingSame && !cancelledSame) {
+        _startDelayedAutoSkip(result.segment!, result.skipTo!);
+      }
+      return;
+    }
     if (result.shouldAsk && result.isNew && result.segment != null) {
       final isOutro = result.segment!.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUpOverlay()) {
@@ -2776,14 +2800,62 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   void _dismissSkipSegment() {
     _suppressBackNavigation(duration: const Duration(milliseconds: 500));
-    _clearSkipSegment();
+    if (_autoSkipDelayTimer != null) {
+      // First press during a delayed countdown: cancel the auto-skip (and
+      // its progress bar) but leave the skip button up with the segment
+      // timer still running for a manual skip. Rebuild immediately so the
+      // overlay flips to the segment remainder instead of waiting for the
+      // next position tick.
+      _autoSkipDelayTimer?.cancel();
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      _delayedSkipCountdownCancelled = true;
+      _delayedSkipCancelledSegmentId = _skipSegment?.id;
+      if (mounted) setState(() {});
+      return;
+    }
+    if (_delayedSkipCountdownCancelled && _skipSegment != null) {
+      // Second press while the segment is still active: hide the skip
+      // button entirely.
+      _clearSkipSegment();
+    }
   }
 
   void _clearSkipSegment() {
     _resetSkipSegmentAutoHide();
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
+    _delayedSkipCountdownCancelled = false;
+    _delayedSkipCancelledSegmentId = null;
     setState(() {
       _skipSegment = null;
       _skipTo = null;
+    });
+  }
+
+  void _startDelayedAutoSkip(MediaSegment segment, Duration skipTo) {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    _delayedSkipCountdownCancelled = false;
+    _delayedSkipCancelledSegmentId = null;
+    setState(() {
+      _skipSegment = segment;
+      _skipTo = skipTo;
+      _controlsVisible = false;
+    });
+    _hideTimer?.cancel();
+    _focusTvSkipSegment();
+    _autoSkipDelayTimer = Timer(const Duration(seconds: 10), () {
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      if (!mounted) return;
+      if (_state.position >= segment.end) {
+        _clearSkipSegment();
+        return;
+      }
+      _manager.seekTo(skipTo);
+      _clearSkipSegment();
     });
   }
 
@@ -4105,6 +4177,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                           onDismiss: _clearSkipSegment,
                           positionStream: _state.positionStream,
                           initialPosition: _state.position,
+                          autoSkipDeadline: _autoSkipDeadline,
                           nextItem: _nextUpItem,
                           bottomInset:
                               (_bottomOverlayHeight ??

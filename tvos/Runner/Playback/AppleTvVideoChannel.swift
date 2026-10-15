@@ -120,7 +120,8 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
                 label: (args["label"] as? String) ?? "Skip",
                 countdownStyle: (args["countdownStyle"] as? String) ?? "both",
                 segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
-                segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0)
+                segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
+                autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
         case "hideSkipSegment":
             playerVC?.hideSkipSegment()
         case "showEpisodeBrowser":
@@ -309,6 +310,9 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         }
         vc.onSkipSegmentSelect = { [weak self] in
             self?.send(["event": "skipSegment"])
+        }
+        vc.onSkipSegmentDismiss = { [weak self] in
+            self?.send(["event": "skipSegmentDismiss"])
         }
         vc.onUserSeek = { [weak self] positionMs in
             self?.send(["event": "userSeeked", "positionMs": positionMs])

@@ -174,6 +174,7 @@ class AppleTvBackend implements PlayerBackend {
       case 'nextUpCancel':
       case 'nextUpDismiss':
       case 'skipSegment':
+      case 'skipSegmentDismiss':
       case 'userSeeked':
       case 'searchSubtitles':
       case 'downloadSubtitle':
@@ -623,12 +624,14 @@ class AppleTvBackend implements PlayerBackend {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   }) async {
     await _invoke<void>('showSkipSegment', {
       'label': label,
       'countdownStyle': countdownStyle,
       'segmentStartMs': segmentStartMs,
       'segmentEndMs': segmentEndMs,
+      if (autoSkipDeadlineMs != null) 'autoSkipDeadlineMs': autoSkipDeadlineMs,
     });
   }
 

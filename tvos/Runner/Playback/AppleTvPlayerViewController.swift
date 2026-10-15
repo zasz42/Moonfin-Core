@@ -71,6 +71,10 @@ final class AppleTvPlayerViewController: UIViewController {
     var onNextUpCancel: (() -> Void)?
     var onNextUpDismiss: (() -> Void)?
     var onSkipSegmentSelect: (() -> Void)?
+    /// Fires when Menu/back hides the skip button. Dart must cancel a
+    /// pending delayed auto-skip timer, which has no other signal: without
+    /// this the 10s seek still fires after the button is gone.
+    var onSkipSegmentDismiss: (() -> Void)?
     /// Fires with the target after a scrub or a direct jump the user made.
     /// Carrying the position lets the host hand it to SyncPlay, which is the
     /// only way a seek made on this player reaches the rest of the group.
@@ -164,6 +168,9 @@ final class AppleTvPlayerViewController: UIViewController {
     private var skipSegmentStartMs = 0
     private var skipSegmentEndMs = 0
     private var skipSegmentCountdownStyle = "none"
+    /// Delayed auto-skip deadline (segment start + 10s) in ms, or 0 when the
+    /// countdown ring tracks the full segment instead.
+    private var skipSegmentAutoSkipDeadlineMs = 0
     private let skipRingSize: CGFloat = 72
 
     private let loadingOverlay = UIView()
@@ -1433,13 +1440,15 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 
     func showSkipSegment(
-        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int
+        label: String, countdownStyle: String, segmentStartMs: Int, segmentEndMs: Int,
+        autoSkipDeadlineMs: Int = 0
     ) {
         skipSegmentActive = true
         skipSegmentLabel.text = label
         skipSegmentCountdownStyle = countdownStyle
         skipSegmentStartMs = segmentStartMs
         skipSegmentEndMs = segmentEndMs
+        skipSegmentAutoSkipDeadlineMs = autoSkipDeadlineMs
         updateSkipSegmentCountdown()
         guard skipSegmentButton.isHidden else { return }
         skipSegmentButton.alpha = 0
@@ -1466,7 +1475,18 @@ final class AppleTvPlayerViewController: UIViewController {
         let positionMs = Int(player.currentTime * 1000)
         let remainingSec = min(max(0, (skipSegmentEndMs - positionMs) / 1000), durationMs / 1000)
         let numberInRing = showTimer && showRing && remainingSec < 60
-        let progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+        // With a delayed auto-skip deadline the ring counts down the 10s
+        // window to the deadline; the timer above always tracks the full
+        // segment length.
+        let progress: Double
+        if skipSegmentAutoSkipDeadlineMs > skipSegmentStartMs {
+            let windowMs = skipSegmentAutoSkipDeadlineMs - skipSegmentStartMs
+            progress = windowMs > 0
+                ? Double(max(0, skipSegmentAutoSkipDeadlineMs - positionMs)) / Double(windowMs)
+                : 0
+        } else {
+            progress = 1 - Double(positionMs - skipSegmentStartMs) / Double(durationMs)
+        }
 
         skipSegmentTimerLabel.isHidden = !showTimer || numberInRing
         if !skipSegmentTimerLabel.isHidden {
@@ -1493,6 +1513,15 @@ final class AppleTvPlayerViewController: UIViewController {
         } completion: { _ in
             self.skipSegmentButton.isHidden = true
         }
+    }
+
+    /// Cancels the delayed auto-skip countdown display after Menu/back but
+    /// keeps the button for a manual skip: the ring falls back to the full
+    /// segment and the timer keeps showing the remainder. Dart cancels the
+    /// 10s seek through onSkipSegmentDismiss.
+    func cancelSkipSegmentAutoSkip() {
+        skipSegmentAutoSkipDeadlineMs = 0
+        updateSkipSegmentCountdown()
     }
 
     private func loadImage(
@@ -1629,11 +1658,16 @@ final class AppleTvPlayerViewController: UIViewController {
             onNextUpDismiss?()
             return
         }
-        // Back dismisses the skip button for the rest of the segment, the way
-        // the Flutter player does. The segment state machine keeps it from
-        // showing again until the segment is left and reentered.
+        // Menu/back during a delayed countdown cancels the auto-skip but
+        // keeps the button (full-segment countdown) for a manual skip; a
+        // second press, or Menu in prompt mode, hides it for the segment.
         if skipSegmentActive {
-            hideSkipSegment()
+            if skipSegmentAutoSkipDeadlineMs > skipSegmentStartMs {
+                cancelSkipSegmentAutoSkip()
+            } else {
+                hideSkipSegment()
+            }
+            onSkipSegmentDismiss?()
             return
         }
         if panScrubEngaged {

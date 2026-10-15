@@ -5,7 +5,9 @@ import 'package:moonfin_design/moonfin_design.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:server_core/server_core.dart';
 
+import '../../../auth/repositories/session_repository.dart';
 import '../../../data/repositories/media_bar_repository.dart';
+import '../../../data/repositories/multi_server_repository.dart';
 import '../../../data/services/plugin_sync_service.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/device_performance.dart';
@@ -54,10 +56,16 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     if (!_validAutoAdvanceIntervals.contains(currentInterval)) {
       _prefs.set(UserPreferences.mediaBarIntervalMs, 10000);
     }
+    _prefs.addListener(_onPrefsChanged);
+  }
+
+  void _onPrefsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _prefs.removeListener(_onPrefsChanged);
     _mediaBarModeBinding.dispose();
     super.dispose();
   }
@@ -116,25 +124,70 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     _selectorOpen = true;
     final l10n = AppLocalizations.of(context);
     final client = GetIt.instance<MediaServerClient>();
+    final multiServerEnabled = _prefs.get(
+      UserPreferences.mergeMediaBarLibraries,
+    );
 
     try {
-      final response = await client.userViewsApi.getUserViews();
-      final items = (response['Items'] as List? ?? [])
-          .cast<Map<String, dynamic>>()
-          .where(
-            (item) =>
-                supportsMediaBarLibrary(item, const ['movies', 'tvshows']),
-          )
-          .toList();
+      // With merged media bar libraries on, source libraries may come from any
+      // connected server. Libraries from non-active servers are stored with a
+      // `serverId|libraryId` prefix so the fetch side knows which server owns
+      // them; active-server ids stay bare for the pre-existing stored format.
+      final activeServerId = GetIt.instance<SessionRepository>().activeServerId;
+      final options = <String, String>{};
+      final servers = multiServerEnabled
+          ? await GetIt.instance<MultiServerRepository>().getLoggedInServers()
+          : <ServerUserSession>[];
+
+      if (servers.isEmpty) {
+        final response = await client.userViewsApi.getUserViews();
+        final items = (response['Items'] as List? ?? [])
+            .cast<Map<String, dynamic>>()
+            .where(
+              (item) =>
+                  supportsMediaBarLibrary(item, const ['movies', 'tvshows']),
+            )
+            .toList();
+
+        for (final item in items) {
+          final id = item['Id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          options[id] = item['Name'] as String? ?? l10n.unknown;
+        }
+      } else {
+        for (final session in servers) {
+          try {
+            final response = await session.client.userViewsApi.getUserViews();
+            final items = (response['Items'] as List? ?? [])
+                .cast<Map<String, dynamic>>()
+                .where(
+                  (item) => supportsMediaBarLibrary(
+                    item,
+                    const ['movies', 'tvshows'],
+                  ),
+                )
+                .toList();
+            final isActive =
+                activeServerId == null || session.server.id == activeServerId;
+            for (final item in items) {
+              final id = item['Id']?.toString();
+              if (id == null || id.isEmpty) continue;
+              final key = isActive ? id : '${session.server.id}|$id';
+              final name = item['Name'] as String? ?? l10n.unknown;
+              options[key] = servers.length > 1
+                  ? l10n.libraryNameWithServer(name, session.server.name)
+                  : name;
+            }
+          } catch (_) {
+            // One server failing to list its views must not hide the others.
+          }
+        }
+      }
 
       await _pickSources(
         pref: UserPreferences.mediaBarLibraryIds,
         title: l10n.sourceLibraries,
-        options: {
-          for (final item in items)
-            item['Id']?.toString() ?? '':
-                item['Name'] as String? ?? l10n.unknown,
-        },
+        options: options,
       );
     } catch (_) {
     } finally {
@@ -344,6 +397,12 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
 
   Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final currentMode = UserPreferences.normalizeMediaBarMode(
+      _prefs.get(UserPreferences.mediaBarMode),
+    );
+    // The compact banner is a toggle layered on top of the vanilla Banner mode.
+    final isBannerMode = currentMode == UserPreferences.mediaBarModeBanner;
+    final compactEnabled = _prefs.get(UserPreferences.compactBannerEnabled);
     final trailersHeldBack =
         GetIt.instance<UserPreferences>().resolveDevicePerformanceTier() ==
         DevicePerformanceTier.reduced;
@@ -414,6 +473,29 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                   onChanged: _pushSync,
                 ),
               ],
+            ),
+
+            if (isBannerMode)
+              SwitchPreferenceTile(
+                preference: UserPreferences.compactBannerEnabled,
+                title: l10n.compactBannerEnabled,
+                subtitle: l10n.compactBannerEnabledHint,
+                icon: Icons.photo_size_select_small,
+              ),
+            if (isBannerMode && compactEnabled)
+              SwitchPreferenceTile(
+                preference: UserPreferences.compactBannerUpcomingReleases,
+                title: l10n.compactBannerUpcomingReleases,
+                subtitle: l10n.compactBannerUpcomingReleasesHint,
+                icon: Icons.calendar_month,
+              ),
+
+            SwitchPreferenceTile(
+              preference: UserPreferences.mergeMediaBarLibraries,
+              title: l10n.mergeMediaBarLibraries,
+              subtitle: l10n.mergeMediaBarLibrariesDescription,
+              icon: Icons.dns_outlined,
+              onChanged: _pushSync,
             ),
 
             SettingsSectionHeader(l10n.mediaSources),

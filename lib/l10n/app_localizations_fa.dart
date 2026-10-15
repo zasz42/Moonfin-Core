@@ -4526,6 +4526,27 @@ class AppLocalizationsFa extends AppLocalizations {
       'نمایش کتابخانه ها از همه سرورهای متصل';
 
   @override
+  String get primaryServerForLocalMedia => 'Default Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+      'Choose a default server for playing all local media';
+
+  @override
+  String get defaultServerForNextUp => 'Default Server for Next Up';
+
+  @override
+  String get defaultServerForNextUpDescription =>
+      'Choose a default server for displaying Continue Watching & Next Up content. This removes duplicates from Multi-Server Libraries';
+
+  @override
+  String get mergeMediaBarLibraries => 'Merge Libraries from Multiple Servers';
+
+  @override
+  String get mergeMediaBarLibrariesDescription =>
+      'Libraries from multiple servers will be available as sources for the media bar';
+
+  @override
   String get mergeRecentRowsByType => 'Merge Recent Rows by Type';
 
   @override
@@ -4642,6 +4663,23 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Aya';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => 'نوار رسانه را فعال کنید';
@@ -10229,6 +10267,9 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get settingsSkip => 'پرش کنید';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
 
   @override
   String get settingsDoNothing => 'هیچ کاری نکن';

@@ -14,6 +14,7 @@ import '../services/blocked_content_gate.dart';
 import '../services/row_data_source.dart';
 import '../repositories/item_mutation_repository.dart';
 import '../repositories/mdblist_repository.dart';
+import '../repositories/multi_server_repository.dart';
 import '../repositories/tmdb_repository.dart';
 import '../repositories/seerr_repository.dart';
 import '../utils/blocked_ratings.dart';
@@ -901,6 +902,21 @@ class ItemDetailViewModel extends ChangeNotifier {
       _selectedSubtitleIndex = savedSubIndex == -2 ? null : savedSubIndex;
       final savedAudioIndex = prefs.getItemAudioStreamIndex(itemId);
       _selectedAudioIndex = savedAudioIndex == -2 ? null : savedAudioIndex;
+
+      // Re-attach copies of the item that sit on other connected servers (e.g.
+      // Debrid/remux versions) so the detail page's version picker still shows
+      // them next to the local copy. Local copies — the selected primary server
+      // for local media — lead the merged list.
+      final mergedSources = await _mergedSourceLookup(_item);
+      if (mergedSources != null && mergedSources.isNotEmpty) {
+        final raw = Map<String, dynamic>.from(_item!.rawData);
+        raw['MediaSources'] = mergedSources;
+        _item = AggregatedItem(
+          id: itemId,
+          serverId: _serverId ?? _client.baseUrl,
+          rawData: raw,
+        );
+      }
       _state = ItemDetailState.ready;
       notifyListeners();
 
@@ -909,6 +925,35 @@ class ItemDetailViewModel extends ChangeNotifier {
       _error = e;
       _state = ItemDetailState.error;
       notifyListeners();
+    }
+  }
+
+  /// Looks up the merged MediaSources for [it] (the selected primary server's
+  /// local copies first, other servers' Debrid/remux versions tagged with their
+  /// origin). Returns null when nothing cross-server was found, in which case
+  /// the item keeps the sources the active server gave it.
+  Future<List<Map<String, dynamic>>?> _mergedSourceLookup(
+    AggregatedItem? it,
+  ) async {
+    if (it == null) return null;
+    final multi = GetIt.instance<MultiServerRepository>();
+    return multi.mergedMediaSourcesForItem(it);
+  }
+
+  /// Resolves the playback target for [item] through the Default Server for
+  /// Local Media. Returns null when playback should continue with [item].
+  Future<ResolvedPlaybackItem?> resolvePlaybackTarget(
+    AggregatedItem item, {
+    String? mediaSourceId,
+  }) async {
+    try {
+      final multi = GetIt.instance<MultiServerRepository>();
+      return await multi.resolvePlaybackItem(
+        item,
+        mediaSourceId: mediaSourceId,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

@@ -20,6 +20,7 @@ import '../utils/genre_browse_utils.dart';
 import '../utils/next_up_cutoff.dart';
 import '../utils/next_up_enrichment.dart';
 import '../utils/playlist_utils.dart';
+import 'better_posters_service.dart';
 import 'package:flutter/foundation.dart';
 import '../repositories/seerr_repository.dart';
 import '../repositories/user_views_repository.dart';
@@ -46,16 +47,17 @@ class RowDataSource {
       'ParentIndexNumber,IndexNumber,Status,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio';
+      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio,'
+      'ProviderIds';
   static const _fallbackFields =
       'DateCreated,Type,UserData,OfficialRating,RunTimeTicks,ProductionYear,SeriesName,'
       'ParentIndexNumber,IndexNumber,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag';
+      'ParentLogoItemId,ParentLogoImageTag,ProviderIds';
   static const _minimalFields =
       'Type,UserData,RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,'
-      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId';
+      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId,ProviderIds';
 
   /// An album or track card names its artist under the title. An artist card
   /// has the name as its title, so those rows read neither of these.
@@ -200,12 +202,20 @@ class RowDataSource {
       startIndex: startIndex,
       limit: _defaultLimit,
     );
-    return _buildRow(
+    final row = _buildRow(
       id: 'resume',
       title: _l10n.continueWatching,
       response: response,
       serverId: serverId,
       rowType: HomeRowType.resume,
+    );
+    // Episodes resolve through their parent series poster: ensure the
+    // series is registered so the row paints btttr.cc art on first load.
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        row.items,
+      ),
     );
   }
 
@@ -242,7 +252,12 @@ class RowDataSource {
       row.items,
       recentlyPlayed,
     );
-    return row.copyWith(items: enrichedItems);
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        enrichedItems,
+      ),
+    );
   }
 
   Future<HomeRow> loadResumeRelaxed(String serverId) async {
@@ -250,12 +265,18 @@ class RowDataSource {
       mediaTypes: 'Video',
       limit: _defaultLimit,
     );
-    return _buildRow(
+    final row = _buildRow(
       id: 'resume',
       title: _l10n.continueWatching,
       response: response,
       serverId: serverId,
       rowType: HomeRowType.resume,
+    );
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        row.items,
+      ),
     );
   }
 
@@ -274,7 +295,12 @@ class RowDataSource {
       row.items,
       recentlyPlayed,
     );
-    return row.copyWith(items: enrichedItems);
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        enrichedItems,
+      ),
+    );
   }
 
   Future<HomeRow> loadLatestMedia(
@@ -292,10 +318,15 @@ class RowDataSource {
       parentId: parentId,
       limit: fetchLimit,
     );
-    final items = normalizeLatestMediaItems(
-      _parseItems(response, serverId),
-      collectionType: collectionType,
-      limit: _defaultLimit,
+    // Episodes collapse to id-less series cards (see withSeriesProviderIds):
+    // backfill so the row paints btttr.cc art on first load.
+    final items = await BetterPostersService.withSeriesProviderIds(
+      (_) => _client,
+      normalizeLatestMediaItems(
+        _parseItems(response, serverId),
+        collectionType: collectionType,
+        limit: _defaultLimit,
+      ),
     );
     return HomeRow(
       id: 'latest_$parentId',
@@ -334,10 +365,14 @@ class RowDataSource {
     );
     final items = _parseItems(response, serverId);
     if (isTv) {
-      return normalizeLatestMediaItems(
-        items,
-        collectionType: 'tvshows',
-        limit: limit,
+      // Episodes collapse to id-less series cards (see withSeriesProviderIds).
+      return BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        normalizeLatestMediaItems(
+          items,
+          collectionType: 'tvshows',
+          limit: limit,
+        ),
       );
     }
     return items;
@@ -386,10 +421,13 @@ class RowDataSource {
       includeItemTypes: includeItemTypes,
       recursive: includeItemTypes != null,
     );
-    final items = normalizeLatestMediaItems(
-      _parseItems(response, serverId),
-      collectionType: collectionType,
-      limit: _defaultLimit,
+    final items = await BetterPostersService.withSeriesProviderIds(
+      (_) => _client,
+      normalizeLatestMediaItems(
+        _parseItems(response, serverId),
+        collectionType: collectionType,
+        limit: _defaultLimit,
+      ),
     );
     return HomeRow(
       id: 'recently_released_$parentId',
@@ -1640,9 +1678,12 @@ class RowDataSource {
             parentId: parentId,
             limit: currentOffset + _defaultLimit,
           );
-          final items = normalizeLatestMediaItems(
-            _parseItems(response, serverId),
-            limit: currentOffset + _defaultLimit,
+          final items = await BetterPostersService.withSeriesProviderIds(
+            (_) => _client,
+            normalizeLatestMediaItems(
+              _parseItems(response, serverId),
+              limit: currentOffset + _defaultLimit,
+            ),
           );
           final totalCount = items.length <= row.items.length
               ? items.length
@@ -1772,7 +1813,7 @@ class RowDataSource {
         return (row.items, row.totalCount);
     }
 
-    final newItems =
+    final fetchedItems =
         (row.rowType == HomeRowType.playlists ||
             row.rowType == HomeRowType.audioPlaylists)
         ? await filterBrowsablePlaylists(
@@ -1786,6 +1827,15 @@ class RowDataSource {
                 : null,
           )
         : _parseItems(response, serverId);
+    // Resume/next-up episodes resolve through their parent series poster.
+    final newItems =
+        (row.rowType == HomeRowType.resume ||
+                row.rowType == HomeRowType.nextUp)
+            ? await BetterPostersService.withSeriesProviderIds(
+                (_) => _client,
+                fetchedItems,
+              )
+            : fetchedItems;
     final totalCount =
         response['TotalRecordCount'] as int? ??
         (row.items.length + newItems.length);
@@ -2335,6 +2385,7 @@ class RowDataSource {
         rawData: data,
       );
     }).toList();
+    BetterPostersService.registerAll(items);
     return withoutBlockedItems(items);
   }
 
@@ -2728,6 +2779,7 @@ class RowDataSource {
 
     final rowId = 'sinceYouWatched$rowIndex';
     _scoredRecommendationsCache[rowId] = recommendedItems;
+    BetterPostersService.registerAll(recommendedItems);
 
     return HomeRow(
       id: rowId,
