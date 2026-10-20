@@ -68,7 +68,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     // Gated on the outro, since this replaces the Skip Outro button.
     final showReplaceSkipOutroWithNextUp =
         showNextUpOptions &&
-        segmentActions[MediaSegmentType.outro] == MediaSegmentAction.askToSkip;
+        segmentActions[MediaSegmentType.outro] == MediaSegmentAction.askToSkip || segmentActions[MediaSegmentType.outro] == MediaSegmentAction.delayedSkip;
 
     return Scaffold(
       appBar: buildSettingsAppBar(context, Text(l10n.skippingAndAutoplay)),
