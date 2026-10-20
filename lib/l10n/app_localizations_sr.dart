@@ -4671,6 +4671,28 @@ class AppLocalizationsSr extends AppLocalizations {
       'Прикажи библиотеке са свих повезаних сервера';
 
   @override
+  @override
+  String get primaryServerForLocalMedia => 'Default Server for Local Media';
+
+  @override
+  String get primaryServerForLocalMediaDescription =>
+      'Choose a default server for playing all local media';
+
+  @override
+  String get defaultServerForNextUp => 'Default Server for Next Up';
+
+  @override
+  String get defaultServerForNextUpDescription =>
+      'Choose a default server for displaying Continue Watching & Next Up content. This removes duplicates from Multi-Server Libraries';
+
+  @override
+  String get mergeMediaBarLibraries => 'Merge Libraries from Multiple Servers';
+
+  @override
+  String get mergeMediaBarLibrariesDescription =>
+      'Libraries from multiple servers will be available as sources for the media bar';
+
+  @override
   String get mergeRecentRowsByType =>
       'Обједини редове недавних ставки по врсти';
 
@@ -4893,6 +4915,26 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get mediaBarModeAya => 'Аја (Aya)';
+
+  @override
+  String get mediaBarModeAya => 'Аја (Aya)';
+
+  @override
+  String get compactBannerEnabled => 'Compact';
+
+  @override
+  String get compactBannerEnabledHint =>
+      'Condenses the Banner bar to match the backdrop image width and enables extra compact-only options.';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Enable Upcoming Releases';
+
+  @override
+  String get compactBannerUpcomingReleasesHint =>
+      'Shows upcoming releases from Seerr to the right of the Compact Banner bar. Requires the Moonbase plugin and Seerr to be enabled.';
+
+  @override
+  String get upcomingReleases => 'Upcoming Releases';
 
   @override
   String get enableMediaBar => 'Омогући медијску траку';
@@ -11715,6 +11757,9 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get settingsSkip => 'Прескочи';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
 
   @override
   String get settingsDoNothing => 'Не ради ништа';

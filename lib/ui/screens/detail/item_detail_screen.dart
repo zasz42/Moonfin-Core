@@ -22,6 +22,7 @@ import 'package:server_core/server_core.dart';
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/repositories/item_mutation_repository.dart';
 import '../../../data/repositories/mdblist_repository.dart';
+import '../../../data/repositories/multi_server_repository.dart';
 import '../../../data/repositories/tmdb_repository.dart';
 import '../../../data/services/background_service.dart';
 import '../../../data/services/auto_download_service.dart';
@@ -580,6 +581,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     });
   }
 
+  Future<ResolvedPlaybackItem?> _resolvePlaybackTarget(
+    AggregatedItem item, {
+    String? mediaSourceId,
+  }) {
+    return _viewModel.resolvePlaybackTarget(
+      item,
+      mediaSourceId: mediaSourceId,
+    );
+  }
+
   void _resumeThemeMusicIfEligible() {
     final item = _viewModel.item;
     if (item == null) return;
@@ -670,6 +681,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     String? mediaSourceId,
   ) async {
     final manager = GetIt.instance<PlaybackManager>();
+    final resolvedChapter = await _resolvePlaybackTarget(
+      item,
+      mediaSourceId: mediaSourceId,
+    );
+    if (resolvedChapter != null) {
+      item = resolvedChapter.item;
+      mediaSourceId = resolvedChapter.mediaSourceId ?? mediaSourceId;
+    }
     await launchPlayerWhilePreparing(
       context,
       manager: manager,
@@ -2556,6 +2575,14 @@ class _DetailContentState extends State<_DetailContent> {
     String? mediaSourceId,
   ) async {
     final manager = GetIt.instance<PlaybackManager>();
+    final resolvedChapter = await viewModel.resolvePlaybackTarget(
+      item,
+      mediaSourceId: mediaSourceId,
+    );
+    if (resolvedChapter != null) {
+      item = resolvedChapter.item;
+      mediaSourceId = resolvedChapter.mediaSourceId ?? mediaSourceId;
+    }
     await launchPlayerWhilePreparing(
       context,
       manager: manager,
@@ -8563,6 +8590,16 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     return clientFactory.getClientIfExists(item.serverId) ?? defaultClient;
   }
 
+  Future<ResolvedPlaybackItem?> _resolvePlaybackTarget(
+    AggregatedItem item, {
+    String? mediaSourceId,
+  }) {
+    return viewModel.resolvePlaybackTarget(
+      item,
+      mediaSourceId: mediaSourceId,
+    );
+  }
+
   Future<AggregatedItem> _ensureHydrated(AggregatedItem target) async {
     if (target.mediaSources.isNotEmpty) {
       return target;
@@ -9061,6 +9098,21 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     bool useExternalPlayer = false,
   }) async {
     final manager = GetIt.instance<PlaybackManager>();
+    var playbackMediaSourceId = widget.selectedMediaSourceId;
+    final resolvedPlayback = await _resolvePlaybackTarget(
+      item,
+      mediaSourceId: playbackMediaSourceId,
+    );
+    // Once the item is translated to another server, every id used below
+    // must come from that server: mixing the originating server's season or
+    // episode ids into a translated item's queries strands playback on the
+    // wrong title (or the first episode of the list).
+    final translatedPlaybackItem = resolvedPlayback != null;
+    if (translatedPlaybackItem) {
+      item = resolvedPlayback!.item;
+      playbackMediaSourceId =
+          resolvedPlayback!.mediaSourceId ?? playbackMediaSourceId;
+    }
     final mediaStreams = _mediaStreamsForCurrentSelection(item);
     final audioStreams = mediaStreams
         .where((s) => s['Type'] == 'Audio')
@@ -9175,6 +9227,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                     ),
                   );
             }
+            // viewModel.nextUp can belong to the originating server while the
+            // queue above was built from the translated item's server.
+            final resolvedSeriesTarget = await _resolvePlaybackTarget(
+              targetEpisode,
+            );
+            if (resolvedSeriesTarget != null) {
+              targetEpisode = resolvedSeriesTarget.item;
+            }
 
             final playableSeasonEpisodes = await _seasonQueueContaining(
               client,
@@ -9250,9 +9310,33 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             );
 
           case 'Season':
-            final episodes = viewModel.episodes
+            var episodes = viewModel.episodes
                 .where(isEligibleNextEpisodeCandidate)
                 .toList();
+            // A translated season's episodes must be read from its own
+            // server; the view model's list still carries the ids of the
+            // server the season was opened from.
+            if (translatedPlaybackItem) {
+              final seasonSeriesId = item.seriesId;
+              if (seasonSeriesId != null && seasonSeriesId.isNotEmpty) {
+                try {
+                  const seasonQueueFields = 'Overview,RunTimeTicks,UserData';
+                  final seasonClient = _clientForItem(item);
+                  final seasonData = await seasonClient.itemsApi.getEpisodes(
+                    seasonSeriesId,
+                    seasonId: item.id,
+                    fields: seasonQueueFields,
+                  );
+                  final translatedEpisodes = _mapRawItemsForServer(
+                    seasonData['Items'],
+                    item.serverId,
+                  ).where(isEligibleNextEpisodeCandidate).toList();
+                  if (translatedEpisodes.isNotEmpty) {
+                    episodes = translatedEpisodes;
+                  }
+                } catch (_) {}
+              }
+            }
             if (episodes.isEmpty) {
               throw PlaybackStartupRecoveryAbortedException();
             }
@@ -9264,6 +9348,12 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             final idx = startIndex >= 0 ? startIndex : 0;
             var selectedEpisode = episodes[idx];
             selectedEpisode = await _ensureHydrated(selectedEpisode);
+            final resolvedSeasonEpisode = await _resolvePlaybackTarget(
+              selectedEpisode,
+            );
+            if (resolvedSeasonEpisode != null) {
+              selectedEpisode = resolvedSeasonEpisode.item;
+            }
             episodes[idx] = selectedEpisode;
             ensureLaunchStillWanted(launchSession);
 
@@ -9324,8 +9414,12 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             if (episodes.isEmpty || !episodes.any((e) => e.id == item.id)) {
               final seriesId = item.seriesId;
               // Matches the list on screen, which for an inlined special is the
-              // season being browsed rather than Specials.
-              final seasonId = viewModel.effectiveSeasonId ?? item.seasonId;
+              // season being browsed rather than Specials. A translated item
+              // must use its own season id: the view model's season context
+              // names a season on the server the item was opened from.
+              final seasonId = translatedPlaybackItem
+                  ? item.seasonId
+                  : (viewModel.effectiveSeasonId ?? item.seasonId);
               if (seriesId != null && seriesId.isNotEmpty) {
                 try {
                   const episodeQueueFields = 'Overview,RunTimeTicks,UserData';
@@ -9356,6 +9450,15 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               final idx = startIndex >= 0 ? startIndex : 0;
               var selectedEpisode = playableEpisodes[idx];
               selectedEpisode = await _ensureHydrated(selectedEpisode);
+              final resolvedEpisodeTarget = await _resolvePlaybackTarget(
+                selectedEpisode,
+              );
+              if (resolvedEpisodeTarget != null) {
+                selectedEpisode = resolvedEpisodeTarget.item;
+                if (resolvedEpisodeTarget.mediaSourceId != null) {
+                  playbackMediaSourceId = resolvedEpisodeTarget.mediaSourceId;
+                }
+              }
               playableEpisodes[idx] = selectedEpisode;
               ensureLaunchStillWanted(launchSession);
 
@@ -9385,7 +9488,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                   context.mounted &&
                   await _shouldForceTranscodeForDolbyVision(context, [
                     selectedEpisode,
-                  ], mediaSourceId: widget.selectedMediaSourceId);
+                  ], mediaSourceId: playbackMediaSourceId);
               final directAllowed = !dvForceTranscode && !forceTranscode;
               await _playQueueWithPrerolls(
                 manager,
@@ -9397,7 +9500,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                 startPosition: startPosition,
                 audioStreamIndex: audioStreamIndex,
                 subtitleStreamIndex: subtitleStreamIndex,
-                mediaSourceId: widget.selectedMediaSourceId,
+                mediaSourceId: playbackMediaSourceId,
                 audioSelectionExplicit: viewModel.selectedAudioIndex != null,
                 subtitleSelectionExplicit:
                     viewModel.selectedSubtitleIndex != null,
@@ -9690,7 +9793,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               useExternalPlayer: useExternalPlayer,
             );
             ensureLaunchStillWanted(launchSession);
-            final selectedMediaSourceId = widget.selectedMediaSourceId;
+            final selectedMediaSourceId = playbackMediaSourceId;
             final dvForceTranscode =
                 !isAudio &&
                 context.mounted &&

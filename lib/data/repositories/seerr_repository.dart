@@ -586,6 +586,28 @@ class SeerrRepository {
     (c) async => SeerrTvDetails.fromJson(await c.getTvDetailsByTvdb(tvdbId)),
   );
 
+  /// Fetches TMDB images (including logos) for a movie.
+  Future<Map<String, dynamic>?> getMovieImages(int tmdbId) => _withClient(
+    (c) async {
+      try {
+        return await c.getMovieImages(tmdbId);
+      } catch (_) {
+        return null;
+      }
+    },
+  );
+
+  /// Fetches TMDB images (including logos) for a TV series.
+  Future<Map<String, dynamic>?> getTvImages(int tmdbId) => _withClient(
+    (c) async {
+      try {
+        return await c.getTvImages(tmdbId);
+      } catch (_) {
+        return null;
+      }
+    },
+  );
+
   Future<(SeerrMovieDetails, bool)> getMovieDetailsWithWatchlist(int tmdbId) =>
       _withClient((c) async {
         final json = await c.getMovieDetails(tmdbId);

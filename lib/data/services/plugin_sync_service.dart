@@ -1438,10 +1438,28 @@ class PluginSyncService extends ChangeNotifier {
       ];
       if (parsed.isNotEmpty) {
         parsed.sort((a, b) => a.order.compareTo(b.order));
+        // Whether a row is hidden from the home rows is a per-device view
+        // choice, and a profile written by a client that predates the flag
+        // (or by a build that drops the key) would otherwise reset it on every
+        // launch. Keep the local answer for any row this device has already
+        // answered for, so the eye survives closing and reopening the app.
+        final localHidden = <String, bool>{
+          for (final c in _prefs.homeSectionsConfig)
+            if (c.isPluginDynamic && c.pluginSection != null)
+              c.pluginSection!: c.hiddenFromHome,
+        };
         final sections = <HomeSectionConfig>[];
         var order = 0;
         for (final c in parsed) {
-          sections.add(c.copyWith(order: order++));
+          final remembered = c.pluginSection == null
+              ? null
+              : localHidden[c.pluginSection];
+          sections.add(
+            c.copyWith(
+              order: order++,
+              hiddenFromHome: remembered ?? c.hiddenFromHome,
+            ),
+          );
           // External list and calendar rows are also gated by their own toggle, so
           // flip it to match the layout moonbase pushed or the row stays hidden.
           // Awaited so its notification lands inside the batch rather than

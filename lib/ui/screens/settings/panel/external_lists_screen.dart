@@ -1267,6 +1267,25 @@ class _CustomListsScreenState extends State<_CustomListsScreen> {
     }
   }
 
+  /// Hide or unhide the row from the home rows without switching it off.
+  ///
+  /// The row keeps its `enabled` flag so it still fetches and can still be
+  /// picked as a media bar source; only the home screen stops showing it.
+  /// Switching it off with the switch is the separate, complete way to drop
+  /// it — which is what takes it out of the media bar's source libraries.
+  void _toggleHiddenFromHome(HomeSectionConfig config) async {
+    final prefs = GetIt.instance<UserPreferences>();
+    final configs = List<HomeSectionConfig>.from(prefs.homeSectionsConfig);
+    final idx = configs.indexWhere((c) => c.stableId == config.stableId);
+    if (idx < 0) return;
+    configs[idx] = configs[idx].copyWith(
+      hiddenFromHome: !configs[idx].hiddenFromHome,
+    );
+    await prefs.setHomeSectionsConfig(configs);
+    _pushPersonalizationSync();
+    setState(() {});
+  }
+
   void _deleteConfig(HomeSectionConfig config) async {
     final confirmed = await showFocusRestoringDialog<bool>(
       context: context,
@@ -1425,9 +1444,17 @@ class _CustomListsScreenState extends State<_CustomListsScreen> {
                                 Expanded(
                                   child: Text(
                                     config.pluginDisplayText ?? 'Custom Row',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
+                                      // A row kept only to feed the media bar
+                                      // is still on, just not on the home screen.
+                                      color: config.hiddenFromHome
+                                          ? (focused
+                                                ? Colors.black54
+                                                : AppColorScheme.onSurface
+                                                      .withValues(alpha: 0.5))
+                                          : null,
                                     ),
                                   ),
                                 ),
@@ -1439,6 +1466,27 @@ class _CustomListsScreenState extends State<_CustomListsScreen> {
                                       onPressed: () => _showAddEditDialog(config),
                                       color: focused ? Colors.black87 : AppColorScheme.onSurface.withValues(alpha: 0.7),
                                     ),
+                                    // Hide/unhide from the home rows while the row
+                                    // stays on, so the media bar keeps getting its
+                                    // list. Between edit and delete, next to the
+                                    // switch that turns it off completely.
+                                    Tooltip(
+                                      message: config.hiddenFromHome
+                                          ? 'Show in Home Rows'
+                                          : 'Hide from Home Rows',
+                                      child: IconButton(
+                                        icon: Icon(
+                                          config.hiddenFromHome
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 20,
+                                          color: config.hiddenFromHome
+                                              ? AppColorScheme.onSurface.withValues(alpha: 0.35)
+                                              : AppColorScheme.onSurface.withValues(alpha: 0.7),
+                                        ),
+                                        onPressed: () => _toggleHiddenFromHome(config),
+                                      ),
+                                    ),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
                                       onPressed: () => _deleteConfig(config),
@@ -1448,7 +1496,8 @@ class _CustomListsScreenState extends State<_CustomListsScreen> {
                               ],
                             ),
                             subtitle: Text(
-                              'Source: ${_getSourceLabel(source)} | Type: ${_getTypeLabel(type, source)}',
+                              'Source: ${_getSourceLabel(source)} | Type: ${_getTypeLabel(type, source)}'
+                              '${config.hiddenFromHome ? ' | Hidden from Home Rows' : ''}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: focused ? Colors.black54 : AppColorScheme.onSurface.withValues(alpha: 0.5),
@@ -1752,6 +1801,9 @@ class _AddEditCustomRowDialogState extends State<_AddEditCustomRowDialog> {
       pluginSource: HomeSectionPluginSource.custom,
       enabled: isEditing ? widget.existing!.enabled : true,
       order: isEditing ? widget.existing!.order : configs.length,
+      // Editing the row's details says nothing about whether it is hidden
+      // from the home rows, so that choice is carried over untouched.
+      hiddenFromHome: isEditing ? widget.existing!.hiddenFromHome : false,
     );
 
     try {

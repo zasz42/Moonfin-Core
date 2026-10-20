@@ -48,6 +48,7 @@ import '../../data/services/connectivity_service.dart';
 import '../../data/services/custom_external_lists_service.dart';
 import '../../data/services/download_service.dart';
 import '../../data/services/remove_watched_service.dart';
+import '../../data/services/upcoming_calendar_service.dart';
 import '../../data/services/row_data_source.dart';
 import '../../data/services/socket_handler.dart';
 import '../../data/services/pending_rating_store.dart';
@@ -145,6 +146,7 @@ void registerAppModule() {
   );
   _getIt.registerLazySingleton(() => SocketHandler());
   _getIt.registerLazySingleton(() => CustomExternalListsService());
+  _getIt.registerLazySingleton(() => UpcomingCalendarService());
   _getIt.registerLazySingleton(
     () => BackgroundService(),
     dispose: (service) => service.dispose(),

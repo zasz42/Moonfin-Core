@@ -53,6 +53,16 @@ class HomeSectionConfig {
   final bool enabled;
   final int order;
 
+  /// Kept out of the home rows while staying [enabled].
+  ///
+  /// A custom row can feed the media bar without being one of the rows on the
+  /// home screen, which used to mean turning the row off and losing it from
+  /// the media bar's source libraries too. This separates the two: the row
+  /// keeps fetching (so the media bar still gets its list) but the home screen
+  /// leaves it out. [enabled] still means "off entirely", and an off row is
+  /// offered nowhere.
+  final bool hiddenFromHome;
+
   // pluginDynamic-only fields. Always null for builtin entries.
   final String? serverId;
   final String? pluginSection;
@@ -65,6 +75,7 @@ class HomeSectionConfig {
     this.type = HomeSectionType.none,
     this.enabled = true,
     this.order = 0,
+    this.hiddenFromHome = false,
     this.serverId,
     this.pluginSection,
     this.pluginAdditionalData,
@@ -79,12 +90,14 @@ class HomeSectionConfig {
     String? pluginDisplayText,
     bool enabled = true,
     int order = 0,
+    bool hiddenFromHome = false,
     HomeSectionPluginSource pluginSource = HomeSectionPluginSource.collections,
   }) => HomeSectionConfig(
     kind: HomeSectionKind.pluginDynamic,
     type: HomeSectionType.none,
     enabled: enabled,
     order: order,
+    hiddenFromHome: hiddenFromHome,
     serverId: serverId,
     pluginSection: pluginSection,
     pluginAdditionalData: pluginAdditionalData,
@@ -106,6 +119,7 @@ class HomeSectionConfig {
       type: HomeSectionType.fromSerialized(typeName),
       enabled: json['enabled'] as bool? ?? true,
       order: json['order'] as int? ?? 0,
+      hiddenFromHome: json['hiddenFromHome'] as bool? ?? false,
       serverId: _normalizedServerId(json['serverId']?.toString(), pluginSource),
       pluginSection: json['pluginSection'] as String?,
       pluginAdditionalData: json['pluginAdditionalData'] as String?,
@@ -123,6 +137,9 @@ class HomeSectionConfig {
     if (kind != HomeSectionKind.builtin) {
       json['kind'] = kind.serializedName;
       json['pluginSource'] = pluginSource.serializedName;
+      // Only written when set, so layouts that never hid a row keep exactly the
+      // JSON they had before this flag existed.
+      if (hiddenFromHome) json['hiddenFromHome'] = true;
       if (serverId != null) json['serverId'] = serverId;
       if (pluginSection != null) json['pluginSection'] = pluginSection;
       if (pluginAdditionalData != null) {
@@ -140,6 +157,7 @@ class HomeSectionConfig {
     HomeSectionType? type,
     bool? enabled,
     int? order,
+    bool? hiddenFromHome,
     String? serverId,
     String? pluginSection,
     String? pluginAdditionalData,
@@ -150,6 +168,7 @@ class HomeSectionConfig {
     type: type ?? this.type,
     enabled: enabled ?? this.enabled,
     order: order ?? this.order,
+    hiddenFromHome: hiddenFromHome ?? this.hiddenFromHome,
     serverId: serverId ?? this.serverId,
     pluginSection: pluginSection ?? this.pluginSection,
     pluginAdditionalData: pluginAdditionalData ?? this.pluginAdditionalData,

@@ -33,6 +33,17 @@ class MediaBarViewModel extends ChangeNotifier {
   late String _lastMode;
   late String _lastContentType;
   late String _lastItemCount;
+  late String _lastLibraryIds;
+  late String _lastCollectionIds;
+  late String _lastExcludedGenres;
+
+  /// The source-selection preferences, read as one set. Changing any of them
+  /// changes what the bar shows, so they are tracked together with the mode /
+  /// content-type / item-count the bar already watched.
+  String get _sourceSignature =>
+      '${_prefs.get(UserPreferences.mediaBarLibraryIds)}|'
+      '${_prefs.get(UserPreferences.mediaBarCollectionIds)}|'
+      '${_prefs.get(UserPreferences.mediaBarExcludedGenres)}';
 
   List<MediaBarSlideItem> get items =>
       _state is MediaBarReady ? (_state as MediaBarReady).items : const [];
@@ -115,6 +126,8 @@ class MediaBarViewModel extends ChangeNotifier {
     );
     _lastContentType = _prefs.get(UserPreferences.mediaBarContentType);
     _lastItemCount = _prefs.get(UserPreferences.mediaBarItemCount);
+    final signature = _sourceSignature;
+    _lastLibraryIds = signature;
     _prefs.addListener(_onPrefsChanged);
   }
 
@@ -124,13 +137,16 @@ class MediaBarViewModel extends ChangeNotifier {
     );
     final contentType = _prefs.get(UserPreferences.mediaBarContentType);
     final itemCount = _prefs.get(UserPreferences.mediaBarItemCount);
+    final signature = _sourceSignature;
 
     if (mode != _lastMode ||
         contentType != _lastContentType ||
-        itemCount != _lastItemCount) {
+        itemCount != _lastItemCount ||
+        signature != _lastLibraryIds) {
       _lastMode = mode;
       _lastContentType = contentType;
       _lastItemCount = itemCount;
+      _lastLibraryIds = signature;
       load(force: true);
     }
   }

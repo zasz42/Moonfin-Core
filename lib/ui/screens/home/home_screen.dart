@@ -26,6 +26,7 @@ import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/seerr_repository.dart';
 import '../../widgets/seerr/seerr_shortcuts.dart';
 import '../../../data/services/background_service.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../widgets/modern_row.dart';
 import '../../../data/services/theme_music_service.dart';
 import '../../../data/services/media_server_client_factory.dart';
@@ -53,6 +54,7 @@ import '../../../util/focus/dpad_keys.dart';
 import '../../../util/focus/input_mode_tracker.dart';
 import '../../../util/focus/scroll_utils.dart';
 import '../../../util/artwork_request_size.dart';
+import '../../../util/clock_format.dart';
 import '../../../util/device_performance.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/server_url.dart';
@@ -68,6 +70,7 @@ import '../../widgets/library_row.dart';
 import '../../widgets/media_bar.dart';
 import '../../widgets/mediabar/banner_media_bar.dart';
 import '../../widgets/image_source.dart';
+import '../../widgets/mediabar/upcoming_releases_bar.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/selector_builder.dart';
 import '../../widgets/bottom_nav/bottom_navbar.dart';
@@ -756,8 +759,32 @@ class _ContentRowsState extends State<_ContentRows>
   static const Duration _focusedRowSpacingDuration = Duration(
     milliseconds: 200,
   );
+
+  /// TV rows never drop on focus: the poster selection box is the only focus
+  /// indication. Zero here (and in the row padding below) removes the
+  /// fall-into-place motion while keeping the scroll offsets aligned with
+  /// the unmoved rows. Narrow to `PlatformDetection.isAppleTV` for tvOS-only.
+  static double _focusedRowExtraSpacingFor() =>
+      PlatformDetection.isTV ? 0.0 : _focusedRowExtraSpacing;
+
+  /// TV compact-classic rows sit tighter now the focused row no longer
+  /// drops (at least 10px less inter-row padding). Only the untouched
+  /// default is remapped; a customized classic padding is always honoured.
+  /// Mirrors the 30 -> 20 default remap compact mode already applies to
+  /// library rows.
+  static const double _tvCompactClassicRowSpacingTrim = 10.0;
+
+  /// Room reserved above the rail so the poster selection border (~3.5px
+  /// past the card) never clips against the row's top edge on TV.
+  static const double _tvCompactClassicRailHeadroom = 2.0;
+
+  /// Bottom rail padding of the Continue Watching & Next Up row in
+  /// compact-classic mode: the row sits tight to the row below it.
+  static const double _compactClassicResumeBottomPadding = 0.0;
+  static const int _bannerScrollStartRowIndex = 2;
   final _scrollController = ScrollController();
   final _mediaBarFocusNode = FocusNode(debugLabel: 'home_media_bar_focus');
+  final _upcomingBarKey = GlobalKey<UpcomingReleasesBarState>();
   final _playbackManager = GetIt.instance<PlaybackManager>();
   final _audioArbiter = GetIt.instance<PlaybackArbiter>();
   // The playback module only registers a Media3 backend on some platforms, so
@@ -1355,7 +1382,7 @@ class _ContentRowsState extends State<_ContentRows>
     }
     final focusedRowSpacing =
         PlatformDetection.isTV && !fullScreenRows && !showInfoOverlay
-        ? _focusedRowExtraSpacing * 2
+        ? _focusedRowExtraSpacingFor() * 2
         : 0.0;
 
     for (var i = 0; i < rowExtents.length; i++) {
@@ -2141,9 +2168,26 @@ class _ContentRowsState extends State<_ContentRows>
     }
 
     final mediaBarState = widget.mediaBarViewModel.state;
-    return mediaBarState is MediaBarLoading ||
+    if (mediaBarState is MediaBarLoading ||
         mediaBarState is MediaBarError ||
-        (mediaBarState is MediaBarReady && mediaBarState.items.isNotEmpty);
+        (mediaBarState is MediaBarReady && mediaBarState.items.isNotEmpty)) {
+      return true;
+    }
+
+    // The Upcoming Releases rail lives inside the banner, so with no titles the
+    // bar still has something to show: keep it in the layout so the rail keeps
+    // working and the banner half is simply blank. Without the rail there is
+    // nothing left to draw and the whole bar goes away.
+    return _showsUpcomingRail();
+  }
+
+  /// Whether the banner's Upcoming Releases rail is switched on. It rides in
+  /// the compact banner, so both the compact banner and the rail have to be
+  /// on for the bar to stay visible without titles.
+  bool _showsUpcomingRail() {
+    if (!_isBannerMode()) return false;
+    if (!widget.prefs.get(UserPreferences.compactBannerEnabled)) return false;
+    return widget.prefs.get(UserPreferences.compactBannerUpcomingReleases);
   }
 
   bool _isHomeRouteActive() {
@@ -2164,6 +2208,12 @@ class _ContentRowsState extends State<_ContentRows>
   bool _isHomeRowsStyleV2() {
     return widget.prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v2;
   }
+
+  // The compact classic layout is the "Compact" toggle layered on top of the
+  // vanilla Classic (v1) home row style.
+  bool get _isCompactClassicMode =>
+      !_isHomeRowsStyleV2() &&
+      widget.prefs.get(UserPreferences.compactClassicHomeRowEnabled);
 
   PosterSize _homePosterSize() {
     final prefs = widget.prefs;
@@ -2312,9 +2362,18 @@ class _ContentRowsState extends State<_ContentRows>
     final screenWidth = size.width;
 
     if (_isBannerMode()) {
-      if (PlatformDetection.isTV) return 320.0;
-      if (!PlatformDetection.useMobileUi) return 240.0;
-      return 200.0;
+      // Compact banner: half the display width at 21:9 proportions (the
+      // Upcoming Releases rail takes the other half when enabled), so the
+      // layout slot tracks the responsive card size. Full banner stays fixed.
+      if (widget.prefs.get(UserPreferences.compactBannerEnabled)) {
+        return BannerMediaBar.compactHeightFor(
+          screenWidth,
+          withUpcoming: widget.prefs.get(
+            UserPreferences.compactBannerUpcomingReleases,
+          ),
+        );
+      }
+      return BannerMediaBar.fixedHeight;
     }
 
     if (_isAyaMode()) {
@@ -2353,6 +2412,16 @@ class _ContentRowsState extends State<_ContentRows>
       widget.prefs.get(UserPreferences.mediaBarMode),
     );
     return mode == UserPreferences.mediaBarModeBanner;
+  }
+
+  // In banner mode the media bar stays pinned at the top for the first
+  // [_bannerScrollStartRowIndex] rows. Focusing any of those rows must not
+  // scroll the page down, so the banner remains fully visible until focus
+  // reaches the third home row.
+  bool _bannerKeepsPositionAt(int rowIndex) {
+    if (!_isBannerMode()) return false;
+    if (rowIndex < 0 || rowIndex >= _rowTopOffsets.length) return false;
+    return rowIndex < _bannerScrollStartRowIndex;
   }
 
   bool _isAyaMode() {
@@ -2821,8 +2890,10 @@ class _ContentRowsState extends State<_ContentRows>
     final hasSubtitle = subtitle != null &&
         (row.rowType != HomeRowType.liveTv &&
             row.rowType != HomeRowType.libraryTilesSmall);
-    final headerPaddingTop = isRowsV2 ? 6.0 : 16.0;
-    final headerPaddingBottom = isRowsV2 ? 1.0 : 8.0;
+    final headerPaddingTop =
+        isRowsV2 ? 6.0 : (_isCompactClassicMode ? 4.0 : 16.0);
+    final headerPaddingBottom =
+        isRowsV2 ? 1.0 : (_isCompactClassicMode ? 2.0 : 8.0);
     final titleHeight = 20.0 * metadataScale;
     final subtitleHeight = hasSubtitle ? (18.0 * metadataScale) : 0.0;
     final headerHeight = headerPaddingTop + headerPaddingBottom + titleHeight + subtitleHeight;
@@ -2840,9 +2911,13 @@ class _ContentRowsState extends State<_ContentRows>
         }
         totalHeight += offset;
       } else if (_isLibraryRow(row)) {
-        final classicPadding = prefs
-            .get(UserPreferences.classicHomeRowsPadding)
-            .toDouble();
+        final storedClassicPadding =
+            prefs.get(UserPreferences.classicHomeRowsPadding);
+        final classicPadding =
+            (_isCompactClassicMode && storedClassicPadding == 30
+                    ? 20
+                    : storedClassicPadding)
+                .toDouble();
         totalHeight += (classicPadding - 10.0).clamp(0.0, 120.0);
       }
     }
@@ -3206,11 +3281,16 @@ class _ContentRowsState extends State<_ContentRows>
           _scrollController.hasClients &&
           rowIndex >= 0 &&
           rowIndex < _rowTopOffsets.length) {
-        final offsetAdjustment = _desktopRowFocusTargetTop();
-        final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
-            .clamp(0.0, _scrollController.position.maxScrollExtent);
-        if ((_scrollController.offset - targetOffset).abs() > 10) {
-          _scrollController.jumpTo(targetOffset);
+        if (_bannerKeepsPositionAt(rowIndex)) {
+          // Keep the banner pinned at the top on the first two rows.
+          _scrollController.jumpTo(0);
+        } else {
+          final offsetAdjustment = _desktopRowFocusTargetTop();
+          final targetOffset = (_rowTopOffsets[rowIndex] - offsetAdjustment)
+              .clamp(0.0, _scrollController.position.maxScrollExtent);
+          if ((_scrollController.offset - targetOffset).abs() > 10) {
+            _scrollController.jumpTo(targetOffset);
+          }
         }
       }
       final didRequestFocus = _requestRowFocusFromMemory(rowIndex);
@@ -3271,7 +3351,7 @@ class _ContentRowsState extends State<_ContentRows>
       targetState.requestFocusAt(0);
 
       final navComplete = Completer<void>();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted || generation != _verticalNavGeneration) {
           if (!navComplete.isCompleted) navComplete.complete();
           return;
@@ -3279,6 +3359,22 @@ class _ContentRowsState extends State<_ContentRows>
         final rowCtx = _rowContextOf(target);
         if (rowCtx == null) {
           if (!navComplete.isCompleted) navComplete.complete();
+          return;
+        }
+
+        // In banner mode focus on the first two rows keeps the media bar
+        // pinned at the top. Scroll back to 0 so the banner stays fully
+        // visible; the page only scrolls down once focus reaches the third
+        // row (_bannerScrollStartRowIndex).
+        if (_bannerKeepsPositionAt(target)) {
+          if (_scrollController.hasClients &&
+              _scrollController.offset > 0) {
+            await _scrollController.animateTo(
+              0,
+              duration: _focusHandoffDuration,
+              curve: _focusHandoffCurve,
+            );
+          }
           return;
         }
 
@@ -3596,6 +3692,14 @@ class _ContentRowsState extends State<_ContentRows>
     if (!fullScreenRows) return;
 
     if (_mediaBarFocusNode.hasFocus) return;
+
+    final activeRow = _activeFocusedRowIndex;
+    if (activeRow != null && _bannerKeepsPositionAt(activeRow)) {
+      // In banner mode the first two rows keep the media bar pinned at the
+      // top, so the page must not recenter or pull focus back to the bar
+      // while the user is resting on one of those rows.
+      return;
+    }
 
     final homeContentHadFocus = _homeContentHasRealFocus();
 
@@ -3927,14 +4031,18 @@ class _ContentRowsState extends State<_ContentRows>
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     // MediaType belongs in the key: a Seerr genre card takes the TMDB genre id
     // as its item id, and a genre in both the movie row and the series row has
     // the same id in each, so the second row would reuse the first row's image.
+    // The external-posters flag belongs here too: toggling it swaps every
+    // resolvable poster between server and btttr.cc art for the same item.
     final key =
         '${item.serverId}|${item.id}|${item.rawData['MediaType']}'
         '|${imageType.index}|${height.round()}'
-        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow';
+        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow'
+        '|${BetterPostersService.enabled}|$includeExternal';
     final cached = _rowImageUrlCache[key];
     if (cached != null || _rowImageUrlCache.containsKey(key)) {
       return cached;
@@ -3950,6 +4058,7 @@ class _ContentRowsState extends State<_ContentRows>
       useSeriesThumbs,
       requestScale,
       isMyMediaRow: isMyMediaRow,
+      includeExternal: includeExternal,
     );
     _rowImageUrlCache[key] = url;
     return url;
@@ -3976,7 +4085,13 @@ class _ContentRowsState extends State<_ContentRows>
   /// since their grid sizes itself and padding there overlaps the next row.
   double _classicRowPadding(HomeRow row, UserPreferences prefs) {
     if (_fullScreenRowsEnabled(prefs) || _isLibraryRow(row)) return 0.0;
-    return prefs.get(UserPreferences.classicHomeRowsPadding).toDouble();
+    final stored = prefs.get(UserPreferences.classicHomeRowsPadding);
+    if (PlatformDetection.isTV &&
+        _isCompactClassicMode &&
+        stored == 30) {
+      return stored - _tvCompactClassicRowSpacingTrim;
+    }
+    return stored.toDouble();
   }
 
   Widget _buildShiftedRow({
@@ -4058,7 +4173,7 @@ class _ContentRowsState extends State<_ContentRows>
 
   String? _rowSubtitle(HomeRow row, AppLocalizations l10n) {
     if (row.id == 'merged_calendar' || row.id == 'radarr_calendar' || row.id == 'sonarr_calendar') {
-      return 'Radarr and Sonarr Calendars';
+      return _isCompactClassicMode ? null : 'Radarr and Sonarr Calendars';
     }
     if (row.id.startsWith('seerr_')) return l10n.seerrDiscoveryRows;
     if (row.id.startsWith('tmdb_')) return 'TMDB Lists';
@@ -4368,6 +4483,23 @@ class _ContentRowsState extends State<_ContentRows>
                                                   _isActivelyScrolling) ||
                                               chromeAudioActive;
 
+                                          // The compact banner must keep
+                                           // auto-advancing whenever the media
+                                           // bar does not have focus, such as
+                                           // while the user navigates the home
+                                           // rows. Only pause it when a preview
+                                           // is playing, or while it has focus
+                                           // and the user is hovering, the list
+                                           // is mid-scroll, or audio focus is
+                                           // elsewhere.
+                                           final bannerPaused =
+                                               _activePreviewKey != null ||
+                                               _mediaBarFocusNode.hasFocus &&
+                                                   (isHoverPaused ||
+                                                       (!PlatformDetection.isMobile &&
+                                                           _isActivelyScrolling) ||
+                                                       chromeAudioActive);
+
                                           return RepaintBoundary(
                                             child: bannerMode
                                               ? BannerMediaBar(
@@ -4375,9 +4507,8 @@ class _ContentRowsState extends State<_ContentRows>
                                                   prefs: prefs,
                                                   height: mediaBarHeight,
                                                   externallyPaused:
-                                                      barPaused ||
-                                                      !mediaBarVisible ||
-                                                      _activePreviewKey != null,
+                                                      bannerPaused ||
+                                                      !mediaBarVisible,
                                                   focusNode: _mediaBarFocusNode,
                                                   onNavigateDown: _moveFocusFromMediaBarToRows,
                                                   onNavigateUp: _navigateFromMediaBarToNavbar,
@@ -4531,7 +4662,7 @@ class _ContentRowsState extends State<_ContentRows>
                                       !fullScreenRows &&
                                       !showInfoOverlay &&
                                       rowIndex == activeRowIndex)
-                                  ? _focusedRowExtraSpacing
+                                  ? _focusedRowExtraSpacingFor()
                                   : 0,
                             ),
                             child: ValueListenableBuilder<double>(
@@ -4591,6 +4722,15 @@ class _ContentRowsState extends State<_ContentRows>
             return const SizedBox.shrink();
           },
         ),
+        // TV builds with the left sidebar navbar have no top toolbar, so the
+        // toolbar's top-right clock is gone too. Re-enable a clock overlay in
+        // the same corner on the home screen (compact-banner owns this).
+        if (PlatformDetection.isTV && navbarIsLeft)
+          Positioned(
+            top: safeTop + 27.0,
+            right: 48.0,
+            child: _TvSidebarClock(prefs: prefs),
+          ),
       ],
     ),
   );
@@ -4642,7 +4782,12 @@ class _ContentRowsState extends State<_ContentRows>
           itemSpacing: _rowItemSpacing(squarePosterSide, cardExpansion),
           leadingPadding: _isHomeRowsStyleV2() ? _kHomeRowLabelInset : 0,
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
-          padding: const EdgeInsets.fromLTRB(_kHomeRowLabelInset, 5, 20, 5),
+          padding: EdgeInsets.fromLTRB(
+            _kHomeRowLabelInset,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+            20,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
+          ),
           onIndexChanged: (_, _) {
             _onHomeRowTileFocused(null);
           },
@@ -4708,9 +4853,10 @@ class _ContentRowsState extends State<_ContentRows>
           clipBehavior: cardExpansion ? Clip.none : Clip.hardEdge,
           padding: EdgeInsets.fromLTRB(
             _kHomeRowLabelInset,
-            5 + headroom,
+            (_isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5)) +
+                headroom,
             20,
-            5,
+            _isHomeRowsStyleV2() ? 5 : (_isCompactClassicMode ? 2 : 5),
           ),
           onIndexChanged: (_, item) {
             _onHomeRowTileFocused(item);
@@ -4869,10 +5015,17 @@ class _ContentRowsState extends State<_ContentRows>
           (_classicCardMetadataHeight * metadataScale);
     }
 
-    final rowPadding = 5.0 * metadataScale;
+    final rowPadding =
+        (_isCompactClassicMode ? 2.0 : 5.0) * metadataScale;
+    // The Continue Watching & Next Up row sits tight to the row below it
+    // in compact-classic: its bottom rail padding is dropped.
+    final bottomPadding =
+        (_isCompactClassicMode && row.id == 'resume')
+            ? _compactClassicResumeBottomPadding
+            : rowPadding;
     final topPadding =
         rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
-    final lockedRowHeight = maxCardHeight + topPadding + rowPadding;
+    final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);
     final hasSubtitle = subtitle != null && subtitle.isNotEmpty;
@@ -4914,16 +5067,23 @@ class _ContentRowsState extends State<_ContentRows>
           itemKey: _rowItemIdentity,
           hubKey: _hubKeyForRow(row),
           controller: _rowHorizontalController(rowIndex),
-          height: lockedRowHeight,
+          height:
+              lockedRowHeight +
+              (PlatformDetection.isTV && _isCompactClassicMode
+                  ? _tvCompactClassicRailHeadroom
+                  : 0.0),
           itemExtent: firstCardWidth,
           itemSpacing: itemSpacing,
           leadingPadding: isRowsV2 ? _kHomeRowLabelInset : 0,
           clipBehavior: (isRowsV2 || cardExpansion) ? Clip.none : Clip.hardEdge,
           padding: EdgeInsets.fromLTRB(
             _kHomeRowLabelInset,
-            topPadding,
+            topPadding +
+                (PlatformDetection.isTV && _isCompactClassicMode
+                    ? _tvCompactClassicRailHeadroom
+                    : 0.0),
             _kHomeRowTrailingInset,
-            rowPadding,
+            bottomPadding,
           ),
           onFocusChange: (has) => _onRowFocusTracked(rowIndex, has),
           onVerticalNavigation: (isUp) => _onRowVerticalNavigation(
@@ -5016,6 +5176,7 @@ class _ContentRowsState extends State<_ContentRows>
           late final double ar;
           late final double width;
           late final String? imageUrl;
+          String? fallbackImageUrl;
           final canUseExpandedV2Card =
               isRowsV2 && effectiveV2Focused && !row.isAudio && !isModernMyMediaStatic;
 
@@ -5056,6 +5217,24 @@ class _ContentRowsState extends State<_ContentRows>
                         ) ??
                         posterUrl)
                   : posterUrl;
+              // The focused URL is server art (never blank); only the plain
+              // poster row needs the server twin underneath the external one.
+              fallbackImageUrl = imageUrl == posterUrl
+                  ? _fallbackFor(
+                      posterUrl,
+                      _cachedRowImageUrl(
+                        item,
+                        imageApi,
+                        v2ImageHeight,
+                        ImageType.poster,
+                        item.type == 'Episode' ? true : useSeriesThumbs,
+                        requestScale,
+                        isMyMediaRow:
+                            row.rowType == HomeRowType.libraryTiles,
+                        includeExternal: false,
+                      ),
+                    )
+                  : null;
             }
           } else {
             final image = _unfocusedCardImage(
@@ -5069,6 +5248,7 @@ class _ContentRowsState extends State<_ContentRows>
             ar = image.aspectRatio;
             width = image.width;
             imageUrl = image.url;
+            fallbackImageUrl = image.fallbackUrl;
           }
 
           final canPreview = _supportsEpisodePreview(item);
@@ -5194,6 +5374,9 @@ class _ContentRowsState extends State<_ContentRows>
                     subtitle: cardSubtitle,
                     subtitleWidget: cardSubtitleWidget,
                     imageUrl: imageUrl,
+                    fallbackImageUrl: fallbackImageUrl,
+                    cacheManager:
+                        BetterPostersService.cacheManagerForUrl(imageUrl),
                     width: width,
                     aspectRatio: ar,
                     // Safe to compare doubles here, since ar is assigned
@@ -5430,9 +5613,9 @@ class _ContentRowsState extends State<_ContentRows>
           Padding(
             padding: EdgeInsets.fromLTRB(
               _kHomeRowLabelInset,
-              isRowsV2 ? 6 : 16,
+              isRowsV2 ? 6 : (_isCompactClassicMode ? 4 : 16),
               8,
-              isRowsV2 ? 1 : 8,
+              isRowsV2 ? 1 : (_isCompactClassicMode ? 2 : 8),
             ),
             child: Row(
               children: [
@@ -5608,8 +5791,9 @@ class _ContentRowsState extends State<_ContentRows>
     ImageApi imageApi,
     double height,
     bool useSeriesThumbs,
-    double requestScale,
-  ) {
+    double requestScale, {
+    bool includeExternal = true,
+  }) {
     final maxH = artworkRequestWidth(height, requestScale, ArtworkShape.poster);
     if (useSeriesThumbs && item.type == 'Episode') {
       final sId = item.seriesId ?? item.parentPrimaryImageItemId;
@@ -5618,7 +5802,12 @@ class _ContentRowsState extends State<_ContentRows>
         return imageApi.getPrimaryImageUrl(sId, maxHeight: maxH, tag: sTag);
       }
     }
-    return _resolvePrimaryImageUrl(item, imageApi, maxHeight: maxH);
+    return _resolvePrimaryImageUrl(
+      item,
+      imageApi,
+      maxHeight: maxH,
+      includeExternal: includeExternal,
+    );
   }
 
   static String? _resolvePrimaryImageUrl(
@@ -5626,6 +5815,7 @@ class _ContentRowsState extends State<_ContentRows>
     ImageApi imageApi, {
     int? maxHeight,
     int? maxWidth,
+    bool includeExternal = true,
   }) {
     String? primary(String? id, String? tag) {
       if (id == null || tag == null) return null;
@@ -5635,6 +5825,31 @@ class _ContentRowsState extends State<_ContentRows>
         maxWidth: maxWidth,
         tag: tag,
       );
+    }
+
+    // Better Posters (btttr.cc) wins for home rows when an external id is
+    // available. Checked before any server artwork so known movies, series
+    // and seasons (and episodes via their series) never show the server
+    // default. Detail pages do not call this path, so they keep server art.
+    // Skipped when resolving the server fallback twin (see
+    // `_unfocusedCardImage`), which is what paints underneath while the
+    // external poster is still rendering (or when btttr.cc has none).
+    final externalPoster = includeExternal
+        ? BetterPostersService.posterUrlFor(item)
+        : null;
+    if (externalPoster != null) return externalPoster;
+    // Items that borrow another item's art (genre tiles, inherited primary
+    // ids) resolve the borrowed id against the registry as well.
+    for (final borrowedId in [
+      item.primaryImageItemId,
+      item.parentPrimaryImageItemId,
+    ]) {
+      if (borrowedId != null && borrowedId.isNotEmpty) {
+        final borrowed = includeExternal
+            ? BetterPostersService.urlForId(borrowedId)
+            : null;
+        if (borrowed != null) return borrowed;
+      }
     }
 
     if (item.type == 'Genre' || item.type == 'MusicGenre') {
@@ -5874,7 +6089,17 @@ class _ContentRowsState extends State<_ContentRows>
   /// The image an unfocused card in [row] paints for [item], with the width
   /// it paints it at. The item builder and the row prefetch both read this,
   /// so the prefetch always warms the entry the card looks up.
-  ({String? url, double width, double aspectRatio}) _unfocusedCardImage(
+  /// Pairs an external (btttr.cc) primary URL with its server fallback for
+  /// [MediaCard.fallbackImageUrl]: the server poster paints instantly and
+  /// stays if the external poster is slow or missing. Null when there is
+  /// nothing to fall back to (or from).
+  static String? _fallbackFor(String? primary, String? server) {
+    if (primary == null || server == null || primary == server) return null;
+    return server;
+  }
+
+  ({String? url, String? fallbackUrl, double width, double aspectRatio})
+  _unfocusedCardImage(
     HomeRow row,
     AggregatedItem item, {
     required UserPreferences prefs,
@@ -5905,7 +6130,22 @@ class _ContentRowsState extends State<_ContentRows>
         requestScale,
         isMyMediaRow: isMyMediaRow,
       );
-      return (url: url, width: v2ImageHeight * aspect, aspectRatio: aspect);
+      final fallbackUrl = _cachedRowImageUrl(
+        item,
+        imageApi,
+        v2ImageHeight,
+        ImageType.poster,
+        item.type == 'Episode' ? true : useSeriesThumbs,
+        requestScale,
+        isMyMediaRow: isMyMediaRow,
+        includeExternal: false,
+      );
+      return (
+        url: url,
+        fallbackUrl: _fallbackFor(url, fallbackUrl),
+        width: v2ImageHeight * aspect,
+        aspectRatio: aspect,
+      );
     }
     final ar = _aspectRatioForRowItem(item, row, rowImageType);
     final height =
@@ -5922,7 +6162,22 @@ class _ContentRowsState extends State<_ContentRows>
       requestScale,
       isMyMediaRow: isMyMediaRow,
     );
-    return (url: url, width: height * ar, aspectRatio: ar);
+    final fallbackUrl = _cachedRowImageUrl(
+      item,
+      imageApi,
+      height,
+      rowImageType,
+      useSeriesThumbs,
+      requestScale,
+      isMyMediaRow: isMyMediaRow,
+      includeExternal: false,
+    );
+    return (
+      url: url,
+      fallbackUrl: _fallbackFor(url, fallbackUrl),
+      width: height * ar,
+      aspectRatio: ar,
+    );
   }
 
   void _scheduleRowPrefetch() {
@@ -5980,7 +6235,8 @@ class _ContentRowsState extends State<_ContentRows>
         row.rowType != HomeRowType.liveTv &&
         row.rowType != HomeRowType.libraryTilesSmall;
 
-    ({String? url, double width, double aspectRatio}) imageOf(
+    ({String? url, String? fallbackUrl, double width, double aspectRatio})
+    imageOf(
       HomeRow row,
       AggregatedItem item,
     ) => _unfocusedCardImage(
@@ -6079,6 +6335,7 @@ class _ContentRowsState extends State<_ContentRows>
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     if (imageType == ImageType.poster && isMyMediaRow) {
       final primaryAr = item.rawData['PrimaryImageAspectRatio'] as num?;
@@ -6101,11 +6358,23 @@ class _ContentRowsState extends State<_ContentRows>
           requestScale,
           ArtworkShape.landscape,
         ),
+        includeExternal: includeExternal,
       );
       if (primaryUrl != null) return primaryUrl;
     }
 
     if (item.serverId == 'seerr') {
+      // Better Posters wins for external poster rows when an IMDb id is
+      // available (btttr.cc only resolves IMDb); thumb/banner rows keep
+      // TMDB landscape art since btttr.cc only provides portrait posters.
+      // Render-time (not stored) so toggling the feature applies instantly.
+      // Skipped for the server fallback twin (see `_unfocusedCardImage`).
+      if (includeExternal &&
+          BetterPostersService.enabled &&
+          imageType == ImageType.poster) {
+        final external = BetterPostersService.buildUrl(item);
+        if (external != null) return external;
+      }
       final backdrop = _seerrTmdbImageUrl(
         item.rawData['BackdropPath'] as String?,
         1280,
@@ -6145,6 +6414,13 @@ class _ContentRowsState extends State<_ContentRows>
     // series poster even when the series-thumb preference is off.
     if (item.type == 'Episode' &&
         (useSeriesThumbs || imageType == ImageType.poster)) {
+      // A portrait btttr.cc poster wins on poster rows when the parent
+      // series is registered; thumb/banner rows keep landscape server art
+      // (btttr.cc only provides portrait posters).
+      if (includeExternal && imageType == ImageType.poster) {
+        final external = BetterPostersService.posterUrlFor(item);
+        if (external != null) return external;
+      }
       final seriesImage = _resolveSeriesImageForRowType(
         item,
         imageApi,
@@ -6273,6 +6549,7 @@ class _ContentRowsState extends State<_ContentRows>
       height,
       useSeriesThumbs,
       requestScale,
+      includeExternal: includeExternal,
     );
   }
 
@@ -6373,6 +6650,77 @@ class _ContentRowsState extends State<_ContentRows>
     final tags = item.rawData['ImageTags'];
     if (tags is! Map) return null;
     return tags[imageType] as String?;
+  }
+}
+
+/// TV-only clock overlay for the home screen when the left sidebar is the
+/// navbar. The top toolbar (and its top-right clock) is not built in that
+/// mode, so without this the home screen has no clock. Non-interactive and
+/// never focusable; mirrors the toolbar clock prefs ([ClockBehavior], the
+/// 24-hour toggle) and tick cadence (30s). Owned by compact-banner.
+class _TvSidebarClock extends StatefulWidget {
+  final UserPreferences prefs;
+
+  const _TvSidebarClock({required this.prefs});
+
+  @override
+  State<_TvSidebarClock> createState() => _TvSidebarClockState();
+}
+
+class _TvSidebarClockState extends State<_TvSidebarClock> {
+  Timer? _timer;
+  late String _time;
+
+  @override
+  void initState() {
+    super.initState();
+    _time = _formattedNow();
+    widget.prefs.addListener(_onPrefsChanged);
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    widget.prefs.removeListener(_onPrefsChanged);
+    super.dispose();
+  }
+
+  void _onPrefsChanged() {
+    if (!mounted) return;
+    setState(() => _time = _formattedNow());
+  }
+
+  void _tick() {
+    if (!mounted) return;
+    final now = _formattedNow();
+    if (now != _time) setState(() => _time = now);
+  }
+
+  String _formattedNow() => formatClockTime(
+    DateTime.now(),
+    use24Hour: widget.prefs.get(UserPreferences.use24HourClock),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final behavior = widget.prefs.get(UserPreferences.clockBehavior);
+    final show =
+        behavior == ClockBehavior.always ||
+        behavior == ClockBehavior.inMenus;
+    if (!show) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: Text(
+        _time,
+        textDirection: TextDirection.ltr,
+        style: const TextStyle(
+          color: Color(0xE6FFFFFF),
+          fontSize: 22,
+          fontWeight: FontWeight.w500,
+          shadows: [Shadow(color: Color(0xB3000000), blurRadius: 8)],
+        ),
+      ),
+    );
   }
 }
 

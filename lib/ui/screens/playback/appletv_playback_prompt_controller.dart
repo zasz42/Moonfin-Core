@@ -62,6 +62,7 @@ abstract class AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   });
 
   Future<void> hideSkipSegment();
@@ -114,9 +115,17 @@ class AppleTvPlaybackPromptController {
   DateTime? _suppressSeekPromptsUntil;
   Timer? _nextUpTimer;
   Timer? _skipSegmentAutoHideTimer;
+  Timer? _autoSkipDelayTimer;
+  Duration? _autoSkipDeadline;
   bool _skipSegmentVisible = false;
   Duration? _skipTo;
   MediaSegmentType? _skipSegmentType;
+  String? _skipSegmentId;
+  // Segment id whose delayed countdown back/Menu cancelled. The service
+  // re-emits isNew after a segment reload, so without this the cancelled
+  // 10s timer restarts for the same segment. Cleared on a fresh countdown
+  // or a full segment clear.
+  String? _delayedSkipCancelledSegmentId;
   Completer<bool>? _stillWatchingCompleter;
   bool _disposed = false;
 
@@ -358,6 +367,18 @@ class AppleTvPlaybackPromptController {
       return;
     }
 
+    if (result.isDelayedSkip && result.skipTo != null && result.segment != null) {
+      final pendingSame =
+          _autoSkipDelayTimer != null &&
+          _skipSegmentId == result.segment!.id;
+      final cancelledSame =
+          _delayedSkipCancelledSegmentId == result.segment!.id;
+      if (result.isNew && !pendingSame && !cancelledSame) {
+        _startDelayedAutoSkip(result.segment!, result.skipTo!);
+      }
+      return;
+    }
+
     if (result.shouldAsk && result.isNew && result.segment != null) {
       final isOutro = result.segment!.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUp()) {
@@ -367,6 +388,7 @@ class AppleTvPlaybackPromptController {
       _skipSegmentVisible = true;
       _skipTo = result.skipTo;
       _skipSegmentType = result.segment!.type;
+      _skipSegmentId = result.segment!.id;
       unawaited(
         _commands.showSkipSegment(
           result.segment!.type.displayName,
@@ -467,14 +489,55 @@ class AppleTvPlaybackPromptController {
   void _clearSkipSegmentState() {
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
     _skipSegmentVisible = false;
     _skipTo = null;
     _skipSegmentType = null;
+    _skipSegmentId = null;
+    _delayedSkipCancelledSegmentId = null;
   }
 
   void _clearSkipSegment() {
     _clearSkipSegmentState();
     unawaited(_commands.hideSkipSegment());
+  }
+
+  void _startDelayedAutoSkip(MediaSegment segment, Duration skipTo) {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    _delayedSkipCancelledSegmentId = null;
+    _skipSegmentVisible = true;
+    _skipTo = skipTo;
+    _skipSegmentType = segment.type;
+    _skipSegmentId = segment.id;
+    unawaited(
+      _commands.showSkipSegment(
+        segment.type.displayName,
+        countdownStyle: _prefs.get(UserPreferences.mediaSegmentCountdown).name,
+        segmentStartMs: segment.start.inMilliseconds,
+        segmentEndMs: segment.end.inMilliseconds,
+        autoSkipDeadlineMs: _autoSkipDeadline!.inMilliseconds,
+      ),
+    );
+    _autoSkipDelayTimer = Timer(const Duration(seconds: 10), () {
+      _autoSkipDelayTimer = null;
+      _autoSkipDeadline = null;
+      if (_disposed) return;
+      unawaited(_commands.seekTo(skipTo));
+      _clearSkipSegment();
+    });
+  }
+
+  /// Called from the native side when the user presses Menu/back during a
+  /// delayed skip countdown. Cancels the auto-skip timer but leaves the
+  /// skip button visible for manual skipping.
+  void cancelDelayedAutoSkip() {
+    _delayedSkipCancelledSegmentId = _skipSegmentId;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
   }
 
   void dispose() {
@@ -484,6 +547,8 @@ class AppleTvPlaybackPromptController {
     _nextUpTimer = null;
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
     final completer = _stillWatchingCompleter;
     if (completer != null && !completer.isCompleted) {
       // The awaiting code checks the disposed flag after this resolves, so

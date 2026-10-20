@@ -430,6 +430,7 @@ enum MediaSegmentAction {
   nothing,
   skip,
   askToSkip,
+  delayedSkip,
 }
 
 enum MediaSegmentCountdown {

@@ -21,6 +21,7 @@ class _FakeCommands implements AppleTvPromptCommands {
   String? lastSkipCountdownStyle;
   int? lastSkipSegmentStartMs;
   int? lastSkipSegmentEndMs;
+  int? lastSkipAutoSkipDeadlineMs;
   Duration? lastSeekTarget;
   String? lastMarkedPlayedId;
   bool suppressAutoNext = false;
@@ -59,12 +60,14 @@ class _FakeCommands implements AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   }) async {
     calls.add('showSkipSegment');
     lastSkipLabel = segmentDisplayName;
     lastSkipCountdownStyle = countdownStyle;
     lastSkipSegmentStartMs = segmentStartMs;
     lastSkipSegmentEndMs = segmentEndMs;
+    lastSkipAutoSkipDeadlineMs = autoSkipDeadlineMs;
   }
 
   @override
@@ -688,6 +691,87 @@ void main() {
         const Duration(milliseconds: 2400000),
       );
       expect(h.commands.count('showNextUp'), 1);
+    });
+  });
+
+  group('delayed auto-skip cancel', () {
+    Future<_Harness> delayedHarness() async {
+      final prefs = await testPrefs();
+      await prefs.set(
+        UserPreferences.mediaSegmentActions,
+        'intro:delayedSkip',
+      );
+      final h = _Harness(prefs);
+      h.segmentService = await segmentServiceWith(prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      return h;
+    }
+
+    void tickIntro(_Harness h, int positionMs) {
+      h.controller.onPositionTick(
+        Duration(milliseconds: positionMs),
+        const Duration(minutes: 40),
+      );
+    }
+
+    test('fires 10s after segment start when not cancelled', () async {
+      final h = await delayedHarness();
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        expect(h.commands.count('showSkipSegment'), 1);
+        expect(h.commands.lastSkipAutoSkipDeadlineMs, 15000);
+
+        fake.elapse(const Duration(seconds: 10));
+        expect(h.commands.count('seekTo'), 1);
+        expect(
+          h.commands.lastSeekTarget,
+          const Duration(milliseconds: 65000),
+        );
+      });
+    });
+
+    test('back/Menu cancel stops the 10s seek', () async {
+      final h = await delayedHarness();
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        expect(h.commands.count('showSkipSegment'), 1);
+
+        // This is what the host screen calls on the native
+        // skipSegmentDismiss event (Menu/back hiding the button).
+        h.controller.cancelDelayedAutoSkip();
+
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 0);
+        expect(
+          h.commands.count('hideSkipSegment'),
+          0,
+          reason: 'the button stays up for a manual skip',
+        );
+      });
+    });
+
+    test('a cancelled countdown does not restart for the same segment',
+        () async {
+      final h = await delayedHarness();
+      final reloaded = await segmentServiceWith(h.prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        expect(h.commands.count('showSkipSegment'), 1);
+        h.controller.cancelDelayedAutoSkip();
+
+        // Later ticks in the same segment stay quiet...
+        tickIntro(h, 7000);
+        // ...even when a segment reload re-emits the entry as new.
+        h.segmentService = reloaded;
+        tickIntro(h, 8000);
+        expect(h.commands.count('showSkipSegment'), 1);
+
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 0);
+      });
     });
   });
 }

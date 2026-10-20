@@ -22,6 +22,7 @@ const List<MediaSegmentType> configurableMediaSegmentTypes = <MediaSegmentType>[
 String mediaSegmentActionName(MediaSegmentAction action) => switch (action) {
   MediaSegmentAction.skip => 'skip',
   MediaSegmentAction.askToSkip => 'askToSkip',
+  MediaSegmentAction.delayedSkip => 'delayedSkip',
   MediaSegmentAction.nothing => 'doNothing',
 };
 
@@ -29,6 +30,7 @@ MediaSegmentAction mediaSegmentActionFromName(String value) =>
     switch (value.trim()) {
       'skip' => MediaSegmentAction.skip,
       'askToSkip' => MediaSegmentAction.askToSkip,
+      'delayedSkip' => MediaSegmentAction.delayedSkip,
       _ => MediaSegmentAction.nothing,
     };
 

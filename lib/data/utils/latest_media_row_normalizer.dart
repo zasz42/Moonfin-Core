@@ -78,6 +78,7 @@ List<AggregatedItem> normalizeLatestMediaItems(
   List<AggregatedItem> items, {
   String? collectionType,
   required int limit,
+  Set<String> remuxServerIds = const {},
 }) {
   // Paging asks without a collection type, so a row that opened with series
   // cards would start handing back seasons part way along.
@@ -86,7 +87,9 @@ List<AggregatedItem> normalizeLatestMediaItems(
       (collectionType == null &&
           items.any((i) => i.type == 'Episode' || i.type == 'Season'));
 
-  final normalized = shouldCollapse ? _collapseLatestTvItems(items) : items;
+  final normalized = shouldCollapse
+      ? _collapseLatestTvItems(items, remuxServerIds: remuxServerIds)
+      : items;
 
   if (normalized.length <= limit) {
     return normalized;
@@ -95,18 +98,212 @@ List<AggregatedItem> normalizeLatestMediaItems(
   return normalized.take(limit).toList();
 }
 
-List<AggregatedItem> _collapseLatestTvItems(List<AggregatedItem> items) {
-  final collapsed = <AggregatedItem>[];
-  final seenIds = <String>{};
+List<AggregatedItem> _collapseLatestTvItems(
+  List<AggregatedItem> items, {
+  Set<String> remuxServerIds = const {},
+}) {
+  return dedupMergedRows(
+    [for (final item in items) _seriesCardForLatestTvItem(item) ?? item],
+    remuxServerIds: remuxServerIds,
+  );
+}
 
-  for (final item in items) {
-    final normalized = _seriesCardForLatestTvItem(item) ?? item;
-    if (seenIds.add(normalized.id)) {
-      collapsed.add(normalized);
+/// Whether a server with display [name] is the Remux/Debrid source whose
+/// copies should represent a title found on several servers.
+bool isRemuxServerName(String? name) =>
+    (name ?? '').toLowerCase().contains('remux');
+
+/// All identity keys for [item]: provider ids plus a normalized title+year
+/// key. Episodes and seasons key by their series, since rows collapse them
+/// to series cards.
+List<String> _mergedRowIdentityKeys(AggregatedItem item) {
+  final keys = <String>[];
+  final imdb = item.imdbId;
+  if (imdb != null && imdb.isNotEmpty) keys.add('imdb:$imdb');
+  final tmdb = item.tmdbId;
+  if (tmdb != null && tmdb.isNotEmpty) keys.add('tmdb:$tmdb');
+  final type = item.type?.toLowerCase() ?? '';
+  if (type == 'episode' || type == 'season') {
+    final seriesName = (item.seriesName ?? '').toLowerCase().trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (seriesName.isNotEmpty) {
+      final numbers =
+          's${item.parentIndexNumber ?? 0}e${item.indexNumber ?? 0}';
+      keys.add('episode:$seriesName|${item.productionYear ?? 0}|$numbers');
+    }
+  } else {
+    final name = item.name.toLowerCase().trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (name.isNotEmpty) {
+      keys.add('title:$name|${item.productionYear ?? 0}');
+      // A series card collapsed from an episode/season carries no provider
+      // ids (episode ids identify the episode, never the show) and keeps the
+      // episode's year — which legitimately differs across servers holding
+      // different seasons. The yearless series key lets the same show still
+      // collapse to one card (Remux preferred). Same-name remakes that both
+      // lack provider ids would also share it; provider-id'd copies are
+      // unaffected (they merge on ids either way).
+      if (type == 'series' && item.providerIds.isEmpty) {
+        keys.add('series:$name');
+      }
     }
   }
+  if (keys.isEmpty) keys.add('${item.serverId}|${item.id}');
+  return keys;
+}
 
-  return collapsed;
+/// Returns [base] with any provider ids it lacks filled in from [extra].
+/// Only global ids travel across servers; artwork tags never do (a tag is
+/// only valid for the item id it was issued with).
+AggregatedItem _withBackfilledProviderIds(
+  AggregatedItem base,
+  AggregatedItem extra,
+) {
+  final baseLower = <String>{
+    for (final k in base.providerIds.keys) k.toLowerCase(),
+  };
+  final merged = Map<String, String>.from(base.providerIds);
+  var changed = false;
+  extra.providerIds.forEach((k, v) {
+    if (v.isNotEmpty && !baseLower.contains(k.toLowerCase())) {
+      merged[k] = v;
+      changed = true;
+    }
+  });
+  if (!changed) return base;
+  final raw = Map<String, dynamic>.from(base.rawData)
+    ..['ProviderIds'] = merged;
+  return AggregatedItem(
+    id: base.id,
+    serverId: base.serverId,
+    rawData: raw,
+  );
+}
+
+/// Merges [items] to one card per title for combined rows. An item is
+/// dropped when ANY of its identity keys was already kept, so copies that
+/// share only a TMDB id, only a title, or only an IMDb id still collapse
+/// together. Of the copies, a Remux one wins (it exposes both the local
+/// and the Debrid versions); otherwise the first one seen wins. The
+/// survivor backfills provider ids it lacks from the dropped copies.
+List<AggregatedItem> dedupMergedRows(
+  Iterable<AggregatedItem> items, {
+  Set<String> remuxServerIds = const {},
+}) {
+  final keyToIndex = <String, int>{};
+  final result = <AggregatedItem>[];
+  bool isRemux(AggregatedItem item) => remuxServerIds.contains(item.serverId);
+
+  for (final item in items) {
+    final keys = _mergedRowIdentityKeys(item);
+    int? match;
+    for (final key in keys) {
+      final index = keyToIndex[key];
+      if (index != null) {
+        match = index;
+        break;
+      }
+    }
+    if (match == null) {
+      final index = result.length;
+      result.add(item);
+      for (final key in keys) {
+        keyToIndex[key] = index;
+      }
+      continue;
+    }
+    final survivor = result[match];
+    if (isRemux(item) && !isRemux(survivor)) {
+      result[match] = _withBackfilledProviderIds(item, survivor);
+      for (final key in _mergedRowIdentityKeys(survivor)) {
+        keyToIndex[key] = match;
+      }
+    } else {
+      result[match] = _withBackfilledProviderIds(survivor, item);
+    }
+    for (final key in keys) {
+      keyToIndex[key] = match;
+    }
+  }
+  return result;
+}
+
+/// Folds same-named series cards in a combined row to one card per show.
+///
+/// [dedupMergedRows] already collapses copies sharing an identity key, but
+/// two servers can describe the same show with disjoint metadata: provider
+/// ids that never overlap (or none at all), different years, or an episode
+/// that could not collapse (no series id) sitting next to the series card.
+/// The normalized series name is then the only shared signal, so Series
+/// cards are grouped by it — first Remux copy wins, provider ids backfilled
+/// from the rest — and Episode/Season leftovers whose series name matches a
+/// kept series are folded into that card (dropped, never backfilled: their
+/// ids identify the episode/season, never the show). Anything else passes
+/// through untouched, and first-seen order is kept.
+///
+/// Known edge: same-name remakes that both lack usable ids share a group;
+/// only the Remux/first copy is shown.
+List<AggregatedItem> dedupMergedSeriesByName(
+  Iterable<AggregatedItem> items, {
+  Set<String> remuxServerIds = const {},
+}) {
+  bool isRemux(AggregatedItem item) => remuxServerIds.contains(item.serverId);
+  String groupNameOf(AggregatedItem item) {
+    final type = (item.type ?? '').toLowerCase();
+    final raw = type == 'episode' || type == 'season'
+        ? item.seriesName ?? ''
+        : item.name;
+    return raw.toLowerCase().trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  final groups = <String, List<AggregatedItem>>{};
+  final order = <String>[];
+  for (final item in items) {
+    if ((item.type ?? '').toLowerCase() != 'series') continue;
+    final name = groupNameOf(item);
+    if (name.isEmpty) continue;
+    if (!groups.containsKey(name)) {
+      groups[name] = [];
+      order.add(name);
+    }
+    groups[name]!.add(item);
+  }
+  final survivorByName = <String, AggregatedItem>{};
+  for (final name in order) {
+    final group = groups[name]!;
+    var survivor = group.firstWhere(isRemux, orElse: () => group.first);
+    for (final other in group) {
+      if (identical(other, survivor)) continue;
+      survivor = _withBackfilledProviderIds(survivor, other);
+    }
+    survivorByName[name] = survivor;
+  }
+  if (survivorByName.isEmpty) return items.toList(growable: false);
+
+  final seen = <String>{};
+  final result = <AggregatedItem>[];
+  for (final item in items) {
+    final type = (item.type ?? '').toLowerCase();
+    if (type == 'series') {
+      final name = groupNameOf(item);
+      if (!survivorByName.containsKey(name)) {
+        result.add(item);
+        continue;
+      }
+      if (seen.add(name)) result.add(survivorByName[name]!);
+      continue;
+    }
+    if ((type == 'episode' || type == 'season') &&
+        survivorByName.containsKey(groupNameOf(item))) {
+      continue;
+    }
+    result.add(item);
+  }
+  return result;
 }
 
 AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
@@ -130,6 +327,13 @@ AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
   rawData['Name'] = seriesName;
   rawData.remove('IndexNumber');
   rawData.remove('ParentIndexNumber');
+  // An episode's provider ids identify the episode, never the show: left in
+  // place the card would build (and dedup by) a poster id that cannot
+  // resolve to series art. Seasons keep theirs (usable for per-season
+  // posters via the parent series id).
+  if (item.type == 'Episode') {
+    rawData.remove('ProviderIds');
+  }
 
   // A season's parent is the series so its tag fits the id set below, but an
   // episode's parent is the season and that tag would not match the series.

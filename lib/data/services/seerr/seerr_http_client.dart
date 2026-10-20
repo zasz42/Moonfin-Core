@@ -676,6 +676,26 @@ class SeerrHttpClient {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Fetches TMDB images (including logos) for a movie.
+  Future<Map<String, dynamic>> getMovieImages(int tmdbId) async {
+    final response = await _dio.get(
+      _apiUrl('movie/$tmdbId/images'),
+      options: _authOptions(),
+    );
+    _requireSuccess(response, 'getMovieImages');
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Fetches TMDB images (including logos) for a TV series.
+  Future<Map<String, dynamic>> getTvImages(int tmdbId) async {
+    final response = await _dio.get(
+      _apiUrl('tv/$tmdbId/images'),
+      options: _authOptions(),
+    );
+    _requireSuccess(response, 'getTvImages');
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getSimilarMovies(int tmdbId, {int page = 1}) async {
     final response = await _dio.get(
       _apiUrl('movie/$tmdbId/similar'),
