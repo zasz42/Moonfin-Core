@@ -492,10 +492,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (bannerUrl != null)
-                          _banner(bannerUrl, item)
-                        else
-                          _backdrop(item),
+                        _backdrop(item),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -513,7 +510,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                             context,
                             item,
                             // The banner carries the title already.
-                            showTitle: bannerUrl == null,
+                            showTitle: true,
                           ),
                         ),
                       ],
@@ -693,13 +690,17 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   Widget _backdrop(MediaBarSlideItem item) {
     final url = item.backdropUrl;
     if (url == null) {
-      return ColoredBox(color: AppColorScheme.surface);
+      return const ColoredBox(color: Color(0xFFE8E8E8));
     }
-    return BoundedNetworkImage(
-      imageUrl: url,
-      minWidth: 640,
-      maxWidth: 1280,
-      errorBuilder: (_, _, _) => ColoredBox(color: AppColorScheme.surface),
+    return AspectRatio(
+      aspectRatio: 16 / 9, // 16:9 logical pixels — matches the 21:9 banner width ratio
+      child: BoundedNetworkImage(
+        imageUrl: url,
+        minWidth: 640,
+        maxWidth: 1280,
+        fit: BoxFit.cover, // crop to fill the 16:9 area
+        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE8E8E8)),
+      ),
     );
   }
 
