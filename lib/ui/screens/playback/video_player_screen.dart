@@ -2697,6 +2697,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     setState(() => _showNextUp = false);
     try {
       if (!await _checkStillWatching()) return;
+      // If there's a pending delayed skip, trigger it first to mark
+      // the episode as completed before loading the next episode.
+      if (_autoSkipDelayTimer != null && _skipSegment != null && _skipTo != null) {
+        await _manager.seekTo(_skipTo!);
+        _clearSkipSegment();
+      }
       // The next item, not the next chapter, even when the card came up
       // during one.
       await _manager.nextInQueue();
@@ -2880,6 +2886,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       }
       _manager.seekTo(skipTo);
       _clearSkipSegment();
+      // After auto-skip, continue to next episode or return to home screen
+      if (_hasDistinctQueueNextItem()) {
+        unawaited(_manager.nextInQueue());
+      } else {
+        unawaited(_exitPlayback());
+      }
     });
   }
 
