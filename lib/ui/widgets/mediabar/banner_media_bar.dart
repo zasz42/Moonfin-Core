@@ -101,6 +101,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   DateTime? _keyDownTime;
   DateTime? _arrowRightDownTime;
   bool _arrowRightLongPressHandled = false;
+  double? _dragOffset;
 
   @override
   void initState() {
@@ -454,14 +455,51 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
           child: GestureDetector(
             onTap: () => widget.onOpen(item),
             onLongPress: () => _launchTrailer(item),
+            onHorizontalDragUpdate: items.length > 1
+                ? (details) {
+                    // Track horizontal drag for visual feedback (optional)
+                    // This helps on tvOS where remote touchpad generates
+                    // continuous drag updates rather than high-velocity flings
+                    _dragOffset = (details.primaryDelta ?? 0) + (_dragOffset ?? 0);
+                    if (mounted) setState(() {});
+                  }
+                : null,
             onHorizontalDragEnd: items.length > 1
                 ? (details) {
                     final v = details.primaryVelocity ?? 0;
-                    if (v < -300) {
+                    // Use lower velocity threshold on tvOS where remote
+                    // touchpad generates lower-velocity swipes
+                    final threshold = PlatformDetection.isAppleTV ? 50.0 : 300.0;
+                    if (v < -threshold) {
                       _setIndex(_index + 1);
-                    } else if (v > 300) {
+                    } else if (v > threshold) {
                       _setIndex(_index == 0 ? items.length - 1 : _index - 1);
                     }
+                    _dragOffset = null;
+                    if (mounted) setState(() {});
+                  }
+                : null,
+            // tvOS remote touchpad may generate pan gestures instead of
+            // horizontal drag gestures. Handle both for robustness.
+            onPanUpdate: items.length > 1 && PlatformDetection.isAppleTV
+                ? (details) {
+                    final delta = details.delta.dx;
+                    _dragOffset = (delta) + (_dragOffset ?? 0);
+                    if (mounted) setState(() {});
+                  }
+                : null,
+            onPanEnd: items.length > 1 && PlatformDetection.isAppleTV
+                ? (details) {
+                    final v = details.velocity.pixelsPerSecond.dx;
+                    // Use even lower threshold for pan gestures on tvOS
+                    const threshold = 50.0;
+                    if (v < -threshold) {
+                      _setIndex(_index + 1);
+                    } else if (v > threshold) {
+                      _setIndex(_index == 0 ? items.length - 1 : _index - 1);
+                    }
+                    _dragOffset = null;
+                    if (mounted) setState(() {});
                   }
                 : null,
             child: Stack(
