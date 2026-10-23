@@ -75,15 +75,12 @@ final class NativeApplePlayerViewController: UIViewController {
     var onNextUpCancel: (() -> Void)?
     var onNextUpDismiss: (() -> Void)?
     var onSkipSegmentSelect: (() -> Void)?
-<<<<<<< HEAD
     /// Fires when Menu/back hides the skip button. Dart must cancel a
     /// pending delayed auto-skip timer, which has no other signal: without
     /// this the 10s seek still fires after the button is gone.
     var onSkipSegmentDismiss: (() -> Void)?
-=======
     /// Sends remote Skip actions back to Dart.
     var onCinemaSkipAction: ((String, Int) -> Void)?
->>>>>>> origin/main
     /// Fires with the target after a scrub or a direct jump the user made.
     /// Carrying the position lets the host hand it to SyncPlay, which is the
     /// only way a seek made on this player reaches the rest of the group.
