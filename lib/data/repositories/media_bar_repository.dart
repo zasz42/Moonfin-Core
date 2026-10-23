@@ -298,6 +298,7 @@ class MediaBarRepository {
       }
 
       return MediaBarReady(_mergedSlides(customSlides, selected, maxItems));
+      }
     } catch (e) {
       // Custom lists were read before any of this, so they still stand even if
       // the server-side selection blew up.
