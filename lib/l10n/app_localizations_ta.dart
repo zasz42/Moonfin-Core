@@ -648,6 +648,28 @@ class AppLocalizationsTa extends AppLocalizations {
       'Emby இணைப்பு அல்லது தேர்ந்தெடுக்கப்பட்ட சேவையகத்தைத் தொடர்பு கொள்ளும்போது நெட்வொர்க் பிழை';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'இணைக்கப்பட்ட சேவையகங்களை ஏற்றுகிறது...';
 
   @override
@@ -12629,6 +12651,9 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'குழுப் பங்களிப்புகள் (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'குழுவுடன் பார்';

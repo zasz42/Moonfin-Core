@@ -17,6 +17,7 @@ import '../../../auth/services/jellyfin_credentials_bridge.dart';
 import '../../../auth/store/authentication_preferences.dart';
 import '../../../auth/store/authentication_store.dart';
 import '../../../data/services/media_server_client_factory.dart';
+import '../../../data/services/plex_tv_service.dart';
 import '../../../auth/services/server_discovery_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../platform/web_runtime_config.dart';
@@ -403,6 +404,11 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
 
   Future<void> _connectToDiscovered(DiscoveredServer discovered) async {
     if (_isConnecting) return;
+    // A Plex server is saved from its plex.tv sign-in.
+    if (discovered.serverType == ServerType.plex) {
+      context.go(Destinations.plexSignIn);
+      return;
+    }
     if (mounted) {
       setState(() {
         _isConnecting = true;
@@ -600,6 +606,19 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                       size: 16,
                     ),
                     label: l10n.embyConnect,
+                  ),
+                );
+
+                actions.add(
+                  _buildFooterActionButton(
+                    onPressed: _isConnecting
+                        ? null
+                        : () => context.go(Destinations.plexSignIn),
+                    icon: const ServerTypeIcon(
+                      serverType: ServerType.plex,
+                      size: 16,
+                    ),
+                    label: l10n.signInWithPlex,
                   ),
                 );
               }
@@ -984,6 +1003,23 @@ class _AddServerDialogState extends State<AddServerDialog> {
       if (!mounted) return;
       if (server != null) {
         _dismissDialog();
+        return;
+      }
+      // Only Jellyfin and Emby answer that probe, so a Plex server goes to its
+      // plex.tv sign-in.
+      final plexUri = GetIt.instance.isRegistered<PlexTvService>()
+          ? await GetIt.instance<PlexTvService>().findServerAt(address)
+          : null;
+      if (!mounted) return;
+      if (plexUri != null) {
+        final router = GoRouter.of(context);
+        _dismissDialog();
+        router.go(
+          Uri(
+            path: Destinations.plexSignIn,
+            queryParameters: {'address': plexUri},
+          ).toString(),
+        );
         return;
       }
       final failure = widget.serverRepo.lastFailure;

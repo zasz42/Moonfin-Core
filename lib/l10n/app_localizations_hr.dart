@@ -649,6 +649,28 @@ class AppLocalizationsHr extends AppLocalizations {
       'Mrežna pogreška prilikom kontaktiranja Emby Connecta ili odabranog poslužitelja';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Učitavanje povezanih poslužitelja...';
 
   @override
@@ -12772,6 +12794,9 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Doprinosi ekipe (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Gledaj s grupom';

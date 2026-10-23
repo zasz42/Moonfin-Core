@@ -648,6 +648,28 @@ class AppLocalizationsUg extends AppLocalizations {
       'Emby Connect ياكى تاللانغان مۇلازىمېتىر بىلەن ئالاقىلاشقاندا تور خاتالىقى';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers =>
       'ئۇلانغان مۇلازىمېتىرلارنى يۈكلەۋاتىدۇ ...';
 
@@ -12588,6 +12610,9 @@ class AppLocalizationsUg extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'خادىم تۆھپىلىرى (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'گۇرۇپپا بىلەن كۆرۈش';

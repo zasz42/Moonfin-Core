@@ -650,6 +650,28 @@ class AppLocalizationsUk extends AppLocalizations {
       'Помилка мережі під час підключення до Emby Connect або вибраного сервера';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Завантаження зв\'язаних серверів...';
 
   @override
@@ -12639,6 +12661,9 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Внесок знімальної групи (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Дивіться з групою';

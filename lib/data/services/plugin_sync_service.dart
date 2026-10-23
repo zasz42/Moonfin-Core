@@ -87,6 +87,13 @@ class PluginSyncService extends ChangeNotifier {
   bool _tmdbThumbsSupported = false;
   bool get tmdbThumbsAvailable =>
       _pluginAvailable && _tmdbAvailable && _tmdbThumbsSupported;
+
+  /// Whether the plugin can look up a person's social accounts on TMDB. It
+  /// uses the user's own TMDB key before the server's, so the admin key alone
+  /// doesn't decide it.
+  bool _tmdbPersonLinksSupported = false;
+  bool get tmdbPersonLinksAvailable =>
+      _pluginAvailable && _tmdbPersonLinksSupported;
   bool _recommendationsSupported = false;
   bool get recommendationsSupported =>
       _pluginAvailable && _recommendationsSupported;
@@ -225,6 +232,7 @@ class PluginSyncService extends ChangeNotifier {
     _mdblistAvailable = false;
     _tmdbAvailable = false;
     _tmdbThumbsSupported = false;
+    _tmdbPersonLinksSupported = false;
     _recommendationsSupported = false;
     _clientLogSupported = false;
     _activeThemeCacheServerId = null;
@@ -285,6 +293,8 @@ class PluginSyncService extends ChangeNotifier {
       _tmdbAvailable = _readBool(pingResult, 'tmdbAvailable') ?? false;
       _tmdbThumbsSupported =
           _readBool(pingResult, 'tmdbThumbsSupported') ?? false;
+      _tmdbPersonLinksSupported =
+          _readBool(pingResult, 'tmdbPersonLinksSupported') ?? false;
       _recommendationsSupported =
           _readBool(pingResult, 'recommendationsSupported') ?? false;
       // Older plugins leave this out, which reads as false and hides the button.

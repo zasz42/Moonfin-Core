@@ -628,6 +628,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get embyConnectNetworkError => '连接 Emby Connect 或所选服务器时出现网络错误';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => '正在加载关联服务器…';
 
   @override
@@ -12168,6 +12190,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => '演职人员作品（Seerr）';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => '与播放组一起观看';

@@ -18,6 +18,7 @@ import 'package:logger/logger.dart';
 import 'package:playback_core/playback_core.dart';
 import 'package:playback_emby/playback_emby.dart';
 import 'package:playback_jellyfin/playback_jellyfin.dart';
+import 'package:playback_plex/playback_plex.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../data/models/media_bar_slide_item.dart';
@@ -1066,7 +1067,22 @@ class _MediaBarState extends State<MediaBar>
     }
 
     List<Map<String, dynamic>> remoteTrailers = item.remoteTrailers;
-    if (remoteTrailers.isEmpty) {
+    // Plex items never carry trailer links, so there's nothing to fetch and
+    // one is searched for instead.
+    if (client.serverType == ServerType.plex) {
+      if (streamUrl == null) {
+        final url = await YouTubeStreamResolver.searchTrailer(
+          item.title,
+          year: item.year,
+        );
+        if (!mounted || resolveId != _trailerResolveId) return;
+        if (url != null) {
+          remoteTrailers = [
+            {'Url': url},
+          ];
+        }
+      }
+    } else if (remoteTrailers.isEmpty) {
       try {
         final fullItem = await client.itemsApi.getItem(item.itemId);
         if (!mounted || resolveId != _trailerResolveId) return;
@@ -1822,6 +1838,7 @@ class _MediaBarState extends State<MediaBar>
     return switch (client.serverType) {
       ServerType.jellyfin => JellyfinPlugin(client).createStreamResolver(),
       ServerType.emby => EmbyPlugin(client).createStreamResolver(),
+      ServerType.plex => PlexMediaStreamResolver(client),
     };
   }
 

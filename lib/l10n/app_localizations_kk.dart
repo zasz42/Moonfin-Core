@@ -648,6 +648,28 @@ class AppLocalizationsKk extends AppLocalizations {
       'Emby Connect немесе таңдалған сервермен байланысу кезінде желі қатесі';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Байланыстырылған серверлер жүктелуде...';
 
   @override
@@ -12602,6 +12624,9 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Түсіру тобының үлесі (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Топпен бірге көру';

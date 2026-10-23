@@ -649,6 +649,28 @@ class AppLocalizationsAf extends AppLocalizations {
       'Netwerkfout tydens kontak met Emby Connect of die geselekteerde bediener';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Laai tans gekoppelde bedieners...';
 
   @override
@@ -12559,6 +12581,9 @@ class AppLocalizationsAf extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Spanbydraes (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Kyk saam met die groep';

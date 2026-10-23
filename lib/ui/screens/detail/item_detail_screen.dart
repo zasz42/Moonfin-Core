@@ -8,6 +8,7 @@ import '../../widgets/anime_marker_badge.dart';
 import '../../../data/repositories/anime_marker_repository.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/media_badge.dart';
+import '../admin/admin_nav.dart' show adminServerSupported;
 import 'detail_admin_actions.dart';
 
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,7 @@ import '../../../data/repositories/offline_repository.dart';
 import '../../../data/services/media_server_client_factory.dart';
 import '../../../data/services/book_reader_service.dart';
 import '../../../data/services/theme_music_service.dart';
+import '../../../data/services/youtube_stream_resolver.dart';
 import '../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../data/viewmodels/seerr_media_detail_view_model.dart';
 import '../../../data/services/plugin_sync_service.dart';
@@ -52,6 +54,7 @@ import 'nouveau/nouveau_detail_content.dart';
 import 'nouveau/hero/nouveau_action_buttons.dart';
 import 'modern/modern_detail_content.dart';
 import 'spotlight/spotlight_detail_content.dart';
+import 'person_links_row.dart';
 import 'playlist_sort_filter_bar.dart';
 import '../../widgets/skeleton/skeleton_detail_screen.dart';
 import '../../widgets/skeleton/skeleton_shimmer.dart';
@@ -1554,6 +1557,11 @@ class _DetailContentState extends State<_DetailContent> {
               textAlign: TextAlign.center,
             ),
           ],
+          PersonLinksRow(
+            item: item,
+            accounts: viewModel.personAccounts,
+            padding: const EdgeInsets.only(top: 24),
+          ),
         ],
       ),
     );
@@ -2851,9 +2859,13 @@ class _DetailContentState extends State<_DetailContent> {
     final musicVideos = sortJellyfinItems(viewModel.filmographyMusicVideos);
     final useSplit = _useDesktopDetailLayout(context);
 
+    final canFavorite = viewModel.supportsPersonFavorites;
     final favoriteFocusNode =
         initialFocusNode ?? _sectionFocusNode('detailPersonFavorite');
-    final displayFocusNode = _sectionFocusNode('detailPersonDisplayButton');
+    // With no heart, Display takes over its focus.
+    final displayFocusNode = canFavorite
+        ? _sectionFocusNode('detailPersonDisplayButton')
+        : favoriteFocusNode;
     final bioFocusNode = _sectionFocusNode('detailPersonBio');
     final firstFocus = bioFocusNode;
     final hasBio =
@@ -3023,30 +3035,32 @@ class _DetailContentState extends State<_DetailContent> {
               ? MainAxisAlignment.start
               : MainAxisAlignment.center,
           children: [
-            _DetailActionButton(
-              label: item.isFavorite ? l10n.favorited : l10n.favorite,
-              icon: Icons.favorite,
-              onPressed: viewModel.toggleFavorite,
-              isActive: item.isFavorite,
-              activeColor: const Color(0xFFFF4757),
-              focusNode: favoriteFocusNode,
-              suppressAutoScrollToTop: true,
-              onArrowUp: () {
-                if (hasBio && firstFocus.canRequestFocus) {
-                  _requestSectionFocus(firstFocus);
-                } else {
-                  _tryFocusNavbar();
-                }
-              },
-              onArrowDown: focusFirstRow,
-              onArrowRight: () {
-                _requestSectionFocus(displayFocusNode);
-              },
-              onArrowLeft: () {
-                _tryFocusSidebar();
-              },
-            ),
-            const SizedBox(width: 16),
+            if (canFavorite) ...[
+              _DetailActionButton(
+                label: item.isFavorite ? l10n.favorited : l10n.favorite,
+                icon: Icons.favorite,
+                onPressed: viewModel.toggleFavorite,
+                isActive: item.isFavorite,
+                activeColor: const Color(0xFFFF4757),
+                focusNode: favoriteFocusNode,
+                suppressAutoScrollToTop: true,
+                onArrowUp: () {
+                  if (hasBio && firstFocus.canRequestFocus) {
+                    _requestSectionFocus(firstFocus);
+                  } else {
+                    _tryFocusNavbar();
+                  }
+                },
+                onArrowDown: focusFirstRow,
+                onArrowRight: () {
+                  _requestSectionFocus(displayFocusNode);
+                },
+                onArrowLeft: () {
+                  _tryFocusSidebar();
+                },
+              ),
+              const SizedBox(width: 16),
+            ],
             _DetailActionButton(
               label: l10n.display,
               icon: Icons.tune,
@@ -3063,7 +3077,11 @@ class _DetailContentState extends State<_DetailContent> {
               },
               onArrowDown: focusFirstRow,
               onArrowLeft: () {
-                _requestSectionFocus(favoriteFocusNode);
+                if (canFavorite) {
+                  _requestSectionFocus(favoriteFocusNode);
+                } else {
+                  _tryFocusSidebar();
+                }
               },
               onArrowRight: hasSeerrButton
                   ? () {
@@ -3100,6 +3118,13 @@ class _DetailContentState extends State<_DetailContent> {
           ],
         ),
       ),
+      // The split layout keeps the links in its profile panel.
+      if (!useSplit)
+        PersonLinksRow(
+          item: item,
+          accounts: viewModel.personAccounts,
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        ),
       ..._composeSections(specs, head: favoriteFocusNode),
       const SizedBox(height: 48),
     ];
@@ -3630,7 +3655,9 @@ class _DetailContentState extends State<_DetailContent> {
     AggregatedItem item,
   ) async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: item.name);
+    // The field keeps its own controller, since the rename rebuilds the page
+    // while the dialog is still closing.
+    var name = item.name;
     final newName = await showFocusRestoringDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog.adaptive(
@@ -3639,12 +3666,13 @@ class _DetailContentState extends State<_DetailContent> {
           l10n.renamePlaylist,
           style: const TextStyle(color: Colors.white),
         ),
-        content: TextField(
-          controller: controller,
+        content: TextFormField(
+          initialValue: item.name,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(hintText: l10n.playlistName),
-          onSubmitted: (_) => Navigator.pop(ctx, controller.text.trim()),
+          onChanged: (value) => name = value,
+          onFieldSubmitted: (_) => Navigator.pop(ctx, name.trim()),
         ),
         actions: [
           adaptiveDialogAction(
@@ -3655,13 +3683,12 @@ class _DetailContentState extends State<_DetailContent> {
             ),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            onPressed: () => Navigator.pop(ctx, name.trim()),
             child: Text(l10n.save),
           ),
         ],
       ),
     );
-    controller.dispose();
     if (newName == null || newName.isEmpty || newName == item.name) return;
     await viewModel.renamePlaylist(newName);
   }
@@ -6773,31 +6800,44 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         !PlatformDetection.useMobileUi && !SettingsPanel.isOpenNotifier.value;
 
     if (item.type == 'Person') {
+      final canFavorite = viewModel.supportsPersonFavorites;
+      // On a phone every button is a round tile with its label underneath,
+      // Seerr included, rather than one wide Favorite.
+      final compact = _isCompact(context);
+      final hasSeerrButton =
+          compact &&
+          (item.tmdbId?.isNotEmpty ?? false) &&
+          GetIt.instance<PluginSyncService>().seerrAvailable;
       final normalizedPrimaryButtons = [
-        _DetailActionButton(
-          label: item.isFavorite ? l10n.favorited : l10n.favorite,
-          icon: Icons.favorite,
-          isPrimary: true,
-          focusNode: widget.tvPlayFocusNode ?? _primaryFocusNode(0),
-          autofocus: autofocusPlay,
-          onPressed: viewModel.toggleFavorite,
-          isActive: item.isFavorite,
-          activeColor: const Color(0xFFFF4757),
-          onArrowUp:
-              NavigationLayout.focusNavbarNotifier.value != null ||
-                  widget.upTarget != null
-              ? _focusUpTarget
-              : null,
-          onArrowDown: widget.downTarget != null ? _focusDownTarget : null,
-          onArrowLeft: _focusSidebar,
-          onArrowRight: () {
-            _primaryFocusNode(1).requestFocus();
-          },
-        ),
+        if (canFavorite)
+          _DetailActionButton(
+            label: item.isFavorite ? l10n.favorited : l10n.favorite,
+            icon: Icons.favorite,
+            isPrimary: !compact,
+            focusNode: widget.tvPlayFocusNode ?? _primaryFocusNode(0),
+            autofocus: autofocusPlay,
+            onPressed: viewModel.toggleFavorite,
+            isActive: item.isFavorite,
+            activeColor: const Color(0xFFFF4757),
+            onArrowUp:
+                NavigationLayout.focusNavbarNotifier.value != null ||
+                    widget.upTarget != null
+                ? _focusUpTarget
+                : null,
+            onArrowDown: widget.downTarget != null ? _focusDownTarget : null,
+            onArrowLeft: _focusSidebar,
+            onArrowRight: () {
+              _primaryFocusNode(1).requestFocus();
+            },
+          ),
         _DetailActionButton(
           label: l10n.display,
           icon: Icons.tune,
-          focusNode: _primaryFocusNode(1),
+          // With no heart, Display takes over its focus.
+          focusNode: canFavorite
+              ? _primaryFocusNode(1)
+              : widget.tvPlayFocusNode ?? _primaryFocusNode(0),
+          autofocus: !canFavorite && autofocusPlay,
           onPressed: () {
             showFocusRestoringDialog(
               context: context,
@@ -6813,23 +6853,64 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               ? _focusUpTarget
               : null,
           onArrowDown: widget.downTarget != null ? _focusDownTarget : null,
-          onArrowLeft: () {
-            (widget.tvPlayFocusNode ?? _primaryFocusNode(0)).requestFocus();
-          },
-          onArrowRight: widget.onArrowRightAtEnd ?? () {},
+          onArrowLeft: canFavorite
+              ? () {
+                  (widget.tvPlayFocusNode ?? _primaryFocusNode(0))
+                      .requestFocus();
+                }
+              : _focusSidebar,
+          onArrowRight: hasSeerrButton
+              ? () => _primaryFocusNode(2).requestFocus()
+              : widget.onArrowRightAtEnd ?? () {},
         ),
+        if (hasSeerrButton)
+          _DetailActionButton(
+            label: GetIt.instance<SeerrPreferences>().labelOrDefault(
+              l10n.seerr,
+            ),
+            iconBuilder: (size, color) => SeerrIcon(size: size, color: color),
+            focusNode: _primaryFocusNode(2),
+            onPressed: () {
+              context.push(Destinations.seerrPerson(item.tmdbId!));
+            },
+            onArrowUp:
+                NavigationLayout.focusNavbarNotifier.value != null ||
+                    widget.upTarget != null
+                ? _focusUpTarget
+                : null,
+            onArrowDown: widget.downTarget != null ? _focusDownTarget : null,
+            onArrowLeft: () => _primaryFocusNode(1).requestFocus(),
+            onArrowRight: widget.onArrowRightAtEnd ?? () {},
+          ),
       ];
 
+      final alignStart = widget.modernStyle;
       return Align(
-        alignment: widget.modernStyle ? Alignment.centerLeft : Alignment.center,
-        child: Wrap(
-          spacing: widget.modernStyle ? 12.0 : 8.0,
-          runSpacing: 12.0,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          alignment: widget.modernStyle
-              ? WrapAlignment.start
-              : WrapAlignment.center,
-          children: normalizedPrimaryButtons,
+        alignment: alignStart ? Alignment.centerLeft : Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: alignStart
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
+          children: [
+            Wrap(
+              spacing: widget.modernStyle ? 12.0 : 8.0,
+              runSpacing: 12.0,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: alignStart
+                  ? WrapAlignment.start
+                  : WrapAlignment.center,
+              children: normalizedPrimaryButtons,
+            ),
+            PersonLinksRow(
+              item: item,
+              accounts: viewModel.personAccounts,
+              alignment: alignStart
+                  ? WrapAlignment.start
+                  : WrapAlignment.center,
+              padding: const EdgeInsets.only(top: 16),
+            ),
+          ],
         ),
       );
     }
@@ -7069,7 +7150,10 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           // A series keeps the button even when nothing was counted for it,
           // since a trailer in a season folder belongs to that season and
           // isn't counted against the series it came from.
-          : (item.type == 'Series' || hasTrailer(item, viewModel.features)) &&
+          : (item.type == 'Series' ||
+                    hasTrailer(item, viewModel.features) ||
+                    (item.type == 'Movie' &&
+                        viewModel.searchesYouTubeForTrailer)) &&
                 shows(DetailButton.trailer))
         DetailButton.trailer: _DetailActionButton(
           label: l10n.trailer,
@@ -7108,6 +7192,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           activeColor: const Color(0xFFFF4757),
         ),
       if (_ratableItemTypes.contains(item.type) &&
+          viewModel.supportsPersonalRating &&
           shows(DetailButton.personalRating))
         DetailButton.personalRating: _DetailActionButton(
           label: _personalRatingActionLabel(l10n, item),
@@ -7976,6 +8061,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         isTV: PlatformDetection.isTV,
         itemType: item.type,
         canDelete: item.canDelete,
+        adminPanel: adminServerSupported(),
       );
 
   void _showAdminDialog(BuildContext context, AggregatedItem item) {
@@ -8722,12 +8808,25 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     bool audioSelectionExplicit = false,
     bool subtitleSelectionExplicit = false,
   }) async {
-    queue = queueWithAdditionalParts(
+    final parts = await _additionalPartsFor(target, mediaSourceId);
+    final withParts = queueWithAdditionalParts(
       queue,
       startIndex: startIndex,
       target: target,
-      parts: await _additionalPartsFor(target, mediaSourceId),
+      parts: parts,
     );
+    if (!identical(withParts, queue)) {
+      (startIndex, startPosition) = startInParts(
+        startIndex: startIndex,
+        startPosition: startPosition,
+        firstFile: _runtimeForItem(
+          target,
+          selectedMediaSourceForItem(target, mediaSourceId),
+        ),
+        parts: parts,
+      );
+    }
+    queue = withParts;
     final applyNow = prerolls.isEmpty;
     Future<void> playItems() => manager.playItems(
       applyNow
@@ -10116,10 +10215,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       return;
     }
 
-    final trailerUrl = item.remoteTrailers
+    var trailerUrl = item.remoteTrailers
         .map((t) => t['Url'] as String?)
         .whereType<String>()
         .firstWhere((u) => u.isNotEmpty, orElse: () => '');
+    if (trailerUrl.isEmpty && viewModel.searchesYouTubeForTrailer) {
+      trailerUrl =
+          await YouTubeStreamResolver.searchTrailer(
+            item.name,
+            year: item.productionYear,
+          ) ??
+          '';
+    }
 
     if (trailerUrl.isEmpty) {
       if (!context.mounted) return;
@@ -10743,6 +10850,27 @@ List<AggregatedItem> queueWithAdditionalParts(
     ...parts,
     ...queue.skip(startIndex + 1),
   ];
+}
+
+/// Where [startPosition] lands once [parts] follow the started item. A server
+/// that keeps one resume point for a whole split movie can hand back a time
+/// past the first file, and that time belongs to a later part.
+(int, Duration) startInParts({
+  required int startIndex,
+  required Duration startPosition,
+  required Duration? firstFile,
+  required List<AggregatedItem> parts,
+}) {
+  var index = startIndex;
+  var position = startPosition;
+  var length = firstFile;
+  for (final part in parts) {
+    if (length == null || position < length) break;
+    position -= length;
+    index++;
+    length = part.runtime;
+  }
+  return (index, position);
 }
 
 /// Whether Android TV playback of [queue] must stream a Dolby Vision
@@ -11705,8 +11833,15 @@ class _DownloadButtonState extends State<_DownloadButton> {
     int? audioStreamIndex,
   }) async {
     final isMulti = _isBatchType(item.type);
-    if (!isMulti && !_supportsTranscoding(item.type)) {
-      _startDownload(context, item, service, DownloadQuality.original);
+    if (!service.canDownloadTranscoded ||
+        (!isMulti && !_supportsTranscoding(item.type))) {
+      _startDownload(
+        context,
+        item,
+        service,
+        DownloadQuality.original,
+        items: items,
+      );
       return;
     }
     final keepRow = isMulti || !await service.hasDownloadedFiles(item)

@@ -650,6 +650,28 @@ class AppLocalizationsTh extends AppLocalizations {
       'เครือข่ายเกิดข้อผิดพลาดขณะติดต่อ Emby Connect หรือเซิร์ฟเวอร์ที่เลือก';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'กำลังโหลดเซิร์ฟเวอร์ที่เชื่อมโยง...';
 
   @override
@@ -12487,6 +12509,9 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'ผลงานทีมงาน (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'ดูกับกลุ่ม.';

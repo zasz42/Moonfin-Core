@@ -648,6 +648,28 @@ class AppLocalizationsEn extends AppLocalizations {
       'Network error while contacting Emby Connect or the selected server';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Loading linked servers...';
 
   @override
@@ -1623,8 +1645,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSubtitlesLabel => 'Download subtitles...';
 
   @override
-  String get searchOpenSubtitlesPlugin =>
-      'Search using the OpenSubtitles plugin';
+  String get searchOpenSubtitlesPlugin => 'Search using OpenSubtitles';
 
   @override
   String get downloadSubtitles => 'Download Subtitles';
@@ -12484,6 +12505,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Crew Contributions (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Watch with group';

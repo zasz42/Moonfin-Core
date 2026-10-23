@@ -1162,6 +1162,48 @@ abstract class AppLocalizations {
   /// **'Network error while contacting Emby Connect or the selected server'**
   String get embyConnectNetworkError;
 
+  /// Plex sign-in option label and title of the Plex sign-in screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Plex'**
+  String get signInWithPlex;
+
+  /// Instructions above the code on the Plex sign-in screen
+  ///
+  /// In en, this message translates to:
+  /// **'Go to plex.tv/link on any device and enter this code'**
+  String get plexLinkInstructions;
+
+  /// Button that opens plex.tv/link in the browser with the code filled in
+  ///
+  /// In en, this message translates to:
+  /// **'Open plex.tv/link'**
+  String get plexOpenLink;
+
+  /// Status shown while the app waits for the Plex code to be approved
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for you to approve the code...'**
+  String get plexWaitingForApproval;
+
+  /// Button on the Plex sign-in screen that swaps the code for an email or username and password form
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with a password'**
+  String get plexSignInWithPassword;
+
+  /// Field for the account's two-step verification code, shown once Plex asks for it
+  ///
+  /// In en, this message translates to:
+  /// **'Verification code'**
+  String get plexVerificationCode;
+
+  /// Shown when the Plex account has no servers
+  ///
+  /// In en, this message translates to:
+  /// **'No Plex servers found on this account'**
+  String get plexNoServers;
+
   /// Status text while fetching Emby Connect server list
   ///
   /// In en, this message translates to:
@@ -2881,7 +2923,7 @@ abstract class AppLocalizations {
   /// Subtitle for the download subtitles option
   ///
   /// In en, this message translates to:
-  /// **'Search using the OpenSubtitles plugin'**
+  /// **'Search using OpenSubtitles'**
   String get searchOpenSubtitlesPlugin;
 
   /// Dialog title for downloading remote subtitles
@@ -22125,6 +22167,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Crew Contributions (Seerr)'**
   String get crewContributionsSeerr;
+
+  /// Tooltip for the button on a person page that opens their own website
+  ///
+  /// In en, this message translates to:
+  /// **'Official website'**
+  String get personWebsite;
 
   /// No description provided for @watchWithGroup.
   ///

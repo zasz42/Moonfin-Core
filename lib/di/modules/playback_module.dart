@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:playback_core/playback_core.dart';
 import 'package:playback_jellyfin/playback_jellyfin.dart';
 import 'package:playback_emby/playback_emby.dart';
+import 'package:playback_plex/playback_plex.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../data/models/aggregated_item.dart';
@@ -20,6 +23,7 @@ import '../../data/services/media_server_client_factory.dart';
 import '../../data/services/offline_playback_tracker.dart';
 import '../../data/services/remove_watched_planner.dart';
 import '../../data/services/remove_watched_service.dart';
+import '../../data/services/user_data_sync.dart';
 import '../../playback/local_aware_player_service.dart';
 import '../../playback/local_first_media_stream_resolver.dart';
 
@@ -796,6 +800,10 @@ void setActiveStreamResolver(MediaServerClient client) {
       final p = EmbyPlugin(client);
       return (p.createStreamResolver(), p.createPlaySessionService());
     }(),
+    ServerType.plex => (
+      PlexMediaStreamResolver(client),
+      PlexPlaySessionService(client),
+    ),
   };
 
   // Local-first: completed downloads play from disk instead of streaming,
@@ -841,6 +849,25 @@ void _onItemStopped(dynamic item) {
   if (removeWatchedTypes.contains(item.type) &&
       _getIt.isRegistered<RemoveWatchedService>()) {
     _getIt<RemoveWatchedService>().onItemStopped(item.id);
+  }
+  // Plex sends no user data events, so the new resume point and watched state
+  // have to be asked for. Plex items don't name their server, so one without
+  // an id belongs to the active client.
+  if (!_getIt.isRegistered<MediaServerClientFactory>() ||
+      !_getIt.isRegistered<MediaServerClient>()) {
+    return;
+  }
+  final client = _getIt<MediaServerClientFactory>().clientForServerOrActive(
+    item.serverId,
+  );
+  if (client.serverType == ServerType.plex) {
+    unawaited(
+      userDataSync.refreshFromServer(client, [
+        item.id,
+        ?item.seasonId,
+        ?item.seriesId,
+      ]),
+    );
   }
 }
 

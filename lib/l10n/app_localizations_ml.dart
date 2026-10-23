@@ -649,6 +649,28 @@ class AppLocalizationsMl extends AppLocalizations {
       'Emby Connect അല്ലെങ്കിൽ തിരഞ്ഞെടുത്ത സെർവറുമായി ബന്ധപ്പെടുമ്പോൾ നെറ്റ്‌വർക്ക് പിശക്';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'ലിങ്ക് ചെയ്‌ത സെർവറുകൾ ലോഡുചെയ്യുന്നു...';
 
   @override
@@ -12670,6 +12692,9 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'ക്രൂ സംഭാവനകൾ (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'ഗ്രൂപ്പിനൊപ്പം കാണുക';

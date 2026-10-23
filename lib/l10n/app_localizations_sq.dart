@@ -649,6 +649,28 @@ class AppLocalizationsSq extends AppLocalizations {
       'Gabim rrjeti gjatë kontaktit me Emby Connect ose serverin e zgjedhur';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers => 'Po ngarkon serverët e lidhur...';
 
   @override
@@ -12641,6 +12663,9 @@ class AppLocalizationsSq extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'Kontributet e ekipit (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'Shiko me grupin';

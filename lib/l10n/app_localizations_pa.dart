@@ -647,6 +647,28 @@ class AppLocalizationsPa extends AppLocalizations {
       'Emby ਕਨੈਕਟ ਜਾਂ ਚੁਣੇ ਹੋਏ ਸਰਵਰ ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਦੌਰਾਨ ਨੈੱਟਵਰਕ ਗੜਬੜ';
 
   @override
+  String get signInWithPlex => 'Sign in with Plex';
+
+  @override
+  String get plexLinkInstructions =>
+      'Go to plex.tv/link on any device and enter this code';
+
+  @override
+  String get plexOpenLink => 'Open plex.tv/link';
+
+  @override
+  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+
+  @override
+  String get plexSignInWithPassword => 'Sign in with a password';
+
+  @override
+  String get plexVerificationCode => 'Verification code';
+
+  @override
+  String get plexNoServers => 'No Plex servers found on this account';
+
+  @override
   String get loadingLinkedServers =>
       'ਲਿੰਕ ਕੀਤੇ ਸਰਵਰਾਂ ਨੂੰ ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...';
 
@@ -12522,6 +12544,9 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get crewContributionsSeerr => 'ਕਰੂ ਯੋਗਦਾਨ (Seerr)';
+
+  @override
+  String get personWebsite => 'Official website';
 
   @override
   String get watchWithGroup => 'ਸਮੂਹ ਨਾਲ ਦੇਖੋ';

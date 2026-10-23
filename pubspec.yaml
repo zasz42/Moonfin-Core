@@ -130,12 +130,16 @@ dependencies:
     path: packages/server_jellyfin
   server_emby:
     path: packages/server_emby
+  server_plex:
+    path: packages/server_plex
   playback_core:
     path: packages/playback_core
   playback_jellyfin:
     path: packages/playback_jellyfin
   playback_emby:
     path: packages/playback_emby
+  playback_plex:
+    path: packages/playback_plex
   moonfin_design:
     path: packages/design
   jellyfin_preference:
@@ -286,6 +290,7 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/icons/ratings/
+    - assets/icons/social/
     - assets/fonts/
     - assets/subtitle_fonts/
     - assets/licenses/cores/

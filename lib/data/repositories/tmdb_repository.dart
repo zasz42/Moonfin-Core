@@ -8,6 +8,18 @@ import 'package:server_core/server_core.dart';
 /// logo, an authenticated URL to that logo image.
 typedef StudioCompany = ({String name, String? imageUrl});
 
+/// A person's IMDb id, official site and social accounts as TMDB lists them.
+/// Each account is the handle or id, null when TMDB has none.
+typedef TmdbPersonAccounts = ({
+  String? imdbId,
+  String? homepage,
+  String? instagram,
+  String? twitter,
+  String? facebook,
+  String? tiktok,
+  String? youtube,
+});
+
 class TmdbRepository {
   static const _maxEpisodeCacheEntries = 256;
   static const _maxSeasonCacheEntries = 64;
@@ -205,6 +217,37 @@ class TmdbRepository {
       debugPrint('[Moonfin] TMDB season ratings fetch failed: $e');
       completer.complete(null);
       _pendingSeasons.remove(cacheKey);
+      return null;
+    }
+  }
+
+  /// Fetches a person's accounts from the Moonfin plugin, which asks TMDB and
+  /// caches the answer. Returns null when the plugin call fails.
+  Future<TmdbPersonAccounts?> getPersonAccounts(String tmdbId) async {
+    try {
+      final response = await _get('/Moonfin/Tmdb/PersonLinks', {
+        'tmdbId': tmdbId,
+      });
+      if (response == null) return null;
+
+      String? text(String key) {
+        final value = response[key];
+        if (value is! String) return null;
+        final trimmed = value.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+
+      return (
+        imdbId: text('imdbId'),
+        homepage: text('homepage'),
+        instagram: text('instagram'),
+        twitter: text('twitter'),
+        facebook: text('facebook'),
+        tiktok: text('tiktok'),
+        youtube: text('youtube'),
+      );
+    } catch (e) {
+      debugPrint('[Moonfin] TMDB person links fetch failed: $e');
       return null;
     }
   }

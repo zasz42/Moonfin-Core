@@ -281,6 +281,9 @@ class ItemDetailViewModel extends ChangeNotifier {
   List<AggregatedItem> _filmography = const [];
   List<AggregatedItem> get filmography => _filmography;
 
+  TmdbPersonAccounts? _personAccounts;
+  TmdbPersonAccounts? get personAccounts => _personAccounts;
+
   List<AggregatedItem> _seasons = const [];
   List<AggregatedItem> get seasons => _seasons;
 
@@ -453,6 +456,16 @@ class ItemDetailViewModel extends ChangeNotifier {
   String get baseUrl => _client.baseUrl;
   bool get supportsNumericUserRatings =>
       _client.userLibraryApi.supportsNumericUserRatings;
+
+  /// Plex has no likes, and its own rating already stands in for favorites.
+  bool get supportsPersonalRating => _client.serverType != ServerType.plex;
+
+  /// Plex can only favorite media, never people.
+  bool get supportsPersonFavorites => _client.serverType != ServerType.plex;
+
+  /// Plex keeps no YouTube links, so a trailer it doesn't have is searched
+  /// for on YouTube instead.
+  bool get searchesYouTubeForTrailer => _client.serverType == ServerType.plex;
 
   bool _isRatingMutationInProgress = false;
   bool get isRatingMutationInProgress => _isRatingMutationInProgress;
@@ -1039,6 +1052,7 @@ class ItemDetailViewModel extends ChangeNotifier {
     unawaited(_loadSeerrOverlay());
     if (type == 'Person') {
       futures.add(_loadFilmography());
+      futures.add(_loadPersonAccounts());
     } else if (type == 'Series') {
       futures.add(_loadRatings());
       futures.add(_loadSeasons());
@@ -2301,6 +2315,20 @@ class ItemDetailViewModel extends ChangeNotifier {
       ];
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> _loadPersonAccounts() async {
+    final tmdbId = _item?.tmdbId;
+    if (tmdbId == null || tmdbId.isEmpty) return;
+    final getIt = GetIt.instance;
+    if (!getIt.isRegistered<PluginSyncService>() ||
+        !getIt<PluginSyncService>().tmdbPersonLinksAvailable) {
+      return;
+    }
+    final accounts = await _tmdbRepository.getPersonAccounts(tmdbId);
+    if (accounts == null) return;
+    _personAccounts = accounts;
+    notifyListeners();
   }
 
   Future<void> _loadSimilar() async {
