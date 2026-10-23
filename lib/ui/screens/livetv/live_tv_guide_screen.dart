@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 import 'package:server_core/server_core.dart';
 
+import '../../../data/models/series_recording_episodes.dart';
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/emby_premiere_dialog.dart';
@@ -20,6 +21,8 @@ import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/bounded_network_image.dart';
 import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/live_tv/live_tv_mini_player.dart';
+import '../../widgets/live_tv/live_tv_recording_icon.dart';
+import '../../widgets/live_tv/series_recording_dialog.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 import '../../../util/focus/dpad_keys.dart';
@@ -799,6 +802,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     } finally {
       _isOpeningRecordings = false;
     }
+    if (mounted) await _vm.reloadIfRecordingsChanged();
   }
 
   @override
@@ -1161,6 +1165,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
             ? ' (${preview!.seasonEpisodeLabel})'
             : '';
         final l10n = AppLocalizations.of(context);
+        final recordingState = _latestProgram(preview);
         final badgeLabel = preview == null
             ? null
             : preview.isPremiere
@@ -1183,6 +1188,8 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
           badgeLabel: badgeLabel,
           synopsis: preview?.overview,
           isLive: isLive,
+          hasTimer: recordingState?.hasTimer ?? false,
+          hasSeriesTimer: recordingState?.hasSeriesTimer ?? false,
           apple: _apple,
           compact: true,
         );
@@ -1372,11 +1379,25 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     return m == 0 ? l10n.guideHoursLeft(h) : l10n.guideHoursMinutesLeft(h, m);
   }
 
+  /// The focused program is the object focus last handed over, so a reload
+  /// after a recording change leaves its timer state stale until focus moves.
+  GuideProgram? _latestProgram(GuideProgram? program) {
+    if (program == null) return null;
+    return _vm
+            .programsForChannel(program.channelId)
+            .where((p) => p.id == program.id)
+            .firstOrNull ??
+        program;
+  }
+
   Widget _buildProgramInfoHeader({
     required GuideProgram? program,
     required GuideChannel? channel,
   }) {
     final l10n = AppLocalizations.of(context);
+    final recordingState = _latestProgram(program);
+    final hasTimer = recordingState?.hasTimer ?? false;
+    final hasSeriesTimer = recordingState?.hasSeriesTimer ?? false;
     final title = program?.name ?? channel?.name ?? l10n.guideTimeline;
     final episodeLine = program?.episodeLine ?? '';
     final timeRange = program == null
@@ -1428,14 +1449,31 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
                     ),
                     if (timeRange != null || channelLabel != null) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        [?timeRange, ?channelLabel].join('   '),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: AppTypography.fontSizeSm,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              [?timeRange, ?channelLabel].join('   '),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: AppTypography.fontSizeSm,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (LiveTvRecordingIcon.shows(
+                            hasTimer: hasTimer,
+                            hasSeriesTimer: hasSeriesTimer,
+                          )) ...[
+                            const SizedBox(width: 10),
+                            LiveTvRecordingIcon(
+                              hasTimer: hasTimer,
+                              hasSeriesTimer: hasSeriesTimer,
+                              size: AppTypography.fontSizeSm * 1.2,
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                     if (episodeLine.isNotEmpty) ...[
@@ -2499,6 +2537,16 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
+                if (hasSeriesTimer && !hasTimer && !isEnded) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.seriesRecordingSkipsShowing,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
                 if (program.overview != null &&
                     program.overview!.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -2586,13 +2634,64 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
                   hasTimer ? l10n.cancelRecordingAction : l10n.record,
                 ),
               ),
+            if (hasSeriesTimer)
+              adaptiveDialogAction(
+                onPressed: () async {
+                  if (dialogActionInProgress) return;
+                  final seriesTimerId = program.rawData['SeriesTimerId']
+                      ?.toString();
+                  if (seriesTimerId == null || seriesTimerId.isEmpty) return;
+                  dialogActionInProgress = true;
+                  try {
+                    final changed = await changeSeriesRecordingEpisodes(
+                      context: dialogContext,
+                      liveTvApi: _vm.liveTvApi,
+                      seriesTimerId: seriesTimerId,
+                    );
+                    if (!changed) {
+                      dialogActionInProgress = false;
+                      return;
+                    }
+                    // Changing the rule already announced itself, so only
+                    // this guide's programs need reading again.
+                    await _vm.reloadIfRecordingsChanged();
+                    if (!pageContext.mounted || !dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      SnackBar(content: Text(l10n.seriesRecordingUpdated)),
+                    );
+                  } catch (_) {
+                    dialogActionInProgress = false;
+                    if (!pageContext.mounted) return;
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.failedToUpdateSeriesRecording),
+                      ),
+                    );
+                  }
+                },
+                child: Text(l10n.seriesRecordingSettings),
+              ),
             if (program.isSeries)
               adaptiveDialogAction(
                 onPressed: () async {
                   if (dialogActionInProgress) return;
                   dialogActionInProgress = true;
                   try {
-                    await _vm.toggleSeriesRecording(program);
+                    SeriesRecordingEpisodes? episodes;
+                    if (!hasSeriesTimer) {
+                      episodes = await showSeriesRecordingEpisodesDialog(
+                        context: dialogContext,
+                      );
+                      if (episodes == null) {
+                        dialogActionInProgress = false;
+                        return;
+                      }
+                    }
+                    await _vm.toggleSeriesRecording(
+                      program,
+                      episodes: episodes,
+                    );
                     if (!pageContext.mounted || !dialogContext.mounted) return;
                     Navigator.of(dialogContext).pop();
                     ScaffoldMessenger.of(pageContext).showSnackBar(
@@ -3186,6 +3285,7 @@ class _GuideProgramRowState extends State<_GuideProgramRow> {
           isPast: program != null && program.endDate.isBefore(now),
           progress: isLive ? program.progressAt(now) : 0,
           hasTimer: program?.hasTimer ?? false,
+          hasSeriesTimer: program?.hasSeriesTimer ?? false,
           focused: focused,
           apple: widget.apple,
           placeholderLabel: cell.kind == GuideCellKind.gap

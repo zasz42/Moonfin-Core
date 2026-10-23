@@ -30,10 +30,18 @@ abs_files += Dir.glob(File.join(shared_dir, '*.swift')).sort
 
 # Theme-music and inline-preview channels are pure AVFoundation and shared
 # with tvOS verbatim (same channel names, so the Dart side needs no changes).
+# The native player and its channel are shared too, for the iOS option that
+# plays video through it instead of the Flutter player.
 tvos_runner = File.expand_path(File.join(project_dir, '..', 'tvos', 'Runner'))
 abs_files += [
   File.join(tvos_runner, 'AppleTvThemeMusicChannel.swift'),
   File.join(tvos_runner, 'AppleTvPreviewChannel.swift'),
+  File.join(tvos_runner, 'Playback', 'NativeApplePlayerChannel.swift'),
+  File.join(tvos_runner, 'Playback', 'NativeApplePlayerViewController.swift'),
+  File.join(tvos_runner, 'Playback', 'ChannelCarousel.swift'),
+  File.join(tvos_runner, 'Playback', 'ChannelCarouselOverlay.swift'),
+  File.join(tvos_runner, 'Playback', 'EpisodeBrowser.swift'),
+  File.join(tvos_runner, 'Playback', 'MoonfinTvosStubs.swift'),
 ].select { |f| File.exist?(f) }
 basenames = abs_files.map { |f| File.basename(f) }
 

@@ -19,8 +19,8 @@ import 'letterbox_croppers.dart';
 import 'lossless_audio_bridge.dart';
 import 'server_transcode_capabilities.dart';
 
-class AppleTvBackend implements PlayerBackend {
-  AppleTvBackend(this._prefs) {
+class NativeApplePlayerBackend implements PlayerBackend {
+  NativeApplePlayerBackend(this._prefs) {
     _eventSub = _events.receiveBroadcastStream().listen(
       _handleEvent,
       onError: (_) {},
@@ -29,8 +29,8 @@ class AppleTvBackend implements PlayerBackend {
     _syncNativePreferences();
   }
 
-  static const _control = MethodChannel('moonfin/appletv_video_control');
-  static const _events = EventChannel('moonfin/appletv_video_events');
+  static const _control = MethodChannel('moonfin/native_apple_player_control');
+  static const _events = EventChannel('moonfin/native_apple_player_events');
 
   final UserPreferences _prefs;
 
@@ -380,6 +380,10 @@ class AppleTvBackend implements PlayerBackend {
 
   @override
   Future<void> resume() async {
+    // On iOS this backend only plays while its player is up. After that the
+    // manager still holds it, and a stray play from the lock screen or a
+    // headset would otherwise bring up an empty player.
+    if (PlatformDetection.isIOS && !_playerPresented) return;
     await _ensurePlayerPresented();
     await _invoke<void>('play');
   }
@@ -564,6 +568,7 @@ class AppleTvBackend implements PlayerBackend {
     List<Map<String, dynamic>> streamStats = const [],
     List<String>? osdButtons,
     bool canBrowseEpisodes = false,
+    bool? transportDocked,
   }) async {
     await _invoke<void>('setUiMetadata', {
       'topTitle': topTitle,
@@ -599,6 +604,8 @@ class AppleTvBackend implements PlayerBackend {
       // than as everything switched off.
       'osdButtons': ?osdButtons,
       'canBrowseEpisodes': canBrowseEpisodes,
+      // Only iOS reads it. The television always docks the transport.
+      'transportDocked': ?transportDocked,
     });
   }
 

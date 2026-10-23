@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:moonfin/l10n/app_localizations.dart';
-import 'package:moonfin/playback/appletv_backend.dart';
+import 'package:moonfin/playback/native_apple_player_backend.dart';
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:server_core/server_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,8 +39,8 @@ class _SegmentClient extends Fake implements MediaServerClient {
 
 class _EmptyImageApi extends Fake implements ImageApi {}
 
-const _control = MethodChannel('moonfin/appletv_video_control');
-const _events = MethodChannel('moonfin/appletv_video_events');
+const _control = MethodChannel('moonfin/native_apple_player_control');
+const _events = MethodChannel('moonfin/native_apple_player_events');
 
 
 void main() {
@@ -94,9 +94,9 @@ void main() {
     await prefs.set(UserPreferences.cinemaModeSkipEnabled, true);
     await prefs.set(UserPreferences.mediaSegmentActions, 'intro:askToSkip');
     GetIt.instance.registerSingleton<UserPreferences>(prefs);
-    final backend = AppleTvBackend(prefs);
+    final backend = NativeApplePlayerBackend(prefs);
     addTearDown(backend.dispose);
-    GetIt.instance.registerSingleton<AppleTvBackend>(backend);
+    GetIt.instance.registerSingleton<NativeApplePlayerBackend>(backend);
     final client = _SegmentClient();
     client.items.segments = [
       segmentJson(id: 'intro', type: 'Intro', startMs: 5000, endMs: 10000),

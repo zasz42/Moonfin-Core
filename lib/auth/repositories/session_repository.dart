@@ -46,7 +46,7 @@ import '../../data/services/user_data_sync.dart';
 import '../../di/modules/app_module.dart';
 import '../../di/modules/playback_module.dart';
 import '../../di/modules/server_module.dart';
-import '../../playback/appletv_backend.dart';
+import '../../playback/native_apple_player_backend.dart';
 import '../../playback/audio_handler.dart';
 import '../../playback/headless_session_bootstrap.dart';
 import '../../playback/last_playback_session_store.dart';
@@ -796,7 +796,7 @@ class SessionRepository {
 
   Future<void> _navigateRemote(String command, GamepadNavKey key) async {
     final backend = GetIt.instance<PlaybackManager>().backend;
-    if (backend is AppleTvBackend && backend.isPlayerPresented) {
+    if (backend is NativeApplePlayerBackend && backend.isPlayerPresented) {
       // Native playback owns its input, including any menu above the player.
       await backend.sendRemoteNavigation(command);
       return;
@@ -1115,7 +1115,7 @@ class SessionRepository {
         if (generation != _remoteNavigationGeneration) return;
         await manager.stop(userInitiated: false);
         if (generation != _remoteNavigationGeneration) return;
-        if (backend is AppleTvBackend) await backend.dismissPlayer();
+        if (backend is NativeApplePlayerBackend) await backend.dismissPlayer();
         if (generation != _remoteNavigationGeneration) return;
         _router.go(Destinations.home);
       case 'gotosearch':
@@ -1171,7 +1171,7 @@ class SessionRepository {
       if (!search.active) return;
       // Native tvOS playback is presented above Flutter's routes.
       final backend = manager.backend;
-      if (backend is AppleTvBackend) await backend.dismissPlayer();
+      if (backend is NativeApplePlayerBackend) await backend.dismissPlayer();
       if (!search.active) return;
       final path = _remoteRoutePath;
       if (path == Destinations.search || Destinations.isPlayerRoute(path)) {

@@ -3,14 +3,21 @@ import Flutter
 import UIKit
 
 @MainActor
-final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
+final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
     private let control: FlutterMethodChannel
     private let events: FlutterEventChannel
     private nonisolated(unsafe) var eventSink: FlutterEventSink?
-    private weak var rootViewController: UIViewController?
+    private let rootProvider: () -> UIViewController?
 
     private var player: AetherPlayerWrapper?
-    private var playerVC: AppleTvPlayerViewController?
+
+    /// The wrapper this channel is playing through, if any.
+    var activePlayer: AetherPlayerWrapper? { player }
+
+    /// Fires once the player is on screen and again once it's gone, so PiP can
+    /// follow the engine into whichever view is hosting it.
+    var onPlayerChanged: (() -> Void)?
+    private var playerVC: NativeApplePlayerViewController?
     private var stateTimer: Timer?
     private var lastTextTrackCount = -1
     private var lastClosedCaptionCount = -1
@@ -25,16 +32,22 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
     private var lastCinemaSkipState: [String: Any]?
     static var lastCommand = "-"
 
-    init(messenger: FlutterBinaryMessenger, rootViewController: UIViewController) {
+    /// The root is looked up per presentation because on iOS the Flutter window
+    /// can be missing when CarPlay starts the engine and come later.
+    init(messenger: FlutterBinaryMessenger, rootProvider: @escaping () -> UIViewController?) {
         control = FlutterMethodChannel(
-            name: "moonfin/appletv_video_control", binaryMessenger: messenger)
+            name: "moonfin/native_apple_player_control", binaryMessenger: messenger)
         events = FlutterEventChannel(
-            name: "moonfin/appletv_video_events", binaryMessenger: messenger)
-        self.rootViewController = rootViewController
+            name: "moonfin/native_apple_player_events", binaryMessenger: messenger)
+        self.rootProvider = rootProvider
         super.init()
         control.setMethodCallHandler { [weak self] call, result in
             if call.method == "getCapabilities" {
+                #if os(tvOS)
                 result(VideoCapabilityDetector.deviceProfileCapabilities())
+                #else
+                result(AetherVideoCapabilities.deviceProfileCapabilities())
+                #endif
                 return
             }
             if call.method == "showStillWatching" {
@@ -249,7 +262,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
 
     private func applySubtitleStyle(
         _ args: [String: Any], on player: AetherPlayerWrapper,
-        vc: AppleTvPlayerViewController?
+        vc: NativeApplePlayerViewController?
     ) {
         player.applySubtitleStyle(
             textColor: (args["textColor"] as? NSNumber)?.intValue,
@@ -279,7 +292,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
             send(["event": "presented"])
             return
         }
-        let vc = AppleTvPlayerViewController(player: created)
+        let vc = NativeApplePlayerViewController(player: created)
         vc.modalPresentationStyle = .overFullScreen
         vc.onExit = { [weak self] in self?.send(["event": "userExited"]) }
         vc.onNext = { [weak self] in self?.send(["event": "next"]) }
@@ -392,13 +405,40 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         if let cinema = lastCinemaSkipState {
             vc.applyCinemaSkipState(cinema)
         }
+        guard let presenter = presentingController() else {
+            created.shutdown()
+            player = nil
+            send(["event": "error", "error": "No window to show the player in"])
+            // Dart marks the player presented before asking, so without this it
+            // would skip every later present and the next video would never show.
+            send(["event": "dismissed"])
+            return
+        }
         playerVC = vc
-        rootViewController?.present(vc, animated: false) { [weak self] in
+        #if os(iOS)
+        let presented: UIViewController = IosNativePlayerHostController(content: vc)
+        #else
+        let presented: UIViewController = vc
+        #endif
+        presenter.present(presented, animated: false) { [weak self] in
             Task { @MainActor in
                 self?.startStateTimer()
                 self?.send(["event": "presented"])
+                self?.onPlayerChanged?()
             }
         }
+    }
+
+    private func presentingController() -> UIViewController? {
+        var top = rootProvider()
+        #if os(iOS)
+        // Something like the AirPlay picker can already be up over Flutter,
+        // and UIKit refuses to present from a controller that is covered.
+        while let next = top?.presentedViewController, !next.isBeingDismissed {
+            top = next
+        }
+        #endif
+        return top
     }
 
     private func dismiss() {
@@ -412,12 +452,28 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         lastClosedCaptionCount = -1
         didComplete = false
         if let vc {
-            vc.dismiss(animated: false) { [weak self] in
-                Task { @MainActor in self?.send(["event": "dismissed"]) }
+            // A sheet or panel can be up over the player, and dismissing the
+            // player itself would only close that. Dismissing from whatever
+            // presented the player closes the whole stack. On iOS the player
+            // sits inside the scaling host, which is what was presented.
+            let top = vc.parent ?? vc
+            if let presenter = top.presentingViewController {
+                // Still Watching answers "continue" when it leaves unanswered,
+                // which the session being torn down must not hear.
+                vc.onStillWatchingContinue = nil
+                vc.onStillWatchingStop = nil
+                presenter.dismiss(animated: false) { [weak self] in
+                    Task { @MainActor in self?.send(["event": "dismissed"]) }
+                }
+            } else {
+                vc.dismiss(animated: false) { [weak self] in
+                    Task { @MainActor in self?.send(["event": "dismissed"]) }
+                }
             }
         } else {
             send(["event": "dismissed"])
         }
+        onPlayerChanged?()
     }
 
     /// Engine lines otherwise only reach the device console, which a remote
@@ -438,7 +494,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
     /// Rides the same event the engine lines use, so a report carries the open
     /// in order rather than as two separate streams.
     private func hostLog(_ line: String) {
-        send(["event": "engineLog", "line": "[AppleTvVideoChannel] \(line)"])
+        send(["event": "engineLog", "line": "[NativeApplePlayerChannel] \(line)"])
     }
 
     private func setSource(_ args: [String: Any]) {

@@ -24,7 +24,7 @@ import AetherEngine
 @MainActor
 final class IosPiPController: NSObject {
     private let channel: FlutterMethodChannel
-    private weak var wrapper: AetherPlayerWrapper?
+    private let wrapperProvider: () -> AetherPlayerWrapper?
     private var cancellables = Set<AnyCancellable>()
 
     private var pipController: AVPictureInPictureController?
@@ -32,14 +32,16 @@ final class IosPiPController: NSObject {
     private var boundSoftwareSource: SoftwarePiPSource?
     private var reportedReady = false
 
+    /// The provider answers with whichever wrapper is hosting the engine right
+    /// now, since the Flutter player and the native player each have their own.
     init(
         messenger: FlutterBinaryMessenger,
-        wrapper: AetherPlayerWrapper,
+        wrapperProvider: @escaping () -> AetherPlayerWrapper?,
         engine: AetherEngine?
     ) {
         channel = FlutterMethodChannel(
             name: "org.moonfin.ios/pip", binaryMessenger: messenger)
-        self.wrapper = wrapper
+        self.wrapperProvider = wrapperProvider
         super.init()
 
         channel.setMethodCallHandler { [weak self] call, result in
@@ -95,6 +97,21 @@ final class IosPiPController: NSObject {
     }
 
     // MARK: - Source binding
+
+    /// Switching between the Flutter player and the native player moves the
+    /// engine into another view, which leaves the controller bound to a layer
+    /// that's gone. Rebuilding from the engine's current output finds the new one.
+    func rebind() {
+        guard let engine = AetherPlayerWrapper.sharedEngine() else { return }
+        teardownController()
+        boundPlayer = nil
+        boundSoftwareSource = nil
+        if let source = engine.softwarePiPSource {
+            rebindSoftware(source: source)
+        } else {
+            rebindNative(player: engine.currentAVPlayer)
+        }
+    }
 
     private func rebindNative(player: AVPlayer?) {
         guard let player else {
@@ -164,7 +181,7 @@ final class IosPiPController: NSObject {
     }
 
     private func findPlayerLayer(for player: AVPlayer) -> AVPlayerLayer? {
-        guard let root = wrapper?.renderView.layer else { return nil }
+        guard let root = wrapperProvider()?.renderView.layer else { return nil }
         return Self.firstPlayerLayer(in: root, matching: player)
     }
 
@@ -208,7 +225,7 @@ extension IosPiPController: AVPictureInPictureControllerDelegate {
     ) {
         Task { @MainActor in
             AetherPlayerWrapper.sharedEngine()?.pictureInPictureActive = false
-            wrapper?.nowPlaying.reclaim()
+            wrapperProvider()?.nowPlaying.reclaim()
             channel.invokeMethod("onPiPChanged", arguments: false)
         }
     }

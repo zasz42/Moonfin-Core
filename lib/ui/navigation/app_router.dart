@@ -10,6 +10,7 @@ import '../../data/services/media_server_client_factory.dart';
 import '../../data/services/remote_search_session.dart';
 import '../../data/services/retro_artwork/retro_artwork_activity_gate.dart';
 import '../../di/injection.dart';
+import '../../playback/apple_player_ui.dart';
 import '../../playback/external_player_policy.dart';
 import '../../preference/user_preferences.dart';
 import '../../preference/preference_constants.dart';
@@ -524,9 +525,14 @@ final appRouter = GoRouter(
                 : const <String, dynamic>{};
             final channels = extra['channels'] as List<GuideChannel>?;
             final startIndex = extra['startIndex'] as int? ?? 0;
+            // Decided before branching so the channel loader below reads the
+            // same answer this route latched.
+            final useNativePlayer =
+                PlatformDetection.isAppleTV ||
+                useNativeApplePlayerForRoute(state.pageKey);
             final Widget child;
             if (channels != null) {
-              child = PlatformDetection.isAppleTV
+              child = useNativePlayer
                   ? AppleTvLiveTvPlayerHostScreen(
                       channels: channels,
                       startIndex: startIndex,
@@ -553,7 +559,9 @@ final appRouter = GoRouter(
       path: Destinations.videoPlayer,
       pageBuilder: (context, state) => _opaqueFullScreenPage<void>(
         state: state,
-        child: PlatformDetection.isAppleTV
+        child:
+            PlatformDetection.isAppleTV ||
+                useNativeApplePlayerForRoute(state.pageKey)
             ? const AppleTvPlayerHostScreen()
             : const VideoPlayerScreen(),
       ),
@@ -706,11 +714,19 @@ class PlayerRouteObserver extends NavigatorObserver {
     }
   }
 
+  // The page key is what the route's page builder latched the iOS player
+  // choice against, so the choice ends with the route.
+  void _released(Route<dynamic> route) {
+    final settings = route.settings;
+    releaseApplePlayerRoute(settings is Page ? settings.key : null);
+  }
+
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (_isPlayer(route)) {
       _playerRoutes.remove(route);
       isPlayerActive.value = _playerRoutes.isNotEmpty;
+      _released(route);
     }
   }
 
@@ -719,6 +735,7 @@ class PlayerRouteObserver extends NavigatorObserver {
     if (_isPlayer(route)) {
       _playerRoutes.remove(route);
       isPlayerActive.value = _playerRoutes.isNotEmpty;
+      _released(route);
     }
   }
 
@@ -726,6 +743,7 @@ class PlayerRouteObserver extends NavigatorObserver {
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (oldRoute != null && _isPlayer(oldRoute)) {
       _playerRoutes.remove(oldRoute);
+      _released(oldRoute);
     }
     if (newRoute != null && _isPlayer(newRoute)) {
       _playerRoutes.add(newRoute);

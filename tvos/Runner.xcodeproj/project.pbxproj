@@ -22,7 +22,7 @@
 		5BA7845828F41526E1B65D24 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E49740A9B3056886C7389DA /* Pods_Runner.framework */; };
 		5CE155E72FDE599A002FEC36 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE155E62FDE599A002FEC36 /* AVKit.framework */; };
 		63160795D06DD3057225A07E /* libass in Frameworks */ = {isa = PBXBuildFile; productRef = 6839BF2ED5903422B72FBF8A /* libass */; };
-		69A64DCAF44C6CBA903F3BC4 /* AppleTvVideoChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59C7B5CE2E844F445D8B72B /* AppleTvVideoChannel.swift */; };
+		69A64DCAF44C6CBA903F3BC4 /* NativeApplePlayerChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59C7B5CE2E844F445D8B72B /* NativeApplePlayerChannel.swift */; };
 		6A5B8E29CBD0D987A4C5E44A /* EngineTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDC62E8B96B51BBBCBA1EC23 /* EngineTrustPolicy.swift */; };
 		583F601A53A8E8037B41AB76 /* ClientIdentityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BEA439F41D2A8701F2EC3E /* ClientIdentityStore.swift */; };
 		5DA743B4851DEB574E7EA6E6 /* MoonfinURLSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1263D42B138D48499CB25F10 /* MoonfinURLSession.swift */; };
@@ -49,7 +49,7 @@
 		D81EC9F73053545200B9517B /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = D81EC9F63053545200B9517B /* FlutterGeneratedPluginSwiftPackage */; };
 		D8C7A8FA09A6FD717A2D9A10 /* mgba_libretro.framework in Embed Libretro Cores */ = {isa = PBXBuildFile; fileRef = 98DD98A0507A79F82DE9B512 /* mgba_libretro.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DC8916296F406B350E0E7238 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACEF4B8C13F871646DA3AA02 /* ServiceProvider.swift */; };
-		DD0D4D9E542FAF4E11816368 /* AppleTvPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA725D51E6DE797D0DDC9C2F /* AppleTvPlayerViewController.swift */; };
+		DD0D4D9E542FAF4E11816368 /* NativeApplePlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA725D51E6DE797D0DDC9C2F /* NativeApplePlayerViewController.swift */; };
 		C0A1E10300000000000000A3 /* ChannelCarouselOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E10400000000000000A4 /* ChannelCarouselOverlay.swift */; };
 		C0A1E10100000000000000A1 /* ChannelCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E10200000000000000A2 /* ChannelCarousel.swift */; };
 		E0B5E10100000000000000B1 /* EpisodeBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B5E10200000000000000B2 /* EpisodeBrowser.swift */; };
@@ -144,9 +144,9 @@
 		CD0CCE08AF23DCECD17895AC /* GameSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
 		D2A868E735744FD641776321 /* AppleTvGameInputViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleTvGameInputViewController.swift; sourceTree = "<group>"; };
 		D492B1A866CDE5E7EA46048F /* LibretroCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibretroCore.swift; sourceTree = "<group>"; };
-		D59C7B5CE2E844F445D8B72B /* AppleTvVideoChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleTvVideoChannel.swift; sourceTree = "<group>"; };
+		D59C7B5CE2E844F445D8B72B /* NativeApplePlayerChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeApplePlayerChannel.swift; sourceTree = "<group>"; };
 		D5DC400404ADA61BB07E400A /* GameAudioOutput.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GameAudioOutput.swift; sourceTree = "<group>"; };
-		DA725D51E6DE797D0DDC9C2F /* AppleTvPlayerViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleTvPlayerViewController.swift; sourceTree = "<group>"; };
+		DA725D51E6DE797D0DDC9C2F /* NativeApplePlayerViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeApplePlayerViewController.swift; sourceTree = "<group>"; };
 		C0A1E10400000000000000A4 /* ChannelCarouselOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChannelCarouselOverlay.swift; sourceTree = "<group>"; };
 		C0A1E10200000000000000A2 /* ChannelCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChannelCarousel.swift; sourceTree = "<group>"; };
 		E0B5E10200000000000000B2 /* EpisodeBrowser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EpisodeBrowser.swift; sourceTree = "<group>"; };
@@ -254,11 +254,11 @@
 				C96906304636AD16C64D1AC9 /* PlayerTypes.swift */,
 				147184DF7C5FC0873513C3FA /* SubtitleFontLocator.swift */,
 				F2A0477050CD294B7CB8C754 /* SubtitleOverlay.swift */,
-				DA725D51E6DE797D0DDC9C2F /* AppleTvPlayerViewController.swift */,
+				DA725D51E6DE797D0DDC9C2F /* NativeApplePlayerViewController.swift */,
 				C0A1E10400000000000000A4 /* ChannelCarouselOverlay.swift */,
 				C0A1E10200000000000000A2 /* ChannelCarousel.swift */,
 				E0B5E10200000000000000B2 /* EpisodeBrowser.swift */,
-				D59C7B5CE2E844F445D8B72B /* AppleTvVideoChannel.swift */,
+				D59C7B5CE2E844F445D8B72B /* NativeApplePlayerChannel.swift */,
 				7B47F49C774D38D5782E3CF3 /* MoonfinTvosStubs.swift */,
 			);
 			name = Playback;
@@ -589,11 +589,11 @@
 				9AEAD1A753938BD4A934D210 /* PlayerTypes.swift in Sources */,
 				E86325A97B10B11E8E226CFE /* SubtitleFontLocator.swift in Sources */,
 				BC59339B180C88464B1212F8 /* SubtitleOverlay.swift in Sources */,
-				DD0D4D9E542FAF4E11816368 /* AppleTvPlayerViewController.swift in Sources */,
+				DD0D4D9E542FAF4E11816368 /* NativeApplePlayerViewController.swift in Sources */,
 				C0A1E10300000000000000A3 /* ChannelCarouselOverlay.swift in Sources */,
 				C0A1E10100000000000000A1 /* ChannelCarousel.swift in Sources */,
 				E0B5E10100000000000000B1 /* EpisodeBrowser.swift in Sources */,
-				69A64DCAF44C6CBA903F3BC4 /* AppleTvVideoChannel.swift in Sources */,
+				69A64DCAF44C6CBA903F3BC4 /* NativeApplePlayerChannel.swift in Sources */,
 				0520DB98CE279F2BA3B6E562 /* MoonfinTvosStubs.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 import 'package:server_core/server_core.dart';
 
+import '../../../data/models/live_tv_recording_state.dart';
 import '../../../data/viewmodels/recordings_view_model.dart';
 import '../../../data/viewmodels/schedule_view_model.dart';
 import '../../../data/viewmodels/series_recordings_view_model.dart';
@@ -14,6 +15,7 @@ import '../../../util/focus/dpad_keys.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/focus/request_initial_focus.dart';
+import '../../widgets/live_tv/series_recording_dialog.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/offline_aware_image.dart';
 
@@ -44,14 +46,26 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
     _vm.load();
     _scheduleVm.load();
     _seriesVm.load();
+    liveTvRecordingRevision.addListener(_onRecordingsChanged);
   }
 
   void _onChanged() {
     if (mounted) setState(() {});
   }
 
+  /// Cancelling a series rule also cancels its scheduled showings, and a rule
+  /// can be added or changed from a screen opened over this one, so every tab
+  /// re-reads rather than keep the old list.
+  void _onRecordingsChanged() {
+    if (!mounted) return;
+    _scheduleVm.refresh();
+    _seriesVm.refresh();
+    _vm.refreshScheduled();
+  }
+
   @override
   void dispose() {
+    liveTvRecordingRevision.removeListener(_onRecordingsChanged);
     _vm.removeListener(_onChanged);
     _scheduleVm.removeListener(_onChanged);
     _seriesVm.removeListener(_onChanged);
@@ -266,7 +280,7 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
         _SeriesTimerRow(
           timers: _seriesVm.seriesTimers,
           onItemFocused: _seriesVm.setFocusedTimer,
-          onItemTap: (timer) => _cancelSeriesTimer(timer),
+          onItemTap: (timer) => _showSeriesTimerOptions(timer),
         ),
       ],
     );
@@ -306,6 +320,43 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
           );
         }
       }
+    }
+  }
+
+  Future<void> _showSeriesTimerOptions(SeriesTimerItem timer) async {
+    final option = await showSeriesTimerOptionsDialog(
+      context: context,
+      name: timer.name,
+      subtitle: timer.subtitle,
+    );
+    if (!mounted) return;
+    switch (option) {
+      case SeriesTimerOption.changeSettings:
+        await _changeSeriesTimer(timer);
+      case SeriesTimerOption.cancel:
+        await _cancelSeriesTimer(timer);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _changeSeriesTimer(SeriesTimerItem timer) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      final changed = await changeSeriesRecordingEpisodes(
+        context: context,
+        liveTvApi: GetIt.instance<MediaServerClient>().liveTvApi,
+        seriesTimerId: timer.id,
+      );
+      if (!changed || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.seriesRecordingUpdated)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.failedToUpdateSeriesRecording)),
+      );
     }
   }
 

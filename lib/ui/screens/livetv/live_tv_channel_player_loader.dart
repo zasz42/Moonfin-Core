@@ -5,6 +5,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
+import '../../../playback/apple_player_ui.dart';
 import '../../../playback/external_player_policy.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
@@ -114,7 +115,7 @@ class _LiveTvChannelPlayerLoaderState extends State<LiveTvChannelPlayerLoader> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    return PlatformDetection.isAppleTV
+    return PlatformDetection.isAppleTV || useNativeApplePlayer()
         ? AppleTvLiveTvPlayerHostScreen(
             channels: channels,
             startIndex: _startIndex,

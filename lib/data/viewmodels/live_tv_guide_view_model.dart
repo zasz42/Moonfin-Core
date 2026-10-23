@@ -8,6 +8,8 @@ import 'package:server_core/server_core.dart';
 
 import '../../preference/preference_constants.dart';
 import '../../preference/user_preferences.dart';
+import '../models/live_tv_recording_state.dart';
+import '../models/series_recording_episodes.dart';
 
 class GuideChannel {
   final String id;
@@ -254,6 +256,10 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   int _programGeneration = 0;
   int _loadGeneration = 0;
   bool _reloadOnEntry = false;
+
+  /// [liveTvRecordingRevision] as of the last complete load, so re-entry can
+  /// tell that a recording changed elsewhere since.
+  int _loadedRecordingRevision = liveTvRecordingRevision.value;
   bool _atLivePosition = true;
 
   bool get atLivePosition => _atLivePosition;
@@ -542,12 +548,69 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     } else {
       await _client.liveTvApi.createTimer(program.id);
     }
-    await _reloadPrograms();
+    await recordingChanged();
   }
 
-  /// Records every showing of this program's series, or drops the rule if one
-  /// is already in place.
-  Future<void> toggleSeriesRecording(GuideProgram program) async {
+  LiveTvApi get liveTvApi => _client.liveTvApi;
+
+  /// Re-reads the programs in the current window when a recording changed
+  /// elsewhere since they loaded.
+  Future<void> reloadIfRecordingsChanged() async {
+    if (_loadedRecordingRevision == liveTvRecordingRevision.value) return;
+    await _refreshRecordingState();
+  }
+
+  /// Tells the other Live TV surfaces a recording changed, then shows it here.
+  Future<void> recordingChanged() {
+    notifyLiveTvRecordingsChanged();
+    return _refreshRecordingState();
+  }
+
+  /// Re-reads the loaded rows in place, without the guide-wide loading state
+  /// that would rebuild the grid and drop the focused cell. A failed refresh
+  /// reloads in full.
+  Future<void> _refreshRecordingState() async {
+    final recordingRevision = liveTvRecordingRevision.value;
+    try {
+      if (_isCategory(_filter)) await _refreshCategoryRows();
+      await _refreshLoadedChannels(_now());
+      _loadedRecordingRevision = recordingRevision;
+    } catch (_) {
+      await _reloadPrograms();
+    }
+  }
+
+  /// A category view keeps its own program lists. A recording change doesn't
+  /// change which programs belong to the category, so the channels already
+  /// shown are fetched again and their lists swapped.
+  Future<void> _refreshCategoryRows() async {
+    final request = _categoryRequest;
+    final filter = _filter;
+    final channels = _categoryPrograms.keys
+        .map(channelForId)
+        .whereType<GuideChannel>()
+        .toList();
+    final size = _serverFilteredCategories.contains(filter)
+        ? _categoryBatchSize
+        : _programBatchSize;
+    for (var i = 0; i < channels.length; i += size) {
+      final batch = channels.sublist(i, min(i + size, channels.length));
+      final fetched = await _fetchPrograms(batch, category: filter);
+      if (request != _categoryRequest) return;
+      for (final channel in batch) {
+        final programs = fetched[channel.id];
+        if (programs != null) _categoryPrograms[channel.id] = programs;
+      }
+    }
+    _notifyListeners();
+  }
+
+  /// Records the showings of this program's series that [episodes] picks, or
+  /// drops the rule if one is already in place.
+  Future<void> toggleSeriesRecording(
+    GuideProgram program, {
+    SeriesRecordingEpisodes? episodes,
+  }) async {
     if (program.hasSeriesTimer) {
       final seriesTimerId = program.rawData['SeriesTimerId']?.toString();
       if (seriesTimerId == null || seriesTimerId.isEmpty) {
@@ -557,9 +620,12 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       }
       await _client.liveTvApi.cancelSeriesTimer(seriesTimerId);
     } else {
-      await _client.liveTvApi.createSeriesTimer(program.id);
+      await _client.liveTvApi.createSeriesTimer(
+        program.id,
+        settings: episodes?.settings,
+      );
     }
-    await _reloadPrograms();
+    await recordingChanged();
   }
 
   Future<void> load({
@@ -569,6 +635,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     bool livePosition = true,
   }) async {
     final loadGeneration = ++_loadGeneration;
+    final recordingRevision = liveTvRecordingRevision.value;
     if (window != null) _guideWindow = window;
     _state = GuideState.loading;
     _notifyListeners();
@@ -599,6 +666,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       if (_disposed || loadGeneration != _loadGeneration) return;
       _state = GuideState.ready;
       _reloadOnEntry = false;
+      _loadedRecordingRevision = recordingRevision;
     } catch (e) {
       if (_disposed || loadGeneration != _loadGeneration) return;
       _error = e;
@@ -751,6 +819,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
 
   Future<void> _reloadPrograms() async {
     final loadGeneration = ++_loadGeneration;
+    final recordingRevision = liveTvRecordingRevision.value;
     _state = GuideState.loading;
     _notifyListeners();
 
@@ -770,6 +839,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       }
       if (_disposed || loadGeneration != _loadGeneration) return;
       _state = GuideState.ready;
+      _loadedRecordingRevision = recordingRevision;
     } catch (e) {
       if (_disposed || loadGeneration != _loadGeneration) return;
       _error = e;
@@ -792,6 +862,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   /// still correct, since background refresh elsewhere avoids it.
   Future<void> reloadIfStale({Duration? window, DateTime? windowStart}) async {
     if (_reloadOnEntry ||
+        _loadedRecordingRevision != liveTvRecordingRevision.value ||
         _windowStart.add(const Duration(minutes: 30)).isBefore(_now())) {
       _guideDate = _now();
       await load(window: window, windowStart: windowStart, livePosition: true);

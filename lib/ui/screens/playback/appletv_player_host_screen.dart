@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
@@ -19,7 +20,8 @@ import '../../../data/services/media_server_client_factory.dart';
 import '../../../data/repositories/item_mutation_repository.dart';
 import '../../../auth/repositories/user_repository.dart';
 import '../../../playback/cinema_skip_controller.dart';
-import '../../../playback/appletv_backend.dart';
+import '../../../playback/apple_player_ui.dart';
+import '../../../playback/native_apple_player_backend.dart';
 import '../../../playback/playback_info_sections.dart';
 import '../../../syncplay/syncplay_manager.dart';
 import '../../theme/app_theme_controller.dart';
@@ -33,6 +35,7 @@ import '../../../util/remote_subtitle_labels.dart';
 import '../../../util/subtitle_appearance_schedule.dart';
 import '../../../util/episode_playability.dart';
 import '../../../util/overview_text.dart';
+import '../../../util/platform_detection.dart';
 import 'appletv_playback_prompt_controller.dart';
 import 'episode_browser.dart';
 import 'osd_buttons.dart';
@@ -124,9 +127,9 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
     }));
   }
 
-  AppleTvBackend? get _backend {
+  NativeApplePlayerBackend? get _backend {
     try {
-      return GetIt.instance<AppleTvBackend>();
+      return GetIt.instance<NativeApplePlayerBackend>();
     } catch (_) {
       return null;
     }
@@ -152,6 +155,14 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
     } catch (_) {}
     _screensaverController?.setPlaybackActive(true);
     _screensaverController?.setNativePlayerPresented(true);
+    // The native player on iOS sits over this route, and iOS asks the Flutter
+    // view which way it may turn, so the lock has to be set here as well.
+    if (PlatformDetection.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _exitSub = _backend?.userExitStream.listen((_) => _handleExit());
     _actionSub = _backend?.uiActionStream.listen(_handleUiAction);
     final manager = _manager;
@@ -1279,6 +1290,7 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
       syncPlay: _syncPlayPayload(),
       osdButtons: _osdButtons(),
       canBrowseEpisodes: _canBrowseEpisodes(item),
+      transportDocked: _transportDocked(),
     );
 
     _resolveCastAsync(item);
@@ -1305,6 +1317,14 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
   List<String>? _osdButtons() {
     try {
       return visibleOsdButtonIds(GetIt.instance<UserPreferences>());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool? _transportDocked() {
+    try {
+      return nativeTransportDocked(GetIt.instance<UserPreferences>());
     } catch (_) {
       return null;
     }
@@ -1625,6 +1645,9 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
     _syncPlay?.removeListener(_onSyncPlayChanged);
     _themeController?.removeListener(_onThemeChanged);
     _prefsListened?.removeListener(_onPrefsChanged);
+    if (PlatformDetection.isIOS) {
+      unawaited(SystemChrome.setPreferredOrientations([]));
+    }
     unawaited(_backend?.dismissPlayer() ?? Future<void>.value());
     try {
       final manager = GetIt.instance<PlaybackManager>();

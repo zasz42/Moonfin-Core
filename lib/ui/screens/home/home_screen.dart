@@ -2078,9 +2078,15 @@ class _ContentRowsState extends State<_ContentRows>
       return '';
     }
 
-    final mediaSourceId = item.mediaSources.isNotEmpty
+    final firstSourceId = item.mediaSources.isNotEmpty
         ? item.mediaSources.first['Id']?.toString()
         : null;
+    // A channel item's lone placeholder source can't be transcoded by id, so
+    // it's left off and the server picks the file it probes.
+    final mediaSourceId =
+        MediaStreamResolver.isStreamlessStaticSource(item.rawData, firstSourceId)
+        ? null
+        : firstSourceId;
     final audioIndex = _getPreferredAudioIndex(item);
     final startTicks = startPosition.inMicroseconds * 10;
     // AVPlayer never reaches readyToPlay on a growing progressive transcode,
@@ -5135,10 +5141,15 @@ class _ContentRowsState extends State<_ContentRows>
             widget.viewModel.loadMoreForRow(rowIndex);
           }
         },
-        onLongPress: (_, item) =>
-            showContextMenu(context, item, onChanged: () => setState(() {})),
+        onLongPress: (_, item) => showContextMenu(
+          context,
+          item,
+          onChanged: () => setState(() {}),
+          isContinueWatchingOrNextUp: _isContinueWatchingOrNextUp(row),
+        ),
         onTap: (_, item) {
           _finishSharedPreview(releaseResources: true);
+          if (_playedOnSelect(row, item)) return;
           if (row.rowType == HomeRowType.libraryTiles) {
             _navigateToLibrary(context, item);
           } else if (row.rowType == HomeRowType.genres && row.id == 'genres') {
@@ -5269,6 +5280,7 @@ class _ContentRowsState extends State<_ContentRows>
                   final showPreviewVideo = activePreviewKey == previewKey && previewReady;
 
                   void navigateToItem() {
+                    if (_playedOnSelect(row, item)) return;
                     if (row.rowType == HomeRowType.libraryTiles) {
                       _navigateToLibrary(context, item);
                     } else if (row.rowType == HomeRowType.genres && row.id == 'genres') {
@@ -5441,6 +5453,8 @@ class _ContentRowsState extends State<_ContentRows>
                       context,
                       item,
                       onChanged: () => setState(() {}),
+                      isContinueWatchingOrNextUp:
+                          _isContinueWatchingOrNextUp(row),
                     ),
                     onTap: () {
                       if (isV2MobileTouch) {
@@ -5780,6 +5794,23 @@ class _ContentRowsState extends State<_ContentRows>
         ),
       );
     }
+  }
+
+  static bool _isContinueWatchingOrNextUp(HomeRow row) =>
+      row.rowType == HomeRowType.resume || row.rowType == HomeRowType.nextUp;
+
+  /// Plays a Continue Watching or Next Up card when the user set those rows
+  /// to play on select, and says whether it did.
+  bool _playedOnSelect(HomeRow row, AggregatedItem item) {
+    if (!_isContinueWatchingOrNextUp(row) ||
+        widget.prefs.get(UserPreferences.continueWatchingDefaultAction) !=
+            ContinueWatchingDefaultAction.play) {
+      return false;
+    }
+    context.push(
+      Destinations.item(item.id, serverId: item.serverId, autoPlay: true),
+    );
+    return true;
   }
 
   static void _navigateToLibrary(BuildContext context, AggregatedItem item) {

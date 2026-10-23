@@ -4414,6 +4414,72 @@ abstract class AppLocalizations {
   /// **'Series recording is scheduled, but the guide has no upcoming episodes'**
   String get noUpcomingSeriesRecording;
 
+  /// A series recording rule exists, but this showing won't record, for example because it is a repeat or the episode is already in the library
+  ///
+  /// In en, this message translates to:
+  /// **'The series recording will skip this showing'**
+  String get seriesRecordingSkipsShowing;
+
+  /// Prompt in the dialog that chooses which episodes a series recording takes
+  ///
+  /// In en, this message translates to:
+  /// **'Which episodes should be recorded?'**
+  String get seriesRecordingEpisodesQuestion;
+
+  /// Series recording choice that records every showing, repeats included
+  ///
+  /// In en, this message translates to:
+  /// **'All Episodes'**
+  String get seriesRecordingAllEpisodes;
+
+  /// Explains the All Episodes series recording choice
+  ///
+  /// In en, this message translates to:
+  /// **'Every showing, including repeats'**
+  String get seriesRecordingAllEpisodesDescription;
+
+  /// Series recording choice that skips episodes already in the library
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes Not Already Recorded'**
+  String get seriesRecordingNotRecordedEpisodes;
+
+  /// Explains the Episodes Not Already Recorded series recording choice
+  ///
+  /// In en, this message translates to:
+  /// **'Skips episodes already in your library and records each episode once'**
+  String get seriesRecordingNotRecordedEpisodesDescription;
+
+  /// Series recording choice that records only first airings
+  ///
+  /// In en, this message translates to:
+  /// **'New Episodes Only'**
+  String get seriesRecordingNewEpisodesOnly;
+
+  /// Explains the New Episodes Only series recording choice
+  ///
+  /// In en, this message translates to:
+  /// **'First airings only, no repeats'**
+  String get seriesRecordingNewEpisodesOnlyDescription;
+
+  /// Action that changes which episodes an existing series recording takes
+  ///
+  /// In en, this message translates to:
+  /// **'Series Settings'**
+  String get seriesRecordingSettings;
+
+  /// Confirmation after changing a series recording's settings
+  ///
+  /// In en, this message translates to:
+  /// **'Series recording updated'**
+  String get seriesRecordingUpdated;
+
+  /// Error after changing a series recording's settings failed
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update series recording'**
+  String get failedToUpdateSeriesRecording;
+
   /// Live TV player action to record only the current episode
   ///
   /// In en, this message translates to:
@@ -6057,6 +6123,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Slide up or down on the player to change brightness on the left and volume on the right'**
   String get playerSwipeGesturesDescription;
+
+  /// Setting title for inverting placement of brightness and volume gesture indicators
+  ///
+  /// In en, this message translates to:
+  /// **'Invert Gesture Indicators'**
+  String get invertGestureIndicators;
+
+  /// Description explaining gesture indicator placement relative to the swipe side
+  ///
+  /// In en, this message translates to:
+  /// **'Place brightness and volume visual indicators on same or opposite side of screen from swipe'**
+  String get invertGestureIndicatorsDescription;
+
+  /// Option to display gesture indicators on the same side as the swipe
+  ///
+  /// In en, this message translates to:
+  /// **'Same'**
+  String get gestureIndicatorSame;
+
+  /// Option to display gesture indicators on the opposite side from the swipe
+  ///
+  /// In en, this message translates to:
+  /// **'Inverted'**
+  String get gestureIndicatorInverted;
 
   /// Settings screen for choosing which buttons the player shows
   ///
@@ -8745,6 +8835,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Combine both rows into a single home section'**
   String get combineBothRows;
+
+  /// Setting for default click action on Continue Watching and Next Up items
+  ///
+  /// In en, this message translates to:
+  /// **'Default Action'**
+  String get continueWatchingDefaultAction;
+
+  /// Description for Continue Watching and Next Up default click action setting
+  ///
+  /// In en, this message translates to:
+  /// **'What selecting a Continue Watching or Next Up item does'**
+  String get continueWatchingDefaultActionDescription;
+
+  /// Option to navigate to the details screen for an item
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Details'**
+  String get goToDetailsScreen;
+
+  /// Option to play an item immediately
+  ///
+  /// In en, this message translates to:
+  /// **'Play immediately'**
+  String get playImmediately;
 
   /// Setting for how far back the Next Up row reaches
   ///
@@ -26882,6 +26996,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dropped Frames'**
   String get playbackInfoDroppedFrames;
+
+  /// Long-press menu action on a downloaded video: play it by streaming from the server instead of the downloaded copy, for example to get a higher quality than the download
+  ///
+  /// In en, this message translates to:
+  /// **'Play from Server'**
+  String get playFromServer;
+
+  /// Settings label on iPhone and iPad for choosing which player plays video
+  ///
+  /// In en, this message translates to:
+  /// **'Video player'**
+  String get settingsApplePlayerUi;
+
+  /// Settings description for the video player choice, listing what the native Apple style player lacks
+  ///
+  /// In en, this message translates to:
+  /// **'The native Apple style player has no casting, swipe gestures, orientation lock, audio delay or PiP button'**
+  String get settingsApplePlayerUiDescription;
+
+  /// Option for the regular Moonfin video player on iPhone and iPad
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get settingsApplePlayerUiStandard;
+
+  /// Option for the native video player that the Apple TV app uses, offered on iPhone and iPad
+  ///
+  /// In en, this message translates to:
+  /// **'Native Apple style'**
+  String get settingsApplePlayerUiNative;
+
+  /// Settings label for where the play, skip and seek buttons sit in the video player
+  ///
+  /// In en, this message translates to:
+  /// **'Play buttons'**
+  String get playerTransportPosition;
+
+  /// Settings description for where the video player's play buttons sit
+  ///
+  /// In en, this message translates to:
+  /// **'Show play, skip and seek in the middle of the video or docked in the bottom bar'**
+  String get playerTransportPositionDescription;
+
+  /// Option that puts the play, skip and seek buttons in the middle of the video
+  ///
+  /// In en, this message translates to:
+  /// **'On screen'**
+  String get playerTransportOnScreen;
+
+  /// Option that puts the play, skip and seek buttons in the bottom bar with the other player buttons
+  ///
+  /// In en, this message translates to:
+  /// **'Docked'**
+  String get playerTransportDocked;
 }
 
 class _AppLocalizationsDelegate

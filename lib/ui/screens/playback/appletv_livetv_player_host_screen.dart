@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
@@ -10,11 +11,13 @@ import 'package:server_core/server_core.dart';
 import '../../../playback/subtitle_style.dart';
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
-import '../../../playback/appletv_backend.dart';
+import '../../../playback/apple_player_ui.dart';
+import '../../../playback/native_apple_player_backend.dart';
 import '../../../playback/appletv_preview_player.dart';
 import '../../../playback/playback_info_sections.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../util/platform_detection.dart';
 import '../livetv/live_tv_guide_screen.dart';
 import '../../screensaver/screensaver_controller.dart';
 import '../../theme/app_theme_controller.dart';
@@ -47,6 +50,7 @@ class _AppleTvLiveTvPlayerHostScreenState
   StreamSubscription<void>? _exitSub;
   StreamSubscription<Map<String, dynamic>>? _actionSub;
   StreamSubscription<PlaybackBringupState>? _bringupSub;
+  StreamSubscription<bool>? _screensaverPlayingSub;
 
   SubtitleStyle? _lastSubtitleStyle;
 
@@ -75,9 +79,9 @@ class _AppleTvLiveTvPlayerHostScreenState
   AppThemeController? _themeController;
   ScreensaverController? _screensaverController;
 
-  AppleTvBackend? get _backend {
+  NativeApplePlayerBackend? get _backend {
     try {
-      return GetIt.instance<AppleTvBackend>();
+      return GetIt.instance<NativeApplePlayerBackend>();
     } catch (_) {
       return null;
     }
@@ -94,6 +98,20 @@ class _AppleTvLiveTvPlayerHostScreenState
     } catch (_) {}
     _screensaverController?.setNativePlayerPresented(true);
     _currentIndex = widget.startIndex;
+    // The native player on iOS sits over this route, and iOS asks the Flutter
+    // view which way it may turn, so the lock has to be set here as well.
+    if (PlatformDetection.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      // A phone only keeps its screen on while playback is marked active. The
+      // television follows the playing stream itself and lets its screensaver
+      // run while paused, so this stays on iOS.
+      _screensaverPlayingSub = _manager.state.playingStream.listen(
+        (playing) => _screensaverController?.setPlaybackActive(playing),
+      );
+    }
     _exitSub = _backend?.userExitStream.listen((_) => _handleExit());
     _actionSub = _backend?.uiActionStream.listen(_handleUiAction);
     _tracksChangedSub = _backend?.tracksChangedStream.listen(
@@ -161,12 +179,17 @@ class _AppleTvLiveTvPlayerHostScreenState
     _actionSub?.cancel();
     _bringupSub?.cancel();
     _tracksChangedSub?.cancel();
+    _screensaverPlayingSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _carouselPrewarm?.dispose();
     _screensaverController?.setNativePlayerPresented(false);
     _themeController?.removeListener(_onThemeChanged);
     _prefs.removeListener(_pushSubtitleStyle);
     unawaited(_pipPlayer?.dispose());
+    if (PlatformDetection.isIOS) {
+      _screensaverController?.setPlaybackActive(false);
+      unawaited(SystemChrome.setPreferredOrientations([]));
+    }
     unawaited(_backend?.dismissPlayer() ?? Future<void>.value());
     try {
       GetIt.instance<PlaybackManager>().stop(userInitiated: true);
@@ -425,7 +448,8 @@ class _AppleTvLiveTvPlayerHostScreenState
       'genre': _genreKey(program),
       'isLive': true,
       'progress': program.progressAt(now),
-      'hasTimer': program.hasTimer || program.hasSeriesTimer,
+      'hasTimer': program.hasTimer,
+      'hasSeriesTimer': program.hasSeriesTimer,
       'programLoading': false,
     };
   }
@@ -470,6 +494,7 @@ class _AppleTvLiveTvPlayerHostScreenState
       'startMs': program.startDate.millisecondsSinceEpoch,
       'endMs': program.endDate.millisecondsSinceEpoch,
       'hasTimer': program.hasTimer,
+      'hasSeriesTimer': program.hasSeriesTimer,
     };
   }
 
@@ -610,6 +635,7 @@ class _AppleTvLiveTvPlayerHostScreenState
       channelList: _channelListPayload(),
       streamStats: _streamStatsPayload(),
       osdButtons: visibleOsdButtonIds(_prefs),
+      transportDocked: nativeTransportDocked(_prefs),
     );
   }
 

@@ -1,4 +1,4 @@
-// tvOS drives playback through AppleTvVideoChannel and its native player UI,
+// tvOS drives playback through NativeApplePlayerChannel and its native player UI,
 // so this channel is only built for the two platforms where Flutter owns the
 // OSD and the video arrives through a platform view.
 #if os(iOS) || os(macOS)
@@ -26,6 +26,8 @@ final class AetherVideoChannel: NSObject, FlutterStreamHandler {
     private let events: FlutterEventChannel
     private nonisolated(unsafe) var eventSink: FlutterEventSink?
 
+    private var playerCreated = false
+
     private(set) lazy var player: AetherPlayerWrapper = {
         let created = AetherPlayerWrapper()
         created.onPlayerError = { [weak self] payload in
@@ -34,8 +36,13 @@ final class AetherVideoChannel: NSObject, FlutterStreamHandler {
         created.onNowPlayingCommand = { [weak self] payload in
             self?.send(payload)
         }
+        self.playerCreated = true
         return created
     }()
+
+    /// The wrapper if something has already asked for it, so PiP can look for
+    /// a layer without building a player nobody is using.
+    var playerIfCreated: AetherPlayerWrapper? { playerCreated ? player : nil }
 
     private var stateTimer: Timer?
     private var lastTextTrackCount = -1

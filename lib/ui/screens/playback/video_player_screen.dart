@@ -62,6 +62,7 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/episode_playability.dart';
 import '../../../util/player_edge_drag.dart';
+import '../../../util/player_surface_taps.dart';
 import '../../../playback/hdr_composition.dart';
 import '../../../playback/hdr_output_controller.dart';
 import '../../../playback/hdr_overlay_channel.dart';
@@ -299,6 +300,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   String? _remotePlaybackState;
   int _remotePositionTicks = 0;
   double? _remoteVolume;
+  bool _castOwnsTransport = false;
+  late final Listenable _castChanges = Listenable.merge([
+    _castService.activeKindNotifier,
+    _castService.remoteStateNotifier,
+    _castService.remotePositionNotifier,
+  ]);
   DateTime? _lastCastErrorAt;
   String? _lastCastErrorMessage;
   DateTime? _lastPlaybackErrorAt;
@@ -438,7 +445,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   double _verticalDragStartValue = 0.0;
   bool _verticalDragIsVolume = false;
   bool _verticalDragIgnored = false;
-  Offset? _doubleTapDownPosition;
+  late final _surfaceTaps = PlayerSurfaceTaps(
+    onSingleTap: () {
+      if (mounted) _toggleControls();
+    },
+    onDoubleTap: _onSurfaceDoubleTap,
+  );
   DateTime? _lastDesktopClickAt;
   bool _wasPlayingBeforeDesktopClick = false;
   DateTime? _lastSeekTime;
@@ -810,6 +822,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     });
     _syncPlayManager?.addListener(_onSyncPlayChanged);
     _prefs.addListener(_onPlaybackPrefsChanged);
+    _castChanges.addListener(_onCastChanged);
     _syncMediaQueuingPreference();
     _applySubtitleStyle();
     _scheduleHide();
@@ -1015,6 +1028,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     if (!_isMinimizing) _screensaverController.setPlaybackActive(false);
     _prefs.removeListener(_onPlaybackPrefsChanged);
     _syncPlayManager?.removeListener(_onSyncPlayChanged);
+    _castChanges.removeListener(_onCastChanged);
+    if (_castOwnsTransport) _manager.setTransportInterceptor(null);
     // A minimized video keeps the autoplay setting this screen applied; the
     // mini player resets it when it ends.
     if (!_isMinimizing) _manager.autoAdvanceEnabled = true;
@@ -1040,6 +1055,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _removeZoomModeToastOverlay();
     _skipForwardTimer?.cancel();
     _skipBackwardTimer?.cancel();
+    _surfaceTaps.cancel();
     _persistVolumeTimer?.cancel();
     if (PlatformDetection.isDesktop) {
       unawaited(_prefs.set(UserPreferences.playerVolume, _playerVolume));
@@ -2778,6 +2794,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       }
       return;
     }
+    // The wait rides out a drop nobody asked for, like a buffering blip. A
+    // pause the viewer asked for flips the button at once. The engine's own
+    // intent decides when it reports one, the manager's record otherwise.
+    final pauseAsked = _state.playWhenReady == null
+        ? _manager.viewerPaused
+        : _state.playWhenReady == false;
+    if (pauseAsked) {
+      if (_displayPlaying && mounted) {
+        setState(() => _displayPlaying = false);
+      }
+      return;
+    }
     final delay = _state.isBuffering
         ? const Duration(milliseconds: 600)
         : const Duration(milliseconds: 200);
@@ -3014,7 +3042,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   void _seekRelative(int ms, {bool showControls = true}) {
     _noteViewerActivity();
     _suppressSeekPrompts();
-    final target = _state.position + Duration(milliseconds: ms);
+    final target = _transportPosition + Duration(milliseconds: ms);
     final clamped = Duration(
       milliseconds: target.inMilliseconds.clamp(
         0,
@@ -3038,7 +3066,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final basePosition =
         _pendingScrubSeekTarget ??
         (_isSeeking ? _lastScrubCommitTarget : null) ??
-        _state.position;
+        _transportPosition;
     final target = basePosition + Duration(milliseconds: ms);
     _prefetchTrickplayDirectional(target, forward: ms > 0);
     _accumulateScrub(target);
@@ -3184,7 +3212,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final rewindMs = _prefs.get(UserPreferences.unpauseRewindDuration);
     if (rewindMs > 0) {
       final rewind = Duration(milliseconds: rewindMs);
-      final current = _state.position;
+      final current = _transportPosition;
       final target = current > rewind ? current - rewind : Duration.zero;
       try {
         await _manager.seekTo(target);
@@ -3195,7 +3223,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   void _togglePlayPause() {
     _noteViewerActivity();
-    if (_state.isPlaying) {
+    if (_castOwnsTransport ? _castPlaying : _state.isPlaying) {
       _manager.pause();
       return;
     }
@@ -3890,24 +3918,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           autofocus: true,
           onKeyEvent: _handleKeyEvent,
           child: GestureDetector(
-            onTap: PlatformDetection.isTV ? null : _onSurfaceTap,
+            onTapUp: PlatformDetection.isTV ? null : _onSurfaceTapUp,
             onSecondaryTap: PlatformDetection.isTV
                 ? null
                 : _onSurfaceSecondaryTap,
-            onDoubleTapDown: PlatformDetection.isTV
-                ? null
-                : PlatformDetection.useMobileUi && !_isOsdLocked
-                ? _onDoubleTapDown
-                : null,
-            onDoubleTap: PlatformDetection.useDesktopUi
-                ? null
-                : _handleDoubleTapGesture,
             onVerticalDragStart: swipeGestures ? _onVerticalDragStart : null,
             onVerticalDragUpdate: swipeGestures ? _onVerticalDragUpdate : null,
             onVerticalDragEnd: swipeGestures ? _onVerticalDragEnd : null,
             onVerticalDragCancel: swipeGestures ? _onVerticalDragCancel : null,
             behavior: HitTestBehavior.opaque,
             child: Listener(
+              onPointerDown: PlatformDetection.useMobileUi
+                  ? _surfaceTaps.pointerDown
+                  : null,
+              onPointerUp: PlatformDetection.useMobileUi
+                  ? _surfaceTaps.pointerUp
+                  : null,
+              onPointerCancel: PlatformDetection.useMobileUi
+                  ? _surfaceTaps.pointerUp
+                  : null,
               onPointerSignal: PlatformDetection.useDesktopUi
                   ? _handleScrollSignal
                   : null,
@@ -3968,6 +3997,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                         const Positioned.fill(
                           child: ColoredBox(color: Colors.transparent),
                         ), // Workaround for a Flutter web issue where the video surface can block pointer events.
+                      if (_castOwnsTransport) _buildCastingCover(),
                       _buildTrickplayVideoCover(),
                       _buildBringupOverlay(context),
                       if (_isRestoringPosition)
@@ -3983,7 +4013,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                         // these widgets are still what gets hit-tested - only
                         // their pixels are re-sent by HdrOverlayCapture.
                         _buildTopOverlay(context),
-                        if (!PlatformDetection.useLeanbackUi)
+                        if (!PlatformDetection.useLeanbackUi &&
+                            !_transportDocked)
                           Positioned.fill(
                             child: Center(
                               child: _buildCenterTransportControls(),
@@ -4451,7 +4482,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       stream: _state.playingStream,
       initialData: _state.isPlaying,
       builder: (context, snap) {
-        final isPlaying = _displayPlaying;
+        final isPlaying = _isPlayingShown;
         final centerControlsShowing =
             !PlatformDetection.useLeanbackUi &&
             _controlsVisible &&
@@ -4932,7 +4963,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               children: [
                 _buildSeekbar(),
                 const SizedBox(height: AppSpacing.spaceXs),
-                _buildSecondaryControlsRow(),
+                if (_transportDocked)
+                  _buildDockedControlsRow()
+                else
+                  _buildSecondaryControlsRow(),
               ],
             ),
           ),
@@ -5009,7 +5043,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               stream: _state.bufferStream,
               initialData: _state.buffer,
               builder: (context, bufferSnap) {
-                final position = posSnap.data ?? Duration.zero;
+                final position = _castOwnsTransport
+                    ? _transportPosition
+                    : posSnap.data ?? Duration.zero;
                 final duration = durSnap.data ?? Duration.zero;
                 final buffer = bufferSnap.data ?? Duration.zero;
                 final durationMs = math
@@ -5106,6 +5142,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                                   );
                                   return KeyEventResult.handled;
                                 case LogicalKeyboardKey.arrowUp:
+                                  // The skip button sits just above the
+                                  // seek bar, so Up is how you get back to it.
+                                  _focusTvSkipSegment();
                                   return KeyEventResult.handled;
                                 case LogicalKeyboardKey.arrowDown:
                                   if (_primaryPlayFocus.context != null) {
@@ -5511,7 +5550,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       ? 1.0
       : _prefs.get(UserPreferences.desktopUiScale).scaleFactor;
 
-  Widget _buildTvTransportRow() {
+  bool get _transportDocked =>
+      !PlatformDetection.isTV &&
+      _prefs.get(UserPreferences.playerTransportPosition) ==
+          PlayerTransportPosition.docked;
+
+  /// The transport leads the bottom row the way it does on TV. A phone held
+  /// upright hasn't the width for both, so there it sits on its own line.
+  Widget _buildDockedControlsRow() {
+    if (PlatformDetection.useMobileUi &&
+        MediaQuery.of(context).orientation == Orientation.portrait) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDockedTransportRow(),
+          _buildSecondaryControlsRow(),
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _buildDockedTransportRow(),
+        const SizedBox(width: AppSpacing.spaceXs),
+        Expanded(child: _buildSecondaryControlsRow()),
+      ],
+    );
+  }
+
+  Widget _buildDockedTransportRow() {
     final l10n = AppLocalizations.of(context);
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
@@ -5552,7 +5619,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               stream: _state.playingStream,
               initialData: _state.isPlaying,
               builder: (context, snap) {
-                final isPlaying = _displayPlaying;
+                final isPlaying = _isPlayingShown;
                 return _controlButton(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                   onPressed: () => isPlaying
@@ -5614,7 +5681,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildTvTransportRow(),
+          _buildDockedTransportRow(),
           const SizedBox(width: AppSpacing.spaceXs),
           Expanded(child: _buildSecondaryControlsRow()),
         ],
@@ -6349,12 +6416,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     } catch (_) {}
   }
 
-  // Desktop double-click is timed here because onDoubleTap delays every click.
-  void _onSurfaceTap() {
-    if (!PlatformDetection.useDesktopUi) {
+  bool get _surfaceDoubleTapSeeks =>
+      PlatformDetection.useMobileUi && !_isOsdLocked && !_isCurrentPreroll;
+
+  // onDoubleTap holds back every tap under it, the controls included, until
+  // the double-tap timeout runs out. So the desktop double-click is timed here
+  // and the mobile double-tap goes through _surfaceTaps.
+  void _onSurfaceTapUp(TapUpDetails details) {
+    if (PlatformDetection.useDesktopUi) {
+      _onDesktopClick();
+    } else if (_surfaceDoubleTapSeeks) {
+      _surfaceTaps.tapUp(details);
+    } else {
       _toggleControls();
-      return;
     }
+  }
+
+  void _onDesktopClick() {
     final now = clock.now();
     final last = _lastDesktopClickAt;
     _lastDesktopClickAt = now;
@@ -6379,33 +6457,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     }
   }
 
-  void _onDoubleTapDown(TapDownDetails details) {
-    _doubleTapDownPosition = details.localPosition;
-  }
-
   void _handleControlButtonPress(VoidCallback onPressed) {
     onPressed();
     _showControls();
   }
 
-  void _handleDoubleTapGesture() {
-    if (_isCurrentPreroll) {
-      return;
-    }
-    if (PlatformDetection.useDesktopUi) {
-      return;
-    }
-    if (PlatformDetection.useMobileUi && !_isOsdLocked) {
-      _onDoubleTap();
-    }
-  }
-
-  void _onDoubleTap() {
-    final pos = _doubleTapDownPosition;
-    if (pos == null) return;
-    _doubleTapDownPosition = null;
+  void _onSurfaceDoubleTap(Offset localPosition) {
+    // The OSD can lock or a preroll start between the two taps.
+    if (!_surfaceDoubleTapSeeks) return;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    _doubleTapSkip(forward: pos.dx >= screenWidth / 2);
+    _doubleTapSkip(forward: localPosition.dx >= screenWidth / 2);
   }
 
   void _doubleTapSkip({required bool forward}) {
@@ -6556,13 +6617,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final overlayLabel = usingMedia3Boost && _media3VolumeBoostLevel > 0
         ? 'Volume +$_media3VolumeBoostLevel'
         : '${(displayVolume * 100).round()}%';
+    final inverted =
+        _prefs.get(UserPreferences.gestureIndicatorPlacement) ==
+        GestureIndicatorPlacement.inverted;
+    final alignmentX = inverted ? -0.85 : 0.85;
     return Positioned.fill(
       child: AnimatedOpacity(
         opacity: _showVolumeOverlay ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: IgnorePointer(
           child: Align(
-            alignment: const Alignment(0.85, 0.0),
+            alignment: Alignment(alignmentX, 0.0),
             child: _buildGestureIndicator(
               icon: displayVolume <= 0
                   ? Icons.volume_off_rounded
@@ -6579,13 +6644,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   Widget _buildBrightnessOverlay() {
+    final inverted =
+        _prefs.get(UserPreferences.gestureIndicatorPlacement) ==
+        GestureIndicatorPlacement.inverted;
+    final alignmentX = inverted ? 0.85 : -0.85;
     return Positioned.fill(
       child: AnimatedOpacity(
         opacity: _showBrightnessOverlay ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: IgnorePointer(
           child: Align(
-            alignment: const Alignment(-0.85, 0.0),
+            alignment: Alignment(alignmentX, 0.0),
             child: _buildGestureIndicator(
               icon: _brightnessValue <= 0.25
                   ? Icons.brightness_low_rounded
@@ -6780,7 +6849,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       initialData: _state.isPlaying,
       builder: (context, snap) {
         final l10n = AppLocalizations.of(context);
-        final isPlaying = _displayPlaying;
+        final isPlaying = _isPlayingShown;
         final scale = _osdButtonScale;
 
         return Row(
@@ -7708,6 +7777,94 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       subtitleStreamIndex: _manager.subtitleStreamIndex,
     );
     await pauseLocalPlaybackForCastHandoff();
+    _takeCastTransport(item);
+  }
+
+  // Once the receiver has this item, the player's own controls drive it
+  // rather than the paused copy on this device. AirPlay plays through the
+  // local player, so it needs none of this.
+  void _takeCastTransport(AggregatedItem item) {
+    if (!mounted || _castOwnsTransport || _manager.hasTransportInterceptor) {
+      return;
+    }
+    final kind = _castService.activeKind;
+    if (kind == null || kind == CastTargetKind.airPlay) return;
+    if (_castService.castItemNotifier.value?.id != item.id) return;
+    _manager.setTransportInterceptor(_castTransport);
+    setState(() => _castOwnsTransport = true);
+  }
+
+  void _onCastChanged() {
+    if (!_castOwnsTransport) return;
+    if (_castService.activeKind == null) {
+      _manager.setTransportInterceptor(null);
+      _castOwnsTransport = false;
+    }
+    setState(() {});
+  }
+
+  Future<bool> _castTransport(
+    TransportAction action, {
+    Duration? position,
+  }) async {
+    switch (action) {
+      case TransportAction.resume:
+        await _runCastAction(_castService.play);
+      case TransportAction.pause:
+        await _runCastAction(_castService.pause);
+      case TransportAction.seek:
+        await _runCastAction(
+          (k) => _castService.seek(
+            k,
+            positionTicks: position!.inMicroseconds * 10,
+          ),
+        );
+      // The local queue would start the next item on this device.
+      case TransportAction.next || TransportAction.previous:
+        break;
+      case TransportAction.stop:
+        return false;
+    }
+    return true;
+  }
+
+  bool get _castPlaying => switch (_castService.remoteStateNotifier.value) {
+    'playing' || 'buffering' => true,
+    _ => false,
+  };
+
+  bool get _isPlayingShown =>
+      _castOwnsTransport ? _castPlaying : _displayPlaying;
+
+  Duration get _transportPosition => _castOwnsTransport
+      ? Duration(microseconds: _castService.remotePositionNotifier.value ~/ 10)
+      : _state.position;
+
+  Widget _buildCastingCover() {
+    final l10n = AppLocalizations.of(context);
+    final label = switch (_castService.activeKind) {
+      CastTargetKind.googleCast => l10n.castingToGoogleCast,
+      CastTargetKind.dlna => l10n.castingViaDlna,
+      _ => l10n.remotePlayback,
+    };
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cast_connected, size: 64, color: Colors.white70),
+              const SizedBox(height: AppSpacing.spaceMd),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showCastControls() {

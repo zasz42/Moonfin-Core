@@ -78,6 +78,17 @@ class _QualityDecodingScreen extends StatelessWidget {
                       l10n.settingsPlaybackEngineMpvLegacy,
                   },
                 ),
+              if (PlatformDetection.isIOS)
+                EnumPreferenceTile<ApplePlayerUi>(
+                  preference: UserPreferences.applePlayerUi,
+                  title: l10n.settingsApplePlayerUi,
+                  description: l10n.settingsApplePlayerUiDescription,
+                  icon: Icons.smart_display_outlined,
+                  labelOf: (v) => switch (v) {
+                    ApplePlayerUi.flutter => l10n.settingsApplePlayerUiStandard,
+                    ApplePlayerUi.native => l10n.settingsApplePlayerUiNative,
+                  },
+                ),
               // Hidden on Apple TV: AetherEngine always uses VideoToolbox for
               // hardware-capable codecs and software decode otherwise, so there
               // is no user-facing toggle to honor.

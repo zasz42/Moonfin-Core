@@ -703,6 +703,7 @@ class UserPreferences extends ChangeNotifier {
     'loading_animation_position',
     'loading_animation_speed',
     'show_loading_animation_text',
+    'pref_continue_watching_default_action',
   };
 
   bool _isScopedPreference<T>(Preference<T> pref) {
@@ -1498,6 +1499,12 @@ class UserPreferences extends ChangeNotifier {
   static final mergeContinueWatchingNextUp = Preference(
     key: 'pref_merge_continue_watching_next_up',
     defaultValue: true,
+  );
+
+  static final continueWatchingDefaultAction = EnumPreference(
+    key: 'pref_continue_watching_default_action',
+    defaultValue: ContinueWatchingDefaultAction.details,
+    values: ContinueWatchingDefaultAction.values,
   );
 
   // Zero means no limit. The 365 days match what the other Moonfin clients and
@@ -2428,6 +2435,21 @@ class UserPreferences extends ChangeNotifier {
     values: PlaybackEnginePreference.values,
   );
 
+  /// Which player iOS video plays through. Belongs to the device rather than
+  /// the account, so it isn't synced.
+  static final applePlayerUi = EnumPreference(
+    key: 'pref_apple_player_ui',
+    defaultValue: ApplePlayerUi.flutter,
+    values: ApplePlayerUi.values,
+  );
+
+  /// A phone and a desktop can each want their own, so it isn't synced.
+  static final playerTransportPosition = EnumPreference(
+    key: 'pref_player_transport_position',
+    defaultValue: PlayerTransportPosition.onScreen,
+    values: PlayerTransportPosition.values,
+  );
+
   static final dolbyVisionFallbackBehavior = EnumPreference(
     key: 'dolby_vision_fallback_behavior',
     defaultValue: DolbyVisionFallbackBehavior.ask,
@@ -2681,6 +2703,14 @@ class UserPreferences extends ChangeNotifier {
   static final playerSwipeGestures = Preference(
     key: 'playerSwipeGestures',
     defaultValue: true,
+  );
+
+  /// Where brightness and volume swipe gesture indicators appear relative to the swipe side.
+  /// Belongs to the device, since it tunes the local touch screen, so it isn't synced.
+  static final gestureIndicatorPlacement = EnumPreference(
+    key: 'pref_gesture_indicator_placement',
+    defaultValue: GestureIndicatorPlacement.same,
+    values: GestureIndicatorPlacement.values,
   );
   static final detailButtonOrderTv = Preference(
     key: 'detailButtonOrderTv',

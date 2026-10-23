@@ -2,6 +2,10 @@ import CoreText
 import QuartzCore
 import UIKit
 
+#if os(iOS)
+import AVKit
+#endif
+
 // Localized prompt text pushed from Dart. The literals are the English
 // fallback for the window before the push arrives.
 struct PromptStrings {
@@ -53,7 +57,7 @@ private func makeClockFormatter(use24Hour: Bool) -> DateFormatter {
     return formatter
 }
 
-final class AppleTvPlayerViewController: UIViewController {
+final class NativeApplePlayerViewController: UIViewController {
     private let player: AetherPlayerWrapper
     var onExit: (() -> Void)?
     var onNext: (() -> Void)?
@@ -195,7 +199,10 @@ final class AppleTvPlayerViewController: UIViewController {
 
     private var isLive = false
     private var liveProgram:
-        (name: String, episodeTitle: String, startMs: Int, endMs: Int, hasTimer: Bool)?
+        (
+            name: String, episodeTitle: String, startMs: Int, endMs: Int, hasTimer: Bool,
+            hasSeriesTimer: Bool
+        )?
     private var liveChannelNumber = ""
     private var channelList: [ChannelCarouselEntry] = []
     private var selectedChannelIndex = 0
@@ -260,6 +267,26 @@ final class AppleTvPlayerViewController: UIViewController {
     private let chapterOverlay = UIView()
     private let controlBar = UIView()
     private let controlStack = UIStackView()
+
+    #if os(iOS)
+    /// The whole player is shrunk to fit a phone or tablet, so the buttons are
+    /// drawn larger to stay a comfortable size to tap once scaled.
+    private static let controlSize: CGFloat = 120
+    #else
+    private static let controlSize: CGFloat = 64
+    #endif
+    private static var controlScale: CGFloat { controlSize / 64 }
+    /// The size the current row of buttons is drawn at. Only iOS shrinks it.
+    private var controlSide = controlSize
+    #if os(iOS)
+    /// Set from Dart. Off, the transport sits in the middle of the picture the
+    /// way the Flutter player draws it on a touch screen.
+    private var transportDocked = true
+    private let centerTransport = UIStackView()
+    private static let transportIds: Set<ControlId> = [
+        .prev, .skipBack, .playPause, .skipForward, .next,
+    ]
+    #endif
     private let tooltipView = UIView()
     private let tooltipLabel = UILabel()
 
@@ -280,7 +307,7 @@ final class AppleTvPlayerViewController: UIViewController {
     private let liveChannelRow = UIStackView()
     private let channelBadge = PaddedLabel()
     private let channelNameLabel = UILabel()
-    private let recordingDot = UIView()
+    private let recordingDot = RecordingMarkView(diameter: 18)
     private let programLabel = UILabel()
     private let upNextLabel = UILabel()
 
@@ -339,7 +366,12 @@ final class AppleTvPlayerViewController: UIViewController {
         player.attachVideoView(view)
         didAttachSurface = true
         setupOsd()
+        #if os(tvOS)
         setupSwipeGestures()
+        #else
+        setupTouchGestures()
+        setupCenterTransport()
+        #endif
         rebuildControls()
         layoutHeader()
         rebuildStats()
@@ -505,7 +537,7 @@ final class AppleTvPlayerViewController: UIViewController {
             osdContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             osdContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             osdContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            osdContainer.heightAnchor.constraint(equalToConstant: 360),
+            osdContainer.heightAnchor.constraint(equalToConstant: 296 + Self.controlSize),
         ])
 
         gradientLayer.colors = [
@@ -521,6 +553,10 @@ final class AppleTvPlayerViewController: UIViewController {
         controlStack.axis = .horizontal
         controlStack.alignment = .center
         controlStack.spacing = 20
+        #if os(iOS)
+        // Spread across the width so each button gets room around it.
+        controlStack.distribution = .equalSpacing
+        #endif
         controlBar.addSubview(controlStack)
 
         tooltipView.backgroundColor = UIColor(white: 0, alpha: 0.78)
@@ -549,6 +585,14 @@ final class AppleTvPlayerViewController: UIViewController {
             belowRow, leading: belowLeftLabel, center: belowCenterLabel, trailing: belowRightLabel,
             fontSize: 26)
 
+        #if os(iOS)
+        let controlStackTrailing = controlStack.trailingAnchor.constraint(
+            equalTo: controlBar.trailingAnchor)
+        #else
+        let controlStackTrailing = controlStack.trailingAnchor.constraint(
+            lessThanOrEqualTo: controlBar.trailingAnchor)
+        #endif
+
         NSLayoutConstraint.activate([
             controlBar.leadingAnchor.constraint(
                 equalTo: osdContainer.leadingAnchor, constant: 90),
@@ -556,12 +600,11 @@ final class AppleTvPlayerViewController: UIViewController {
                 equalTo: osdContainer.trailingAnchor, constant: -90),
             controlBar.bottomAnchor.constraint(
                 equalTo: osdContainer.bottomAnchor, constant: -56),
-            controlBar.heightAnchor.constraint(equalToConstant: 72),
+            controlBar.heightAnchor.constraint(equalToConstant: Self.controlSize + 8),
 
             controlStack.leadingAnchor.constraint(equalTo: controlBar.leadingAnchor),
             controlStack.centerYAnchor.constraint(equalTo: controlBar.centerYAnchor),
-            controlStack.trailingAnchor.constraint(
-                lessThanOrEqualTo: controlBar.trailingAnchor),
+            controlStackTrailing,
 
             belowRow.leadingAnchor.constraint(equalTo: controlBar.leadingAnchor),
             belowRow.trailingAnchor.constraint(equalTo: controlBar.trailingAnchor),
@@ -812,11 +855,9 @@ final class AppleTvPlayerViewController: UIViewController {
         channelNameLabel.numberOfLines = 1
 
         recordingDot.translatesAutoresizingMaskIntoConstraints = false
-        recordingDot.backgroundColor = UIColor(red: 0.95, green: 0.2, blue: 0.2, alpha: 1)
-        recordingDot.layer.cornerRadius = 9
         recordingDot.isHidden = true
-        recordingDot.widthAnchor.constraint(equalToConstant: 18).isActive = true
-        recordingDot.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        recordingDot.setContentHuggingPriority(.required, for: .horizontal)
+        recordingDot.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let spacer = UIView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
@@ -1114,7 +1155,10 @@ final class AppleTvPlayerViewController: UIViewController {
             let programName = liveProgram?.name ?? headerSecondary
             programLabel.text = programName
             programLabel.isHidden = programName.isEmpty
-            recordingDot.isHidden = !(liveProgram?.hasTimer ?? false)
+            recordingDot.update(
+                hasTimer: liveProgram?.hasTimer ?? false,
+                hasSeriesTimer: liveProgram?.hasSeriesTimer ?? false)
+            recordingDot.isHidden = !recordingDot.shows
             return
         }
 
@@ -1160,28 +1204,35 @@ final class AppleTvPlayerViewController: UIViewController {
         }
     }
 
-    private func makeControl(_ id: ControlId) -> UIView {
+    private func makeControl(_ id: ControlId, side: CGFloat? = nil) -> UIView {
+        let side = side ?? controlSide
+        // The icon keeps the proportions the 64 point TV button has.
+        let iconScale = side / 64
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.layer.cornerRadius = 32
+        container.layer.cornerRadius = side / 2
         let iconView = UIImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.contentMode = .scaleAspectFit
         iconView.tintColor = .white
         iconView.image = UIImage(
             systemName: iconName(for: id),
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .medium))
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 27 * iconScale, weight: .medium))
         container.addSubview(iconView)
         NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: 64),
-            container.heightAnchor.constraint(equalToConstant: 64),
-            iconView.widthAnchor.constraint(equalToConstant: 38),
-            iconView.heightAnchor.constraint(equalToConstant: 38),
+            container.widthAnchor.constraint(equalToConstant: side),
+            container.heightAnchor.constraint(equalToConstant: side),
+            iconView.widthAnchor.constraint(equalToConstant: 38 * iconScale),
+            iconView.heightAnchor.constraint(equalToConstant: 38 * iconScale),
             iconView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
         ])
         controlViews[id] = container
         controlIcons[id] = iconView
+        #if os(iOS)
+        container.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleControlTap(_:))))
+        #endif
         return container
     }
 
@@ -1268,7 +1319,22 @@ final class AppleTvPlayerViewController: UIViewController {
             ids += arrangedOsdControls(secondary)
         }
 
+        #if os(iOS)
+        let centered = transportDocked ? [] : ids.filter { Self.transportIds.contains($0) }
+        ids.removeAll { centered.contains($0) }
+        centerTransport.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for id in centered {
+            let side: CGFloat = id == .playPause ? 200 : (id == .prev || id == .next ? 130 : 160)
+            centerTransport.addArrangedSubview(makeControl(id, side: side))
+        }
+        #endif
         controls = ids
+        #if os(iOS)
+        // The row sits on the 1920 wide canvas inside 90 point margins, and a
+        // long one only fits there with smaller buttons.
+        let room = 1920 - 180 - CGFloat(max(ids.count - 1, 0)) * controlStack.spacing
+        controlSide = min(Self.controlSize, (room / CGFloat(max(ids.count, 1))).rounded(.down))
+        #endif
         for id in ids {
             controlStack.addArrangedSubview(makeControl(id))
         }
@@ -1321,6 +1387,11 @@ final class AppleTvPlayerViewController: UIViewController {
         if let osdButtons = args["osdButtons"] as? [String] {
             osdButtonOrder = osdButtons
         }
+        #if os(iOS)
+        if let docked = args["transportDocked"] as? Bool {
+            transportDocked = docked
+        }
+        #endif
         if let sync = args["syncPlay"] as? [String: Any] {
             syncPlayEnabled = true
             syncPlayGroupName = (sync["groupName"] as? String) ?? "SyncPlay"
@@ -1381,7 +1452,8 @@ final class AppleTvPlayerViewController: UIViewController {
                 episodeTitle: (dict["episodeTitle"] as? String) ?? "",
                 startMs: (dict["startMs"] as? NSNumber)?.intValue ?? 0,
                 endMs: (dict["endMs"] as? NSNumber)?.intValue ?? 0,
-                hasTimer: (dict["hasTimer"] as? Bool) ?? false
+                hasTimer: (dict["hasTimer"] as? Bool) ?? false,
+                hasSeriesTimer: (dict["hasSeriesTimer"] as? Bool) ?? false
             )
         } else {
             liveProgram = nil
@@ -1807,9 +1879,10 @@ final class AppleTvPlayerViewController: UIViewController {
                 // Engage only once horizontal travel clearly dominates and the
                 // buttons aren't focused, so swipes keep switching zones and
                 // travelling the buttons instead of scrubbing.
-                guard abs(t.x) > 24, abs(t.x) > abs(t.y),
-                    focusedZone == .scrubber || !isOsdOnScreen
-                else { return }
+                guard abs(t.x) > 24, abs(t.x) > abs(t.y) else { return }
+                #if os(tvOS)
+                guard focusedZone == .scrubber || !isOsdOnScreen else { return }
+                #endif
                 panScrubEngaged = true
                 zoneBeforePanScrub = focusedZone
                 focusedZone = .scrubber
@@ -2183,7 +2256,7 @@ final class AppleTvPlayerViewController: UIViewController {
             player.cycleZoomMode()
             controlIcons[.zoom]?.image = UIImage(
                 systemName: player.zoomMode.iconName,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .medium))
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 27 * Self.controlScale, weight: .medium))
         case .info:
             presentInfoPanel()
         case .channels:
@@ -2218,6 +2291,18 @@ final class AppleTvPlayerViewController: UIViewController {
         return true
     }
 
+    /// Panels are laid out for a television too, so on iPhone and iPad they go
+    /// up through the same scaling host as the player.
+    private func presentPanel(_ panel: UIViewController) {
+        #if os(iOS)
+        present(IosNativePlayerHostController(content: panel, opaque: false), animated: true)
+        #else
+        let covering = panel
+        covering.modalPresentationStyle = .overFullScreen
+        present(covering, animated: true)
+        #endif
+    }
+
     private func presentStillWatchingPanel() {
         let panel = StillWatchingViewController(
             strings: promptStrings,
@@ -2233,8 +2318,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 self.stillWatchingShown = false
                 self.onStillWatchingStop?()
             })
-        panel.modalPresentationStyle = .overFullScreen
-        present(panel, animated: true)
+        presentPanel(panel)
     }
 
     private func presentSyncPlay() {
@@ -2244,8 +2328,7 @@ final class AppleTvPlayerViewController: UIViewController {
             ignoreWait: syncPlayIgnoreWait,
             onIgnoreWait: { [weak self] value in self?.onSyncplayIgnoreWait?(value) },
             onLeave: { [weak self] in self?.onSyncplayLeave?() })
-        panel.modalPresentationStyle = .overFullScreen
-        present(panel, animated: true)
+        presentPanel(panel)
     }
 
     private var carouselTheme: ChannelCarouselTheme {
@@ -2277,16 +2360,31 @@ final class AppleTvPlayerViewController: UIViewController {
         overlay.onDismissed = { [weak self] in
             if restoreOsd { self?.showOsd() }
         }
-        overlay.modalPresentationStyle = .overFullScreen
         channelCarousel = overlay
+        #if os(iOS)
+        // The carousel is laid out for a television, so it goes up through the
+        // scaling host. It closes itself on a tap outside, which keeps its
+        // slide out and puts the controls back the way the remote does.
+        present(
+            IosNativePlayerHostController(
+                content: overlay, opaque: false, closesOnOutsideTap: false),
+            animated: false)
+        #else
+        overlay.modalPresentationStyle = .overFullScreen
         present(overlay, animated: false)
+        #endif
     }
 
     private func updateFocusHighlight() {
         for (id, container) in controlViews {
+            #if os(tvOS)
             let isFocused =
                 focusedZone == .buttons && controls.indices.contains(focusedControlIndex)
                 && controls[focusedControlIndex] == id
+            #else
+            // A touch screen has no focus to show.
+            let isFocused = false
+            #endif
             container.backgroundColor =
                 isFocused ? .white : UIColor(white: 1, alpha: 0)
             controlIcons[id]?.tintColor = isFocused ? .black : UIColor(white: 1, alpha: 0.85)
@@ -2326,6 +2424,11 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 
     private func updateTooltip() {
+        #if os(iOS)
+        // The tooltip names the focused button, and a touch screen has none.
+        tooltipView.isHidden = true
+        return
+        #endif
         guard focusedZone == .buttons,
             controls.indices.contains(focusedControlIndex),
             let control = controlViews[controls[focusedControlIndex]]
@@ -2737,11 +2840,20 @@ final class AppleTvPlayerViewController: UIViewController {
         player.setSubtitlePosition(pos)
     }
 
+    /// The top bar, the bottom bar and, on iOS, the centered transport come
+    /// and go together.
+    private func setOsdAlpha(_ alpha: CGFloat) {
+        osdContainer.alpha = alpha
+        topContainer.alpha = alpha
+        #if os(iOS)
+        centerTransport.alpha = alpha
+        #endif
+    }
+
     private func hideOsd() {
         setSubtitlesRaised(false)
         UIView.animate(withDuration: 0.3) {
-            self.osdContainer.alpha = 0
-            self.topContainer.alpha = 0
+            self.setOsdAlpha(0)
         }
     }
 
@@ -2764,6 +2876,20 @@ final class AppleTvPlayerViewController: UIViewController {
         return "\(prefix)\(track.label) · \(track.subtitle)"
     }
 
+    /// iPad shows an action sheet as a popover, which UIKit refuses to present
+    /// without a view to hang it from. The button that opened the menu is the
+    /// natural anchor. tvOS has no popover, so nothing changes there.
+    private func presentSheet(_ sheet: UIAlertController, from id: ControlId) {
+        #if os(iOS)
+        if let popover = sheet.popoverPresentationController {
+            let anchor: UIView = controlViews[id] ?? view
+            popover.sourceView = anchor
+            popover.sourceRect = anchor.bounds
+        }
+        #endif
+        present(sheet, animated: true)
+    }
+
     private func presentAudioMenu() {
         let sheet = self.makePlayerMenu(
             title: "Audio", message: nil, preferredStyle: .actionSheet)
@@ -2775,7 +2901,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .audio)
     }
 
     private func presentSubtitleMenu() {
@@ -2809,7 +2935,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .subtitles)
     }
 
     /// Alerts have no slider on tvOS, so the offset is stepped through a sheet
@@ -2834,7 +2960,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Done", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .subtitles)
     }
 
     private func applySubtitleDelay(_ seconds: TimeInterval) {
@@ -2904,7 +3030,7 @@ final class AppleTvPlayerViewController: UIViewController {
                     })
             }
             sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-            self.present(sheet, animated: true)
+            self.presentSheet(sheet, from: .subtitles)
         }
         dismissSubtitleProgress { show() }
     }
@@ -2922,7 +3048,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .chapters)
     }
 
     private func presentSpeedMenu() {
@@ -2940,7 +3066,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .speed)
     }
 
     private func presentQualityMenu() {
@@ -2957,7 +3083,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 })
         }
         sheet.addAction(self.makePlayerAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        presentSheet(sheet, from: .quality)
     }
 
     private func presentInfoPanel() {
@@ -2972,8 +3098,7 @@ final class AppleTvPlayerViewController: UIViewController {
             sections[index]["rows"] = rows + [row]
         }
         let panel = InfoPanelViewController(sections: sections, heading: streamInfoTitle)
-        panel.modalPresentationStyle = .overFullScreen
-        present(panel, animated: true)
+        presentPanel(panel)
     }
 
     /// Dart's answer to the `openEpisodes` the Episodes button sends.
@@ -2999,9 +3124,8 @@ final class AppleTvPlayerViewController: UIViewController {
         browser.onClosed = { [weak self] in
             self?.onEpisodesClosed?()
         }
-        browser.modalPresentationStyle = .overFullScreen
         episodeBrowser = browser
-        present(browser, animated: true)
+        presentPanel(browser)
     }
 
     func updateEpisodeBrowser(_ args: [String: Any]) {
@@ -3019,8 +3143,7 @@ final class AppleTvPlayerViewController: UIViewController {
                 self.onOpenCastPerson?(personId)
             }
         }
-        panel.modalPresentationStyle = .overFullScreen
-        present(panel, animated: true)
+        presentPanel(panel)
     }
 
     // Content is reassigned on every call so the card can never freeze on a
@@ -3145,8 +3268,7 @@ final class AppleTvPlayerViewController: UIViewController {
         setSubtitlesRaised(true)
         if osdContainer.alpha < 1 {
             UIView.animate(withDuration: 0.2) {
-                self.osdContainer.alpha = 1
-                self.topContainer.alpha = 1
+                self.setOsdAlpha(1)
             }
         }
     }
@@ -3248,9 +3370,13 @@ final class AppleTvPlayerViewController: UIViewController {
         if scrubTargetMs == nil && scrubFrozenMs == nil {
             prefetchTrickplay(aroundMs: Int(player.currentTime * 1000), forward: true, sheetsAhead: 1)
         }
-        controlIcons[.playPause]?.image = UIImage(
-            systemName: isPaused() ? "play.fill" : "pause.fill",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .medium))
+        if let playIcon = controlIcons[.playPause] {
+            // Keeps whichever size the button was built at, docked or centered.
+            playIcon.image = UIImage(
+                systemName: isPaused() ? "play.fill" : "pause.fill",
+                withConfiguration: playIcon.image?.symbolConfiguration
+                    ?? UIImage.SymbolConfiguration(pointSize: 27 * Self.controlScale, weight: .medium))
+        }
 
         updateNextUpCountdown()
         updateSkipSegmentCountdown()
@@ -3266,14 +3392,12 @@ final class AppleTvPlayerViewController: UIViewController {
         if shouldShow && !visible {
             setSubtitlesRaised(true)
             UIView.animate(withDuration: 0.2) {
-                self.osdContainer.alpha = 1
-                self.topContainer.alpha = 1
+                self.setOsdAlpha(1)
             }
         } else if !shouldShow && visible {
             setSubtitlesRaised(false)
             UIView.animate(withDuration: 0.3) {
-                self.osdContainer.alpha = 0
-                self.topContainer.alpha = 0
+                self.setOsdAlpha(0)
             }
         }
     }
@@ -3290,7 +3414,7 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 }
 
-extension AppleTvPlayerViewController: UIGestureRecognizerDelegate {
+extension NativeApplePlayerViewController: UIGestureRecognizerDelegate {
     func gestureRecognizer(
         _: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer
@@ -3308,6 +3432,155 @@ private let robotoRegistered: Void = {
         _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
 }()
+
+#if os(iOS)
+/// Touch stands in for the Siri Remote on iPhone and iPad. Every gesture ends
+/// in the same actions the remote's presses reach.
+extension NativeApplePlayerViewController {
+    private func setupTouchGestures() {
+        let doubleTap = UITapGestureRecognizer(
+            target: self, action: #selector(handleTouchDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        view.addGestureRecognizer(doubleTap)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTouchTap))
+        tap.require(toFail: doubleTap)
+        view.addGestureRecognizer(tap)
+
+        // A drag across the screen scrubs the way the remote's touch surface does.
+        view.addGestureRecognizer(
+            UIPanGestureRecognizer(target: self, action: #selector(handleScrubPan(_:))))
+
+        nextUpPlayButton.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleNextUpPlayTap)))
+        nextUpCancelButton.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleNextUpCancelTap)))
+        skipSegmentButton.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleSkipSegmentTap)))
+
+        setupTopBarButtons()
+    }
+
+    /// Not docked, the transport sits across the middle of the picture. It's
+    /// added last so the pause card can't cover it, and it fades with the rest
+    /// of the controls, which keeps it from taking touches while they're down.
+    private func setupCenterTransport() {
+        centerTransport.translatesAutoresizingMaskIntoConstraints = false
+        centerTransport.axis = .horizontal
+        centerTransport.alignment = .center
+        centerTransport.spacing = 60
+        centerTransport.alpha = osdContainer.alpha
+        view.addSubview(centerTransport)
+        NSLayoutConstraint.activate([
+            centerTransport.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            centerTransport.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+        ])
+    }
+
+    /// The remote leaves with its Menu button, which a touch screen doesn't
+    /// have, so the top bar gets a close button. AirPlay sits beside it, since
+    /// a phone is where people pick a speaker or a TV.
+    private func setupTopBarButtons() {
+        let close = UIButton(type: .system)
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.tintColor = .white
+        close.setImage(
+            UIImage(
+                systemName: "xmark",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 40, weight: .semibold)),
+            for: .normal)
+        close.addAction(
+            UIAction { [weak self] _ in self?.dismiss(animated: true) },
+            for: .primaryActionTriggered)
+        topContainer.addSubview(close)
+
+        let airPlay = AVRoutePickerView()
+        airPlay.translatesAutoresizingMaskIntoConstraints = false
+        airPlay.tintColor = .white
+        airPlay.activeTintColor = themeAccent
+        airPlay.prioritizesVideoDevices = true
+        topContainer.addSubview(airPlay)
+
+        NSLayoutConstraint.activate([
+            close.trailingAnchor.constraint(equalTo: topContainer.trailingAnchor, constant: -90),
+            close.topAnchor.constraint(
+                equalTo: topContainer.safeAreaLayoutGuide.topAnchor, constant: 40),
+            close.widthAnchor.constraint(equalToConstant: 96),
+            close.heightAnchor.constraint(equalToConstant: 96),
+
+            airPlay.trailingAnchor.constraint(equalTo: close.leadingAnchor, constant: -24),
+            airPlay.centerYAnchor.constraint(equalTo: close.centerYAnchor),
+            airPlay.widthAnchor.constraint(equalToConstant: 96),
+            airPlay.heightAnchor.constraint(equalToConstant: 96),
+        ])
+    }
+
+    @objc private func handleTouchTap() {
+        guard presentedViewController == nil, !nextUpVisible else { return }
+        // Cinema Mode keeps the controls down, so a tap brings up the Skip
+        // button the way the remote's right press does.
+        if cinemaSkipActive {
+            onCinemaSkipAction?("reveal", cinemaSkipGeneration)
+            return
+        }
+        if isOsdOnScreen {
+            osdDismissed = true
+            hideOsd()
+        } else {
+            showOsd()
+        }
+    }
+
+    /// Either side skips the way the remote's skip buttons do, and the middle
+    /// plays or pauses.
+    @objc private func handleTouchDoubleTap(_ recognizer: UITapGestureRecognizer) {
+        guard presentedViewController == nil, !nextUpVisible else { return }
+        if cinemaSkipActive {
+            togglePlayPause()
+            return
+        }
+        let x = recognizer.location(in: view).x
+        let third = view.bounds.width / 3
+        if isLive || (x >= third && x <= third * 2) {
+            togglePlayPause()
+        } else {
+            activate(x < third ? .skipBack : .skipForward)
+        }
+        showOsd()
+    }
+
+    @objc private func handleControlTap(_ recognizer: UITapGestureRecognizer) {
+        guard let tapped = recognizer.view,
+            let id = controlViews.first(where: { $0.value === tapped })?.key
+        else { return }
+        activate(id)
+        showOsd()
+    }
+
+    @objc private func handleNextUpPlayTap() {
+        guard nextUpVisible else { return }
+        hideNextUpCard()
+        onNextUpPlay?()
+    }
+
+    @objc private func handleNextUpCancelTap() {
+        guard nextUpVisible else { return }
+        hideNextUpCard()
+        onNextUpCancel?()
+    }
+
+    @objc private func handleSkipSegmentTap() {
+        // Cinema Mode shows its Skip in the same button.
+        if cinemaSkipActive {
+            onCinemaSkipAction?("activate", cinemaSkipGeneration)
+            return
+        }
+        guard skipSegmentActive else { return }
+        hideSkipSegment()
+        onSkipSegmentSelect?()
+    }
+}
+#endif
 
 private func infoFont(_ size: CGFloat, bold: Bool = false) -> UIFont {
     _ = robotoRegistered
@@ -3883,6 +4156,11 @@ private final class StillWatchingViewController: UIViewController, RemotePlayerN
         // arbitration, the same as the player does.
         let menuTap = UITapGestureRecognizer(target: self, action: #selector(handleMenuTap))
         menuTap.allowedPressTypes = [NSNumber(value: UIPress.PressType.menu.rawValue)]
+        #if os(iOS)
+        // A tap recognizer takes every finger too, so a tap on Continue could
+        // land here and answer Stop. Only the Menu press should reach this one.
+        menuTap.allowedTouchTypes = []
+        #endif
         view.addGestureRecognizer(menuTap)
 
         let card = UIView()
@@ -3970,6 +4248,13 @@ private final class StillWatchingViewController: UIViewController, RemotePlayerN
         stopLabel.textAlignment = .center
         stopButton.addSubview(stopLabel)
 
+        #if os(iOS)
+        continueButton.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleContinueTap)))
+        stopButton.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(handleStopTap)))
+        #endif
+
         NSLayoutConstraint.activate([
             card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -4042,6 +4327,14 @@ private final class StillWatchingViewController: UIViewController, RemotePlayerN
     }
 
     @objc private func handleMenuTap() {
+        resolve(continueWatching: false)
+    }
+
+    @objc private func handleContinueTap() {
+        resolve(continueWatching: true)
+    }
+
+    @objc private func handleStopTap() {
         resolve(continueWatching: false)
     }
 

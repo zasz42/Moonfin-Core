@@ -612,10 +612,10 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
                     }
                 }
                 "stopGoogleCastSession" -> {
-                    withRemoteMediaClient(result) { remoteClient ->
-                        remoteClient.stop()
-                        result.success(null)
-                    }
+                    // Stopping only the media leaves the session up, and with it the
+                    // receiver, the cast icon and the notification.
+                    runCatching { CastContext.getSharedInstance(this).sessionManager.endCurrentSession(true) }
+                    result.success(null)
                 }
                 "getGoogleCastVolume" -> {
                     val session = getCurrentCastSession()
@@ -1592,8 +1592,10 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
                 emitGoogleCastEvent("error", "Failed to start cast session: $error")
             }
 
+            // The SDK tries to resume the last session on launch, and failing that
+            // just means there's nothing left to rejoin.
             override fun onSessionResumeFailed(session: CastSession, error: Int) {
-                emitGoogleCastEvent("error", "Failed to resume cast session: $error")
+                emitGoogleCastEvent("disconnected")
             }
 
             override fun onSessionEnding(session: CastSession) {}

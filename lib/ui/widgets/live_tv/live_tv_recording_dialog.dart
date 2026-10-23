@@ -11,6 +11,7 @@ import '../overlay_sheet.dart';
 enum LiveTvRecordingAction {
   recordProgram,
   recordSeries,
+  changeSeries,
   cancelProgram,
   cancelSeries,
 }
@@ -67,6 +68,16 @@ Future<LiveTvRecordingAction?> showLiveTvRecordingDialog({
                   style: const TextStyle(color: Colors.white70),
                 ),
               ],
+              if (canCancelSeries && !canCancelProgram) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l10n.seriesRecordingSkipsShowing,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
               if (canCancelSeries) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -101,6 +112,12 @@ Future<LiveTvRecordingAction?> showLiveTvRecordingDialog({
                         : l10n.recordCurrentProgram),
             ),
           ),
+          if (canCancelSeries)
+            adaptiveDialogAction(
+              focusRingColor: AppColorScheme.accent,
+              onPressed: () => choose(LiveTvRecordingAction.changeSeries),
+              child: Text(l10n.seriesRecordingSettings),
+            ),
           if (canCancelSeries || isSeries)
             adaptiveDialogAction(
               focusRingColor: AppColorScheme.accent,

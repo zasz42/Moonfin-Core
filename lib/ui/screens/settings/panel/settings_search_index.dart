@@ -990,6 +990,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       keywords: ['continue watching', 'next up'],
     ),
     rowToggles.leaf(
+      'pref_continue_watching_default_action',
+      l10n.continueWatchingDefaultAction,
+      subtitle: l10n.continueWatchingDefaultActionDescription,
+      keywords: ['continue watching', 'next up', 'play', 'details'],
+    ),
+    rowToggles.leaf(
       'pref_next_up_max_days',
       l10n.nextUpMaxDays,
       subtitle: l10n.nextUpMaxDaysDescription,
@@ -1416,6 +1422,20 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
         subtitle: l10n.playerSwipeGesturesDescription,
         keywords: ['swipe', 'gestures', 'volume', 'brightness'],
       ),
+      video.leaf(
+        'pref_gesture_indicator_placement',
+        l10n.invertGestureIndicators,
+        subtitle: l10n.invertGestureIndicatorsDescription,
+        keywords: [
+          'gesture',
+          'indicator',
+          'invert',
+          'brightness',
+          'volume',
+          'swipe',
+          'opposite',
+        ],
+      ),
     ],
     osdButtons.screen(keywords: [
       'player buttons',
@@ -1425,6 +1445,13 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'zoom',
       'speed',
     ]),
+    if (!PlatformDetection.isTV)
+      osdButtons.leaf(
+        'pref_player_transport_position',
+        l10n.playerTransportPosition,
+        subtitle: l10n.playerTransportPositionDescription,
+        keywords: ['docked', 'on screen', 'play button', 'center', 'controls'],
+      ),
     quality.screen(keywords: ['bitrate', 'resolution', 'hdr', 'decoder']),
     quality.leaf('pref_max_bitrate', l10n.maxStreamingBitrate, keywords: [
       'quality',
@@ -1447,6 +1474,13 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
         'playback_engine_preference',
         l10n.settingsPlaybackEngineAndroidTv,
         keywords: ['exoplayer', 'mpv', 'media3', 'engine'],
+      ),
+    if (PlatformDetection.isIOS)
+      quality.leaf(
+        'pref_apple_player_ui',
+        l10n.settingsApplePlayerUi,
+        subtitle: l10n.settingsApplePlayerUiDescription,
+        keywords: ['native player', 'apple tv player', 'player'],
       ),
     if (!PlatformDetection.isWeb && !PlatformDetection.isAppleTV)
       quality.leaf(

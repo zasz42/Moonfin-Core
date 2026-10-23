@@ -11,8 +11,8 @@ import AppKit
 #endif
 
 /// Playback wrapper backed by AetherEngine. Reproduces the polled member
-/// surface the previous mpv wrapper exposed, so `AppleTvVideoChannel`
-/// (0.25 s state timer) and `AppleTvPlayerViewController` (OSD timer) keep
+/// surface the previous mpv wrapper exposed, so `NativeApplePlayerChannel`
+/// (0.25 s state timer) and `NativeApplePlayerViewController` (OSD timer) keep
 /// reading the same `@Published` properties.
 ///
 /// Lifecycle: the wrapper is per-presentation (the channel drops it on
@@ -72,6 +72,21 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
         _sharedEngine = try? AetherEngine()
         return _sharedEngine
     }
+
+    #if os(iOS)
+        /// iOS runs two wrappers over the one engine: the Flutter player's and
+        /// the native player's. The one that last started a load owns it, and
+        /// only the owner stops it, reloads it or reports its errors, so the
+        /// idle wrapper can't act on a session that isn't its own.
+        private static weak var engineOwner: AetherPlayerWrapper?
+        private var isShutDown = false
+        private var ownsEngine: Bool {
+            Self.engineOwner == nil || Self.engineOwner === self
+        }
+    #else
+        /// Every other platform has one wrapper at a time.
+        private var ownsEngine: Bool { true }
+    #endif
 
     private let playerView = AetherPlayerView()
     let subtitleOverlay = SubtitleOverlay()
@@ -196,7 +211,7 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
     }
 
     private func reloadAfterBackgroundTeardownIfNeeded() async {
-        guard !isAudioOnlySession else { return }
+        guard ownsEngine, !isAudioOnlySession else { return }
         // The teardown leaves the session paused with no backend, which is
         // the one state an ordinary pause never produces.
         guard state == .paused else { return }
@@ -327,7 +342,11 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
         engine.$currentAVPlayer
             .receive(on: DispatchQueue.main)
             .sink { [weak self] player in
-                guard let self, Self.drivesNowPlaying, !self.isAudioOnlySession else {
+                // The idle wrapper on iOS would otherwise build a second session
+                // on the same AVPlayer and could take Now Playing from the owner.
+                guard let self, Self.drivesNowPlaying, !self.isAudioOnlySession,
+                    self.ownsEngine
+                else {
                     return
                 }
                 self.nowPlaying.attach(player: player)
@@ -755,6 +774,14 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
             state = .error
             return
         }
+        #if os(iOS)
+            if Self.engineOwner !== self {
+                // The other wrapper deactivates the shared audio session when
+                // it shuts down, so this one can't trust its own flag.
+                audioSessionActive = false
+                Self.engineOwner = self
+            }
+        #endif
         // A load from a healthy or just ended session goes straight to
         // engine.load, whose internal supersede keeps the AVPlayer instance
         // and current item alive across the seam for PiP and Control Center.
@@ -788,6 +815,11 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
         if !audioOnly {
             await waitForSurface()
         }
+        #if os(iOS)
+            // Closing the player while the load waited for its surface would
+            // otherwise start playback with nothing on screen to stop it.
+            guard !isShutDown else { return }
+        #endif
         activateAudioSession()
 
         let isRemotePlaylist = url.path.lowercased().hasSuffix(".m3u8")
@@ -821,7 +853,7 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
         let watchdog = Task { [weak self] in
             try? await Task.sleep(nanoseconds: Self.loadWatchdogNanoseconds)
             guard !Task.isCancelled, let self, self.loadGeneration == generation,
-                self.state == .opening
+                self.state == .opening, self.ownsEngine
             else { return }
             self.didEmitLoadError = true
             self.state = .error
@@ -923,6 +955,7 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
     }
 
     private func emitError(kind: String, recoverable: Bool, message: String) {
+        guard ownsEngine else { return }
         onPlayerError?([
             "event": "playerError",
             "kind": kind,
@@ -943,7 +976,15 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
     /// Dart-initiated stops go through here so back to back DV episodes don't bounce
     /// through SDR.
     func stop() {
-        Self.sharedEngine()?.stop(resetDisplayCriteria: false)
+        #if os(iOS)
+            // A stop from a wrapper that was shut down, or that another one has
+            // taken the engine from, would land on whatever plays next.
+            if ownsEngine && !isShutDown {
+                Self.sharedEngine()?.stop(resetDisplayCriteria: false)
+            }
+        #else
+            Self.sharedEngine()?.stop(resetDisplayCriteria: false)
+        #endif
         resetStallTracking()
         state = .stopped
         subtitleOverlay.clear()
@@ -955,14 +996,33 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
     func shutdown() {
         stopObservingForegroundReturn()
         guard let engine = Self.sharedEngine() else { return }
-        engine.stop(resetDisplayCriteria: true)
+        #if os(iOS)
+            let owned = ownsEngine
+            isShutDown = true
+            if Self.engineOwner === self { Self.engineOwner = nil }
+            if owned {
+                engine.stop(resetDisplayCriteria: true)
+            }
+        #else
+            engine.stop(resetDisplayCriteria: true)
+        #endif
         cancellables.removeAll()
         resetStallTracking()
         engine.unbind(view: playerView)
         subtitleOverlay.clear()
         resetAssState()
         nowPlaying.teardown()
-        deactivateAudioSession()
+        #if os(iOS)
+            // The audio session is shared with the other wrapper, so only the
+            // owner lets it go.
+            if owned {
+                deactivateAudioSession()
+            } else {
+                audioSessionActive = false
+            }
+        #else
+            deactivateAudioSession()
+        #endif
         state = .stopped
     }
 

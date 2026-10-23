@@ -379,6 +379,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         mediaSourceId: mediaSource?['Id']?.toString(),
         audioStreamIndex: _vm.selectedAudioIndex ?? effectiveAudio,
         subtitleStreamIndex: _vm.selectedSubtitleIndex ?? effectiveSubtitle,
+        hasOtherVersions: item.mediaSources.length > 1,
       );
       if (mounted) {
         // Drop the result if the track selection changed mid-request.
@@ -1529,6 +1530,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
                 imageApi: _vm.imageApi,
                 onChanged: () => _vm.load(),
                 isActive: _vm.episodes[i].id == activeId,
+                isOnScreen: _vm.episodes[i].id == item.id,
                 contextSeasonId: _vm.effectiveSeasonId,
                 replacePage: item.type == 'Episode',
                 focusNode: i == 0

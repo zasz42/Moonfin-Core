@@ -3423,6 +3423,50 @@
   "@noUpcomingSeriesRecording": {
     "description": "A series recording rule exists but no future episode timer is available"
   },
+  "seriesRecordingSkipsShowing": "The series recording will skip this showing",
+  "@seriesRecordingSkipsShowing": {
+    "description": "A series recording rule exists, but this showing won't record, for example because it is a repeat or the episode is already in the library"
+  },
+  "seriesRecordingEpisodesQuestion": "Which episodes should be recorded?",
+  "@seriesRecordingEpisodesQuestion": {
+    "description": "Prompt in the dialog that chooses which episodes a series recording takes"
+  },
+  "seriesRecordingAllEpisodes": "All Episodes",
+  "@seriesRecordingAllEpisodes": {
+    "description": "Series recording choice that records every showing, repeats included"
+  },
+  "seriesRecordingAllEpisodesDescription": "Every showing, including repeats",
+  "@seriesRecordingAllEpisodesDescription": {
+    "description": "Explains the All Episodes series recording choice"
+  },
+  "seriesRecordingNotRecordedEpisodes": "Episodes Not Already Recorded",
+  "@seriesRecordingNotRecordedEpisodes": {
+    "description": "Series recording choice that skips episodes already in the library"
+  },
+  "seriesRecordingNotRecordedEpisodesDescription": "Skips episodes already in your library and records each episode once",
+  "@seriesRecordingNotRecordedEpisodesDescription": {
+    "description": "Explains the Episodes Not Already Recorded series recording choice"
+  },
+  "seriesRecordingNewEpisodesOnly": "New Episodes Only",
+  "@seriesRecordingNewEpisodesOnly": {
+    "description": "Series recording choice that records only first airings"
+  },
+  "seriesRecordingNewEpisodesOnlyDescription": "First airings only, no repeats",
+  "@seriesRecordingNewEpisodesOnlyDescription": {
+    "description": "Explains the New Episodes Only series recording choice"
+  },
+  "seriesRecordingSettings": "Series Settings",
+  "@seriesRecordingSettings": {
+    "description": "Action that changes which episodes an existing series recording takes"
+  },
+  "seriesRecordingUpdated": "Series recording updated",
+  "@seriesRecordingUpdated": {
+    "description": "Confirmation after changing a series recording's settings"
+  },
+  "failedToUpdateSeriesRecording": "Unable to update series recording",
+  "@failedToUpdateSeriesRecording": {
+    "description": "Error after changing a series recording's settings failed"
+  },
   "recordCurrentEpisode": "Record This Episode",
   "@recordCurrentEpisode": {
     "description": "Live TV player action to record only the current episode"
@@ -4666,6 +4710,22 @@
   "playerSwipeGesturesDescription": "Slide up or down on the player to change brightness on the left and volume on the right",
   "@playerSwipeGesturesDescription": {
     "description": "Description for player swipe gestures"
+  },
+  "invertGestureIndicators": "Invert Gesture Indicators",
+  "@invertGestureIndicators": {
+    "description": "Setting title for inverting placement of brightness and volume gesture indicators"
+  },
+  "invertGestureIndicatorsDescription": "Place brightness and volume visual indicators on same or opposite side of screen from swipe",
+  "@invertGestureIndicatorsDescription": {
+    "description": "Description explaining gesture indicator placement relative to the swipe side"
+  },
+  "gestureIndicatorSame": "Same",
+  "@gestureIndicatorSame": {
+    "description": "Option to display gesture indicators on the same side as the swipe"
+  },
+  "gestureIndicatorInverted": "Inverted",
+  "@gestureIndicatorInverted": {
+    "description": "Option to display gesture indicators on the opposite side from the swipe"
   },
   "osdButtons": "Player Buttons",
   "@osdButtons": {
@@ -6498,6 +6558,22 @@
   "combineBothRows": "Combine both rows into a single home section",
   "@combineBothRows": {
     "description": "Description for merge continue watching and next up"
+  },
+  "continueWatchingDefaultAction": "Default Action",
+  "@continueWatchingDefaultAction": {
+    "description": "Setting for default click action on Continue Watching and Next Up items"
+  },
+  "continueWatchingDefaultActionDescription": "What selecting a Continue Watching or Next Up item does",
+  "@continueWatchingDefaultActionDescription": {
+    "description": "Description for Continue Watching and Next Up default click action setting"
+  },
+  "goToDetailsScreen": "Go to Details",
+  "@goToDetailsScreen": {
+    "description": "Option to navigate to the details screen for an item"
+  },
+  "playImmediately": "Play immediately",
+  "@playImmediately": {
+    "description": "Option to play an item immediately"
   },
   "nextUpMaxDays": "Max days in Next Up",
   "@nextUpMaxDays": {
@@ -14237,5 +14313,41 @@
   "playbackInfoDroppedFrames": "Dropped Frames",
   "@playbackInfoDroppedFrames": {
     "description": "Playback information row label: how many video frames the player skipped"
+  },
+  "playFromServer": "Play from Server",
+  "@playFromServer": {
+    "description": "Long-press menu action on a downloaded video: play it by streaming from the server instead of the downloaded copy, for example to get a higher quality than the download"
+  },
+  "settingsApplePlayerUi": "Video player",
+  "@settingsApplePlayerUi": {
+    "description": "Settings label on iPhone and iPad for choosing which player plays video"
+  },
+  "settingsApplePlayerUiDescription": "The native Apple style player has no casting, swipe gestures, orientation lock, audio delay or PiP button",
+  "@settingsApplePlayerUiDescription": {
+    "description": "Settings description for the video player choice, listing what the native Apple style player lacks"
+  },
+  "settingsApplePlayerUiStandard": "Standard",
+  "@settingsApplePlayerUiStandard": {
+    "description": "Option for the regular Moonfin video player on iPhone and iPad"
+  },
+  "settingsApplePlayerUiNative": "Native Apple style",
+  "@settingsApplePlayerUiNative": {
+    "description": "Option for the native video player that the Apple TV app uses, offered on iPhone and iPad"
+  },
+  "playerTransportPosition": "Play buttons",
+  "@playerTransportPosition": {
+    "description": "Settings label for where the play, skip and seek buttons sit in the video player"
+  },
+  "playerTransportPositionDescription": "Show play, skip and seek in the middle of the video or docked in the bottom bar",
+  "@playerTransportPositionDescription": {
+    "description": "Settings description for where the video player's play buttons sit"
+  },
+  "playerTransportOnScreen": "On screen",
+  "@playerTransportOnScreen": {
+    "description": "Option that puts the play, skip and seek buttons in the middle of the video"
+  },
+  "playerTransportDocked": "Docked",
+  "@playerTransportDocked": {
+    "description": "Option that puts the play, skip and seek buttons in the bottom bar with the other player buttons"
   }
 }

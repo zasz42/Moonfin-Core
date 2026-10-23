@@ -38,7 +38,7 @@ import 'util/webview_environment.dart';
 import 'data/services/theme_store_service.dart';
 import 'di/injection.dart';
 import 'playback/appletv_audio_now_playing_feeder.dart';
-import 'playback/appletv_backend.dart';
+import 'playback/native_apple_player_backend.dart';
 import 'playback/audio_capability_probe.dart';
 import 'playback/audio_handler.dart';
 import 'playback/codec_caps_repair.dart';
@@ -649,7 +649,7 @@ Future<Map<String, dynamic>?> _queryAppleVideoCaps(
 }
 
 Future<void> _detectAndSetAppleTvCapabilities() async {
-  const channel = MethodChannel('moonfin/appletv_video_control');
+  const channel = MethodChannel('moonfin/native_apple_player_control');
   final caps = await _queryAppleVideoCaps(channel);
 
   PlatformDetection.setMediaCodecCapabilities(
@@ -1022,7 +1022,7 @@ void main() async {
       final feeder = AppleTvAudioNowPlayingFeeder(
         manager: GetIt.instance<PlaybackManager>(),
         clientFactory: GetIt.instance<MediaServerClientFactory>(),
-        backend: GetIt.instance<AppleTvBackend>(),
+        backend: GetIt.instance<NativeApplePlayerBackend>(),
       )..start();
       GetIt.instance.registerSingleton<AppleTvAudioNowPlayingFeeder>(feeder);
     } catch (_) {}

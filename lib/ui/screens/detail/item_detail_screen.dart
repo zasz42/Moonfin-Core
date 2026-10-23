@@ -108,6 +108,7 @@ import '../../widgets/focus/context_action.dart';
 import '../../widgets/focus/context_menu_sheet.dart';
 import '../../widgets/focus/dpad_list_tile.dart';
 import '../../widgets/focus/focusable_button.dart';
+import '../../widgets/focus/menu_action_row.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../../playback/external_player_policy.dart';
@@ -128,6 +129,7 @@ import '../../../util/audio_track_logic.dart';
 import '../../../util/artwork_request_size.dart';
 import '../../../util/platform_detection.dart';
 import 'detail_layout_metrics.dart';
+import 'play_item_on_screen.dart';
 
 const _textShadows = [Shadow(blurRadius: 4, color: Colors.black54)];
 
@@ -6643,6 +6645,8 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       _availableOffline = false;
       _checkOffline();
     }
+    // Auto play can be asked for again once the first has been used up.
+    if (widget.autoPlay && !oldWidget.autoPlay) _autoPlayTriggered = false;
     _maybeTriggerAutoPlay();
   }
 
@@ -8410,6 +8414,15 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             _play(context, item, resume: resume, openInExternalPlayer: true);
           },
         ),
+      if (canPlayFromServer(item))
+        _AdvancedPlaybackOption(
+          label: l10n.playFromServer,
+          icon: Icons.cloud_outlined,
+          onTap: () {
+            GetIt.instance<PlaybackManager>().streamFromServerOnce(item.id);
+            _play(context, item, resume: resume);
+          },
+        ),
       _AdvancedPlaybackOption(
         label: 'Transcode Stream: High Quality (1080p)',
         icon: Icons.high_quality,
@@ -8457,31 +8470,21 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       useRootNavigator: false,
       builder: (dialogContext) => SimpleDialog(
         title: const Text('Advanced Playback'),
+        // Lines the row icons up under the title.
+        contentPadding: const EdgeInsets.fromLTRB(4, 12, 4, 16),
         children: options.asMap().entries.map((entry) {
           final i = entry.key;
           final option = entry.value;
-          return FocusableButton(
+          return MenuActionRow(
+            icon: option.icon,
+            label: option.label,
             autofocus: i == 0,
-            borderRadius: 6,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             onPressed: () {
               if (picked) return;
               picked = true;
               Navigator.of(dialogContext).pop();
               option.onTap();
             },
-            child: Row(
-              children: [
-                AdaptiveIcon(option.icon, size: 22),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    option.label,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ),
-              ],
-            ),
           );
         }).toList(),
       ),
@@ -14642,6 +14645,10 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
 
   // The row only shows on an episode, so the one picked takes this page's place.
   void _open() {
+    if (widget.isCurrent) {
+      playItemOnScreen(context);
+      return;
+    }
     _openEpisodeDetails(
       context,
       widget.episode,
@@ -15113,6 +15120,9 @@ class DetailEpisodeCard extends StatefulWidget {
   /// Set on an episode's own page, so the episode picked takes that page's place.
   final bool replacePage;
 
+  /// The episode whose page this is, which plays rather than opens.
+  final bool isOnScreen;
+
   const DetailEpisodeCard({
     required this.episode,
     required this.imageApi,
@@ -15122,6 +15132,7 @@ class DetailEpisodeCard extends StatefulWidget {
     this.contextSeasonId,
     this.isActive = false,
     this.replacePage = false,
+    this.isOnScreen = false,
   });
 
   @override
@@ -15143,6 +15154,10 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
   }
 
   void _open() {
+    if (widget.isOnScreen) {
+      playItemOnScreen(context);
+      return;
+    }
     _openEpisodeDetails(
       context,
       widget.episode,

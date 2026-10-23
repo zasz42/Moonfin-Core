@@ -16,6 +16,7 @@ import '../services/media_server_client_factory.dart';
 import 'seerr_repository.dart';
 import '../utils/blocked_ratings.dart';
 import 'multi_server_repository.dart';
+import '../utils/bounded_concurrency.dart';
 
 class MediaBarRepository {
 
@@ -202,38 +203,61 @@ class MediaBarRepository {
       if (allSources.isEmpty && customSlides.isEmpty) {
         return const MediaBarDisabled();
       } else {
-        for (final source in allSources) {
-          if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
-              GetIt.instance<MediaBarRepository>() != this) {
-            return const MediaBarDisabled();
-          }
-          try {
-            final targetTypes = allSourceItemTypes[source.sourceKey] ?? includeTypes;
-            final client = _clientForSource(source);
-            final batch = await _fetchItems(
-              targetTypes,
-              fetchLimit,
-              parentId: source.libraryId,
-              client: client,
-            );
-            for (final item in batch) {
-              if (source.serverId.isNotEmpty) {
-                item['_moonfinServerId'] = source.serverId;
-              }
+        // Use bounded concurrency to fetch from multiple sources in parallel
+        // while keeping items per source for round-robin distribution.
+        final seenIds = <String>{};
+        final usable = _usableFor(excludedGenres);
+        var usableCount = 0;
+        final enough = maxItems * 2;
+
+        await mapBounded(
+          allSources.toList()..shuffle(_random),
+          _sourceConcurrency,
+          (source) async {
+            if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
+                GetIt.instance<MediaBarRepository>() != this) {
+              return null;
             }
-            if (batch.isNotEmpty) perSource.add(batch);
-          } catch (_) {
-            // Keep fetching remaining libraries if one fails
-          }
+            if (usableCount >= enough) return null;
+            try {
+              final targetTypes = allSourceItemTypes[source.sourceKey] ?? includeTypes;
+              final client = _clientForSource(source);
+              final batch = await _fetchItems(
+                targetTypes,
+                fetchLimit,
+                parentId: source.libraryId,
+                client: client,
+              );
+              final sourceBatch = <Map<String, dynamic>>[];
+              for (final item in batch) {
+                final id = item['Id']?.toString();
+                if (id != null && !seenIds.add(id)) continue;
+                if (source.serverId.isNotEmpty) {
+                  item['_moonfinServerId'] = source.serverId;
+                }
+                sourceBatch.add(item);
+                if (usable(item)) usableCount++;
+              }
+              if (sourceBatch.isNotEmpty) {
+                perSource.add(sourceBatch);
+              }
+            } catch (_) {
+              // Keep fetching remaining libraries if one fails
+            }
+            return null;
+          },
+        );
+        if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
+            GetIt.instance<MediaBarRepository>() != this) {
+          return const MediaBarDisabled();
         }
-      }
 
-      final allItems = perSource.expand((batch) => batch).toList();
+        final allItems = perSource.expand((batch) => batch).toList();
 
-      var selected = _selectItemsWithBackdrops(
-        allItems,
-        maxItems,
-        excludedGenres,
+        var selected = _selectItemsWithBackdrops(
+          allItems,
+          maxItems,
+          excludedGenres,
         // One source reads as before; several share the banner evenly, so the
         // random source rotates through the selected libraries rather than
         // leaning on whichever returned the most titles.
@@ -321,8 +345,18 @@ class MediaBarRepository {
       return picked;
     }
 
-    final withBackdrops = source.where(keep).toList()..shuffle();
+    final withBackdrops = source.where(keep).toList()...shuffle();
     return withBackdrops.take(maxItems).toList();
+  }
+
+  /// The check an item has to pass to go on the bar.
+  bool Function(Map<String, dynamic>) _usableFor(Set<String> excludedGenres) {
+    final filter = activeParentalFilter;
+    return (item) =>
+        _hasBackdrop(item) &&
+        !_isBoxSet(item) &&
+        !_hasExcludedGenre(item, excludedGenres) &&
+        !filter.isBlockedRaw(item);
   }
 
   List<String> _splitCsv(Preference<String> pref) =>
@@ -389,6 +423,9 @@ class MediaBarRepository {
   /// this many from a random place in the library, and the dated ones read
   /// this many of the newest.
   static const _poolSize = 40;
+
+  /// How many libraries and collections are read at once.
+  static const _sourceConcurrency = 6;
 
   Future<List<Map<String, dynamic>>> _fetchItems(
     List<String>? itemTypes,

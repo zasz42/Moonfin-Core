@@ -37,7 +37,7 @@ final class GamepadNavigationHostViewController: GCEventViewController {
 
 @main
 class AppDelegate: FlutterAppDelegate {
-    private var appleTvVideoChannel: AppleTvVideoChannel?
+    private var nativeApplePlayerChannel: NativeApplePlayerChannel?
     private var topShelfChannel: TopShelfChannel?
     private var previewChannel: AppleTvPreviewChannel?
     private var systemChannel: AppleTvSystemChannel?
@@ -63,9 +63,9 @@ class AppDelegate: FlutterAppDelegate {
         // register against the controller directly.
         GeneratedPluginRegistrant.register(with: flutterViewController)
 
-        appleTvVideoChannel = AppleTvVideoChannel(
+        nativeApplePlayerChannel = NativeApplePlayerChannel(
             messenger: flutterViewController.binaryMessenger,
-            rootViewController: flutterViewController)
+            rootProvider: { [weak flutterViewController] in flutterViewController })
         topShelfChannel = TopShelfChannel(
             messenger: flutterViewController.binaryMessenger)
         previewChannel = AppleTvPreviewChannel(

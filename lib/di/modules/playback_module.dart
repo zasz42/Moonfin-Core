@@ -30,7 +30,8 @@ import '../../playback/media_browse_service.dart';
 import '../../playback/html_video_backend.dart';
 import '../../playback/known_defects.dart';
 import '../../playback/external_player_policy.dart';
-import '../../playback/appletv_backend.dart';
+import '../../playback/apple_player_ui.dart';
+import '../../playback/native_apple_player_backend.dart';
 import '../../playback/auto_bitrate_service.dart';
 import '../../playback/aether_backend.dart';
 import '../../playback/media_kit_player_backend.dart';
@@ -325,18 +326,24 @@ void registerPlaybackModule() {
 
   MediaKitPlayerBackend? backend;
   Media3PlayerBackend? media3Backend;
-  AppleTvBackend? appleTvBackend;
+  NativeApplePlayerBackend? nativeApplePlayerBackend;
   AetherBackend? iosBackend;
 
   if (PlatformDetection.isAppleTV) {
-    appleTvBackend = AppleTvBackend(prefs);
-    _getIt.registerSingleton<AppleTvBackend>(appleTvBackend);
+    nativeApplePlayerBackend = NativeApplePlayerBackend(prefs);
+    _getIt.registerSingleton<NativeApplePlayerBackend>(nativeApplePlayerBackend);
   } else if (PlatformDetection.isIOS || PlatformDetection.isMacOS) {
     // AetherEngine serves main playback on iOS and macOS: video, live TV,
     // music, audiobooks and offline. The media_kit backend isn't constructed,
     // though on macOS media_kit itself stays for trailers and theme music.
     iosBackend = AetherBackend(prefs);
     _getIt.registerSingleton<AetherBackend>(iosBackend);
+    if (PlatformDetection.isIOS) {
+      // Backs the native player option, which plays video through the player
+      // the Apple TV app uses. It sits idle until a video picks it.
+      nativeApplePlayerBackend = NativeApplePlayerBackend(prefs);
+      _getIt.registerSingleton<NativeApplePlayerBackend>(nativeApplePlayerBackend);
+    }
   } else {
     backend = MediaKitPlayerBackend(prefs);
     _getIt.registerSingleton<MediaKitPlayerBackend>(backend);
@@ -359,7 +366,7 @@ void registerPlaybackModule() {
       prefs.get(UserPreferences.playbackEnginePreference) ==
           PlaybackEnginePreference.media3;
   final PlayerBackend initialBackend = PlatformDetection.isAppleTV
-      ? appleTvBackend!
+      ? nativeApplePlayerBackend!
       : (PlatformDetection.isIOS || PlatformDetection.isMacOS)
       ? iosBackend!
       : PlatformDetection.isWeb
@@ -476,11 +483,18 @@ void registerPlaybackModule() {
   manager.setBackend(initialBackend);
   manager.setBackendSelector((resolution, currentBackend) {
     if (PlatformDetection.isAppleTV) {
-      if (currentBackend is AppleTvBackend) return currentBackend;
-      return _getIt<AppleTvBackend>();
+      if (currentBackend is NativeApplePlayerBackend) return currentBackend;
+      return _getIt<NativeApplePlayerBackend>();
     }
 
     if (PlatformDetection.isIOS || PlatformDetection.isMacOS) {
+      // Music and audiobooks stay on the Flutter path, which owns the lock
+      // screen and CarPlay on iOS.
+      final isAudio = resolution.mediaType.toLowerCase().contains('audio');
+      if (!isAudio && useNativeApplePlayer()) {
+        if (currentBackend is NativeApplePlayerBackend) return currentBackend;
+        return _getIt<NativeApplePlayerBackend>();
+      }
       if (currentBackend is AetherBackend) return currentBackend;
       return _getIt<AetherBackend>();
     }
@@ -790,6 +804,7 @@ void setActiveStreamResolver(MediaServerClient client) {
   final resolver = LocalFirstMediaStreamResolver(
     inner: serverResolver,
     offline: _getIt<OfflineStreamResolver>(),
+    streamFromServer: () => _getIt<PlaybackManager>().streamsFromServer,
     restoreSubtitles: (itemId) async {
       if (_getIt.isRegistered<DownloadService>()) {
         await _getIt<DownloadService>().restoreMissingSubtitles(itemId);
