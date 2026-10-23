@@ -202,18 +202,18 @@ class MediaBarRepository {
 
       if (allSources.isEmpty && customSlides.isEmpty) {
         return const MediaBarDisabled();
-      } else {
-        // Use bounded concurrency to fetch from multiple sources in parallel
-        // while keeping items per source for round-robin distribution.
-        final seenIds = <String>{};
-        final usable = _usableFor(excludedGenres);
-        var usableCount = 0;
-        final enough = maxItems * 2;
+      }
+      // Use bounded concurrency to fetch from multiple sources in parallel
+      // while keeping items per source for round-robin distribution.
+      final seenIds = <String>{};
+      final usable = _usableFor(excludedGenres);
+      var usableCount = 0;
+      final enough = maxItems * 2;
 
-        await mapBounded(
-          allSources.toList()..shuffle(_random),
-          _sourceConcurrency,
-          (source) async {
+      await mapBounded(
+        allSources.toList()..shuffle(_random),
+        _sourceConcurrency,
+        (source) async {
             if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
                 GetIt.instance<MediaBarRepository>() != this) {
               return null;
@@ -298,7 +298,6 @@ class MediaBarRepository {
       }
 
       return MediaBarReady(_mergedSlides(customSlides, selected, maxItems));
-      }
     } catch (e) {
       // Custom lists were read before any of this, so they still stand even if
       // the server-side selection blew up.
