@@ -136,23 +136,15 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
             lastCinemaSkipState = args
             playerVC?.applyCinemaSkipState(args)
         case "showSkipSegment":
-<<<<<<< HEAD
-            playerVC?.showSkipSegment(
-                label: (args["label"] as? String) ?? "Skip",
-                countdownStyle: (args["countdownStyle"] as? String) ?? "both",
-                segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
-                segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
-                autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
-=======
             // Don't show regular Skip Segment prompts during Cinema Mode trailers.
             if (lastCinemaSkipState?["active"] as? Bool) != true {
                 playerVC?.showSkipSegment(
                     label: (args["label"] as? String) ?? "Skip",
                     countdownStyle: (args["countdownStyle"] as? String) ?? "both",
                     segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
-                    segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0)
+                    segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
+                    autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
             }
->>>>>>> origin/main
         case "hideSkipSegment":
             if (lastCinemaSkipState?["active"] as? Bool) != true {
                 playerVC?.hideSkipSegment()
@@ -344,17 +336,15 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
         vc.onSkipSegmentSelect = { [weak self] in
             self?.send(["event": "skipSegment"])
         }
-<<<<<<< HEAD
         vc.onSkipSegmentDismiss = { [weak self] in
             self?.send(["event": "skipSegmentDismiss"])
-=======
+        }
         vc.onCinemaSkipAction = { [weak self] action, generation in
             self?.send([
                 "event": "cinemaSkipAction",
                 "action": action,
                 "generation": generation,
             ])
->>>>>>> origin/main
         }
         vc.onUserSeek = { [weak self] positionMs in
             self?.send(["event": "userSeeked", "positionMs": positionMs])
