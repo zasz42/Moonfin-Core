@@ -345,7 +345,7 @@ class MediaBarRepository {
       return picked;
     }
 
-    final withBackdrops = source.where(keep).toList()...shuffle();
+    final withBackdrops = source.where(keep).toList()..shuffle();
     return withBackdrops.take(maxItems).toList();
   }
 

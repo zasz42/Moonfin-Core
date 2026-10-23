@@ -1040,13 +1040,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _cancelTvTemporarySpeedHold();
     _hideTimer?.cancel();
     _skipSegmentAutoHideTimer?.cancel();
-<<<<<<< HEAD
     _autoSkipDelayTimer?.cancel();
-=======
     _cinemaSkipDurationSub?.cancel();
     _cinemaSkip.removeListener(_onCinemaSkipChanged);
     _cinemaSkip.dispose();
->>>>>>> origin/main
     _displayPlayingDebounce?.cancel();
     _endsAtTicker?.cancel();
     _volumeOverlayTimer?.cancel();
