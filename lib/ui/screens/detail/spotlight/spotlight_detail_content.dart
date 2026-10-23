@@ -371,14 +371,17 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
             ),
           );
         } else {
-          context.push(
-            Destinations.itemOrPhoto(
-              entry.id,
-              serverId: entry.serverId,
-              type: entry.type,
-              channelId: entry.channelId,
-            ),
+          final location = Destinations.itemOrPhoto(
+            entry.id,
+            serverId: entry.serverId,
+            type: entry.type,
+            channelId: entry.channelId,
           );
+          // One episode to the next takes this page's place, so Back leaves
+          // the run of episodes in one press.
+          item.type == 'Episode' && entry.type == 'Episode'
+              ? context.pushReplacement(location)
+              : context.push(location);
         }
       }),
       openPerson: (personId) => _closeModalThen(() {

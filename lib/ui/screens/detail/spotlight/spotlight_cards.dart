@@ -832,6 +832,7 @@ class _SpotlightCardsBuilder {
             landscapeCells: true,
             firstFocusNode: firstFocusNode,
             onItemTap: actions.openItem,
+            currentItemId: item.id,
           ),
         ),
       );

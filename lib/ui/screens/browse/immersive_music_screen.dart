@@ -132,7 +132,12 @@ class _ImmersiveMusicScreenState
     final heroIndex = featured == null
         ? -1
         : addStop(
-            RowFocusEntry.node(node('play'), containerKey: sectionKey('hero')),
+            // On a wide screen the header scrolls into view with the hero,
+            // so landing on Play never tucks it under the navbar.
+            RowFocusEntry.node(
+              node('play'),
+              containerKey: sectionKey(wide ? 'top' : 'hero'),
+            ),
           );
     addSection(
       wide
@@ -295,6 +300,7 @@ class _ImmersiveMusicScreenState
 
   Widget _headerButton(String id, IconData icon, String label, VoidCallback on,
       {VoidCallback? onNavigateRight}) => FocusableWrapper(
+    highlightOnHover: true,
     focusNode: node(id),
     borderRadius: 22,
     disableScale: true,
@@ -320,7 +326,7 @@ class _ImmersiveMusicScreenState
     AggregatedItem? featured,
     int heroIndex,
   ) {
-    final top = MediaQuery.paddingOf(context).top + 56;
+    final top = topReserve;
     final background = AppColorScheme.background;
     final header = Row(
       children: [
@@ -445,7 +451,7 @@ class _ImmersiveMusicScreenState
     AggregatedItem? featured,
     int heroIndex,
   ) {
-    final top = MediaQuery.paddingOf(context).top + 56;
+    final top = topReserve;
     final categories = musicCategories(context, libraryId);
     final tracks = vm.featuredTracks;
     final backdropUrl =
@@ -617,6 +623,7 @@ class _ImmersiveMusicScreenState
     }
 
     return Stack(
+      key: sectionKey('top'),
       children: [
         if (backdropUrl != null)
           Positioned.fill(child: _Backdrop(imageUrl: backdropUrl)),
@@ -879,6 +886,7 @@ class _HeroButtonState extends State<_HeroButton> {
     final label = widget.label;
     final height = widget.height;
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: widget.focusNode,
       borderRadius: height / 2,
       disableScale: true,

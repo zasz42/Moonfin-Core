@@ -265,6 +265,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
   final FocusNode _collectionFirstFocusNode = FocusNode(debugLabel: 'collectionFirst');
   final FocusNode _seasonsFirstFocusNode = FocusNode(debugLabel: 'seasonsFirst');
   final FocusNode _episodesFirstFocusNode = FocusNode(debugLabel: 'episodesFirst');
+  final FocusNode _episodesCurrentFocusNode = FocusNode(debugLabel: 'episodesCurrent');
   final FocusNode _overviewFocusNode = FocusNode(debugLabel: 'overview');
   final FocusNode _personMoviesFirstFocusNode = FocusNode(debugLabel: 'personMoviesFirst');
   final FocusNode _personSeriesFirstFocusNode = FocusNode(debugLabel: 'personSeriesFirst');
@@ -554,6 +555,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     attachAutoScroll(_similarFirstFocusNode);
     attachAutoScroll(_seasonsFirstFocusNode);
     attachAutoScroll(_episodesFirstFocusNode);
+    attachAutoScroll(_episodesCurrentFocusNode);
 
     for (final cat in extraCategoriesOrder) {
       final node = FocusNode(debugLabel: 'modernFeatureFirst_$cat');
@@ -720,6 +722,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     _collectionFirstFocusNode.dispose();
     _seasonsFirstFocusNode.dispose();
     _episodesFirstFocusNode.dispose();
+    _episodesCurrentFocusNode.dispose();
     _overviewFocusNode.dispose();
     _personMoviesFirstFocusNode.dispose();
     _personSeriesFirstFocusNode.dispose();
@@ -883,7 +886,11 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
               _seasonsFirstFocusNode.requestFocus();
               break;
             case 'episodes':
-              _episodesFirstFocusNode.requestFocus();
+              // Opens on the episode being viewed when it isn't the first one.
+              (_episodesCurrentFocusNode.context != null
+                      ? _episodesCurrentFocusNode
+                      : _episodesFirstFocusNode)
+                  .requestFocus();
               break;
             case 'movies':
               if (_vm.item?.type == 'BoxSet') {
@@ -1495,11 +1502,12 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         heightRatio: 9 / 16,
       );
     }
-    // For Season pages _vm.nextUp is null (the API call uses seriesId which
-    // on a Season item resolves to nothing). Fall back to the first unplayed
-    // episode so the cyan "next up" border still renders correctly.
-    final nextUpId = _vm.nextUp?.id ??
-        _vm.episodes.firstWhereOrNull((e) => !e.isPlayed)?.id;
+    // An episode marks itself. A season page has no next up loaded, so it
+    // marks its first unplayed episode.
+    final activeId = item.type == 'Episode'
+        ? item.id
+        : _vm.nextUp?.id ??
+            _vm.episodes.firstWhereOrNull((e) => !e.isPlayed)?.id;
 
     return Focus(
       canRequestFocus: false,
@@ -1520,9 +1528,14 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
                 episode: _vm.episodes[i],
                 imageApi: _vm.imageApi,
                 onChanged: () => _vm.load(),
-                isActive: _vm.episodes[i].id == nextUpId,
+                isActive: _vm.episodes[i].id == activeId,
                 contextSeasonId: _vm.effectiveSeasonId,
-                focusNode: i == 0 ? _episodesFirstFocusNode : null,
+                replacePage: item.type == 'Episode',
+                focusNode: i == 0
+                    ? _episodesFirstFocusNode
+                    : _vm.episodes[i].id == item.id
+                        ? _episodesCurrentFocusNode
+                        : null,
                 onKeyEvent: i == 0
                     ? (node, event) {
                         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -3998,6 +4011,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
 
   String _getCollectionSortLabel(CollectionSortOption option, AppLocalizations l10n) {
     return switch (option) {
+      CollectionSortOption.server => l10n.sortServerOrder,
       CollectionSortOption.alphabetical => l10n.sortAlphabetical,
       CollectionSortOption.releaseAscending => l10n.sortReleaseAscending,
       CollectionSortOption.releaseDescending => l10n.sortReleaseDescending,

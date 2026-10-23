@@ -264,13 +264,20 @@ class _GameEmulatorScreenState extends State<GameEmulatorScreen>
       return;
     }
 
-    // On TV and desktop the on-screen touch gamepad is useless, and EmulatorJS wrongly enables
-    // it on Android TV (which reports a mobile user agent). Disable it by default there.
-    if (PlatformDetection.isTV || PlatformDetection.useDesktopUi) {
+    final ejsDefaults = {
+      // On TV and desktop the on-screen touch gamepad is useless, and EmulatorJS wrongly enables
+      // it on Android TV (which reports a mobile user agent). Disable it by default there.
+      if (PlatformDetection.isTV || PlatformDetection.useDesktopUi)
+        'virtual-gamepad': 'disabled',
+      // EmulatorJS starts melonDS in mouse mode, which ignores where a tap lands.
+      if (libretroCoreId(widget.core) == 'melonds')
+        ...?coreOptionDefaults['melonds'],
+    };
+    if (ejsDefaults.isNotEmpty) {
       _userScripts.add(
         UserScript(
           source:
-              "window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions, {'virtual-gamepad': 'disabled'});",
+              'window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions, ${jsonEncode(ejsDefaults)});',
           injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
         ),
       );

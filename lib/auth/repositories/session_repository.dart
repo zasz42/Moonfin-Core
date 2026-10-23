@@ -235,6 +235,9 @@ class SessionRepository {
     String? password,
     bool validateToken = false,
   }) async {
+    if (serverId != _activeServerId || userId != _activeUserId) {
+      await _stopPlaybackForSessionChange();
+    }
     _setState(SessionState.switching);
     _remoteVolumeGeneration++;
     _remoteNavigationGeneration++;
@@ -536,7 +539,18 @@ class SessionRepository {
   /// [tokenKnownInvalid] is set when the server has already rejected the
   /// token. The push unregister and the logout both authenticate with it, so
   /// sending them would only add 401s to the burst that got us here.
+  // Music left playing in the background belongs to the user being left, and
+  // the sign-in screen has no mini player to stop it. Running before the token
+  // changes reports the stop for that user.
+  Future<void> _stopPlaybackForSessionChange() async {
+    if (!GetIt.instance.isRegistered<PlaybackManager>()) return;
+    try {
+      await GetIt.instance<PlaybackManager>().stop(userInitiated: false);
+    } catch (_) {}
+  }
+
   Future<void> destroyCurrentSession({bool tokenKnownInvalid = false}) async {
+    await _stopPlaybackForSessionChange();
     _remoteVolumeGeneration++;
     _remoteNavigationGeneration++;
     _remoteSearch?.close();

@@ -36,6 +36,9 @@ class FocusableWrapper extends StatefulWidget {
   final String? semanticLabel;
   final bool suppressFocusGlow;
 
+  /// Draws the focus border while a mouse is over it too.
+  final bool highlightOnHover;
+
   const FocusableWrapper({
     super.key,
     required this.child,
@@ -63,6 +66,7 @@ class FocusableWrapper extends StatefulWidget {
     this.onKeyEvent,
     this.semanticLabel,
     this.suppressFocusGlow = false,
+    this.highlightOnHover = false,
   });
 
   @override
@@ -75,6 +79,7 @@ class _FocusableWrapperState extends State<FocusableWrapper>
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
   bool _focused = false;
+  bool _hovered = false;
   Timer? _longPressTimer;
   bool _longPressFired = false;
 
@@ -206,17 +211,18 @@ class _FocusableWrapperState extends State<FocusableWrapper>
   @override
   Widget build(BuildContext context) {
     final color = FocusTheme.resolveColor(context, widget.focusColor);
+    final highlighted = _focused || _hovered;
     final decoration = widget.useBackgroundFocus
         ? FocusTheme.focusDecoration(
-            isFocused: _focused,
+            isFocused: highlighted,
             radius: widget.borderRadius,
-            backgroundColor: _focused
+            backgroundColor: highlighted
                 ? color.withValues(alpha: 0.18)
                 : null,
             suppressFocusGlow: widget.suppressFocusGlow,
           )
         : FocusTheme.focusDecoration(
-            isFocused: _focused,
+            isFocused: highlighted,
             radius: widget.borderRadius,
             color: null,
             suppressFocusGlow: widget.suppressFocusGlow,
@@ -229,7 +235,7 @@ class _FocusableWrapperState extends State<FocusableWrapper>
     final borders = ThemeRegistry.active.borders;
     final effectiveRadius = AppColorScheme.isPixel ? 0.0 : widget.borderRadius;
     final borderWidth = FocusTheme.borderWidth;
-    final showOverlayBorder = _focused && !widget.useBackgroundFocus;
+    final showOverlayBorder = highlighted && !widget.useBackgroundFocus;
     final childWithOverlay = Stack(
       clipBehavior: Clip.none,
       fit: StackFit.passthrough,
@@ -269,19 +275,31 @@ class _FocusableWrapperState extends State<FocusableWrapper>
       content = Semantics(label: widget.semanticLabel, child: content);
     }
 
+    Widget tappable = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onSelect != null ? _handleTap : null,
+      onLongPress: widget.onLongPress != null ? _handleLongPress : null,
+      onSecondaryTap: widget.onLongPress != null ? _handleLongPress : null,
+      child: content,
+    );
+    if (widget.highlightOnHover) {
+      tappable = MouseRegion(
+        cursor: widget.onSelect != null
+            ? SystemMouseCursors.click
+            : MouseCursor.defer,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: tappable,
+      );
+    }
+
     return Focus(
       focusNode: _node,
       autofocus: widget.autofocus,
       descendantsAreFocusable: widget.descendantsAreFocusable,
       onKeyEvent: _onKeyEvent,
       onFocusChange: _handleFocusChange,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onSelect != null ? _handleTap : null,
-        onLongPress: widget.onLongPress != null ? _handleLongPress : null,
-        onSecondaryTap: widget.onLongPress != null ? _handleLongPress : null,
-        child: content,
-      ),
+      child: tappable,
     );
   }
 }

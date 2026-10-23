@@ -30,6 +30,7 @@ import '../models/upcoming_episode_info.dart';
 import '../services/upcoming_episode_service.dart';
 
 enum CollectionSortOption {
+  server,
   alphabetical,
   releaseAscending,
   releaseDescending,
@@ -345,12 +346,16 @@ class ItemDetailViewModel extends ChangeNotifier {
   /// How many series are asked for their episodes at once during the scan.
   static const _indexScanBatchSize = 8;
 
+  /// Member types that play on their own. A series is swapped for its episodes.
+  static const _playableTypes = {'Movie', 'Audio', 'Video', 'MusicVideo'};
+
   /// True while the index is being built. The playlist area shows a spinner.
   bool _playlistIndexBuilding = false;
   bool get playlistIndexBuilding => _playlistIndexBuilding;
 
-  /// The id and sort keys of every playable item, kept so the order can change
-  /// without fetching anything again. Null until the collection is scanned.
+  /// The id and sort keys of every playable item in the order the server lists
+  /// them, kept so the order can change without fetching anything again. Null
+  /// until the collection is scanned.
   List<_PlaylistItemIndexEntry>? _playlistIndexEntries;
 
   /// Ids in the order the playlist currently shows, which pages are read from.
@@ -424,7 +429,7 @@ class ItemDetailViewModel extends ChangeNotifier {
   List<AggregatedItem> _playlistItems = const [];
   List<AggregatedItem> get playlistItems => _playlistItems;
 
-  CollectionSortOption _collectionSort = CollectionSortOption.releaseAscending;
+  CollectionSortOption _collectionSort = CollectionSortOption.server;
   CollectionSortOption get collectionSort => _collectionSort;
 
   List<ParentCollection> _parentCollections = const [];
@@ -1346,21 +1351,23 @@ class ItemDetailViewModel extends ChangeNotifier {
     }
     final entries = _playlistIndexEntries;
     if (entries == null || entries.isEmpty) return;
+    // Sorted as a copy, so the entries keep the order the server gave them.
+    final sorted = [...entries];
     switch (_collectionSort) {
       case CollectionSortOption.alphabetical:
-        entries.sort(
+        sorted.sort(
           (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         );
       case CollectionSortOption.releaseAscending:
-        entries.sort(_PlaylistItemIndexEntry.compareReleaseAscending);
+        sorted.sort(_PlaylistItemIndexEntry.compareReleaseAscending);
       case CollectionSortOption.releaseDescending:
-        entries.sort(
+        sorted.sort(
           (a, b) => _PlaylistItemIndexEntry.compareReleaseAscending(b, a),
         );
-      case CollectionSortOption.custom:
-        return;
+      case CollectionSortOption.server || CollectionSortOption.custom:
+        break;
     }
-    _flattenedIds = entries.map((e) => e.id).toList();
+    _flattenedIds = sorted.map((e) => e.id).toList();
   }
 
   /// Drops the loaded pages so the next fetch starts at the head of the index.
@@ -1702,7 +1709,7 @@ class ItemDetailViewModel extends ChangeNotifier {
 
       if (_flattenedIds == null) {
         await _ensurePlaylistIndexEntries();
-        _collectionSort = CollectionSortOption.releaseAscending;
+        _collectionSort = CollectionSortOption.server;
         _rebuildFlattenedIds();
       }
 
@@ -1734,15 +1741,7 @@ class ItemDetailViewModel extends ChangeNotifier {
       final allTopLevel = _mapItems((allData['Items'] as List?) ?? []);
 
       final seriesItems = allTopLevel.where((i) => i.type == 'Series').toList();
-      final flat = allTopLevel
-          .where(
-            (i) =>
-                i.type == 'Movie' ||
-                i.type == 'Audio' ||
-                i.type == 'Video' ||
-                i.type == 'MusicVideo',
-          )
-          .toList();
+      final episodesBySeries = <String, List<AggregatedItem>>{};
 
       // A batch at a time. One request per series all at once would open as
       // many sockets as the collection has shows.
@@ -1765,10 +1764,19 @@ class ItemDetailViewModel extends ChangeNotifier {
             }
           }),
         );
-        for (final episodes in episodeLists) {
-          flat.addAll(episodes);
+        for (var j = 0; j < batch.length; j++) {
+          episodesBySeries[batch[j].id] = episodeLists[j];
         }
       }
+
+      // Each series' episodes take its place, so the server's order holds.
+      final flat = [
+        for (final item in allTopLevel)
+          if (item.type == 'Series')
+            ...?episodesBySeries[item.id]
+          else if (_playableTypes.contains(item.type))
+            item,
+      ];
 
       _playlistIndexEntries = flat
           .map(

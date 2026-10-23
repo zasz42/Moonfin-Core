@@ -2295,7 +2295,7 @@ class _LibrariesDropdownState extends State<_LibrariesDropdown> {
         },
         child: ExpandableIconButton(
           baseColor: widget.iconColor,
-          forceExpanded: widget.alwaysExpanded,
+          forceExpanded: widget.alwaysExpanded || _overlayEntry != null,
           focusNode: _buttonFocusNode,
           onFocusChanged: (_) => _handleManagedFocusChange(),
           onKeyEvent: (_, event) {

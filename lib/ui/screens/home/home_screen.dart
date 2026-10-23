@@ -526,7 +526,7 @@ class _HomeShellState extends State<_HomeShell>
 
   @override
   Widget build(BuildContext context) {
-    final backdropEnabled = _userPrefs.get(UserPreferences.backdropEnabled);
+    final backdropEnabled = _userPrefs.get(UserPreferences.homeBackdropEnabled);
     final blurAmount = _userPrefs
         .get(UserPreferences.browsingBackgroundBlurAmount)
         .toDouble();
@@ -988,8 +988,11 @@ class _ContentRowsState extends State<_ContentRows>
     if (!widget.prefs.get(UserPreferences.previewAudioEnabled)) return;
     final player = _previewPlayer;
     if (player == null || _activePreviewKey == null) return;
-    unawaited(player.setVolume(100.0));
+    unawaited(player.setVolume(_previewAudioLevel));
   }
+
+  double get _previewAudioLevel =>
+      widget.prefs.get(UserPreferences.previewVolume).toDouble();
 
   @override
   void didUpdateWidget(covariant _ContentRows oldWidget) {
@@ -1209,7 +1212,9 @@ class _ContentRowsState extends State<_ContentRows>
     final previewAudioEnabled = widget.prefs.get(
       UserPreferences.previewAudioEnabled,
     );
-    final previewVolume = kIsWeb ? 0.0 : (previewAudioEnabled ? 100.0 : 0.0);
+    final previewVolume = kIsWeb
+        ? 0.0
+        : (previewAudioEnabled ? _previewAudioLevel : 0.0);
 
     if (_previewUsingMedia3) {
       unawaited(_media3PreviewBackend!.setVolume(previewVolume));
@@ -1808,7 +1813,9 @@ class _ContentRowsState extends State<_ContentRows>
       final previewAudioEnabled = widget.prefs.get(
         UserPreferences.previewAudioEnabled,
       );
-      final previewVolume = kIsWeb ? 0.0 : (previewAudioEnabled ? 100.0 : 0.0);
+      final previewVolume = kIsWeb
+          ? 0.0
+          : (previewAudioEnabled ? _previewAudioLevel : 0.0);
       final useMedia3 = _useMedia3InlinePreview();
       final backend = useMedia3
           ? 'Media3'
@@ -1881,7 +1888,7 @@ class _ContentRowsState extends State<_ContentRows>
         }
 
         if (previewAudioEnabled) {
-          await player.setVolume(100.0);
+          await player.setVolume(_previewAudioLevel);
           if (!_isPreviewRequestActive(requestId, previewKey)) {
             await player.stop();
             return;

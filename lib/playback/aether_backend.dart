@@ -17,6 +17,7 @@ import 'dolby_vision_av1.dart';
 import 'engine_trust.dart';
 import 'known_defects.dart';
 import 'letterbox_croppers.dart';
+import 'lossless_audio_bridge.dart';
 import 'server_transcode_capabilities.dart';
 
 /// Playback backend driving the native AetherEngine wrapper over a method
@@ -88,6 +89,7 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
   final _errorStream = StreamController<Map<String, dynamic>>.broadcast();
   final _remoteCommandStream =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _systemVolumeStream = StreamController<double>.broadcast();
 
   @override
   Stream<Map<String, dynamic>> get errorStream => _errorStream.stream;
@@ -96,6 +98,9 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
   /// engine's own Now Playing session, which audio_service never sees.
   Stream<Map<String, dynamic>> get remoteCommandStream =>
       _remoteCommandStream.stream;
+
+  /// iOS device volume changes, read without touching the audio session.
+  Stream<double> get systemVolumeStream => _systemVolumeStream.stream;
 
   /// Fills that session in. iOS shows it in place of the audio_service entry
   /// while music plays, so without this the card has no title or artwork.
@@ -184,6 +189,9 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
       case 'next':
       case 'previous':
         _remoteCommandStream.add(map.cast<String, dynamic>());
+      case 'systemVolume':
+        final volume = map['value'];
+        if (volume is num) _systemVolumeStream.add(volume.toDouble());
       case 'playerError':
       case 'error':
         _logPlaybackError(map);
@@ -299,6 +307,11 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
       'autoPlay': autoPlay,
       'startPositionMs': startPosition.inMilliseconds,
       'audioStreamIndex': (payload['audioStreamIndex'] as num?)?.toInt() ?? -1,
+      'audioBridgeLossless': usesLosslessAudioBridge(
+        _prefs.detectedAudioCapabilities,
+        maxAudioChannels: _prefs.resolveMaxAudioChannels(),
+        downmixToStereo: _prefs.get(UserPreferences.downmixToStereo),
+      ),
       'isLive': payload['isLive'] == true,
       'mediaType': payload['mediaType']?.toString() ?? 'video',
       'normalizationGainDb':
@@ -447,11 +460,13 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
       maxBitrateMbps: maxBitrate,
       audioCapabilityProfile: audioCapabilityProfile,
       audioFallbackCodec: _prefs.resolveAudioFallbackCodec(),
+      transcodeAudioCodecs: _prefs.resolveTranscodeAudioCodecs(),
       ac3PassthroughEnabled: _prefs.resolveAc3PassthroughEnabled(),
       eac3PassthroughEnabled: _prefs.resolveEac3PassthroughEnabled(),
       dtsCorePassthroughEnabled: _prefs.resolveDtsCorePassthroughEnabled(),
       trueHdPassthroughEnabled: _prefs.resolveTrueHdPassthroughEnabled(),
       downmixToStereo: _prefs.get(UserPreferences.downmixToStereo),
+      maxAudioChannels: _prefs.resolveMaxAudioChannels(),
       // AetherEngine plays every advertised audio codec: AAC/AC3/EAC3(+JOC
       // Atmos)/FLAC/ALAC are stream-copied intact, and TrueHD/DTS/MP3/Opus/
       // Vorbis/PCM are bridged to EAC3 or FLAC on-device.
@@ -763,6 +778,7 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
     _completedStream.close();
     _errorStream.close();
     _remoteCommandStream.close();
+    _systemVolumeStream.close();
     _tracksChangedController.close();
     _subtitleLoadingStream.close();
   }

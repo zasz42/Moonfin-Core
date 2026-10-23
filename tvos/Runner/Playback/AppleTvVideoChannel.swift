@@ -22,6 +22,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
     private var lastThemeConfig: [String: Any]?
     private var lastPromptStrings: [String: Any]?
     private var lastTimeSlots: [String: Any]?
+    private var lastCinemaSkipState: [String: Any]?
     static var lastCommand = "-"
 
     init(messenger: FlutterBinaryMessenger, rootViewController: UIViewController) {
@@ -118,15 +119,32 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
                 timeoutMs: (args["timeoutMs"] as? NSNumber)?.intValue ?? 0)
         case "hideNextUp":
             playerVC?.hideNextUpCard()
+        case "setCinemaSkipState":
+            // Save the latest Cinema Skip state until the native player is ready.
+            lastCinemaSkipState = args
+            playerVC?.applyCinemaSkipState(args)
         case "showSkipSegment":
+<<<<<<< HEAD
             playerVC?.showSkipSegment(
                 label: (args["label"] as? String) ?? "Skip",
                 countdownStyle: (args["countdownStyle"] as? String) ?? "both",
                 segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
                 segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
                 autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
+=======
+            // Don't show regular Skip Segment prompts during Cinema Mode trailers.
+            if (lastCinemaSkipState?["active"] as? Bool) != true {
+                playerVC?.showSkipSegment(
+                    label: (args["label"] as? String) ?? "Skip",
+                    countdownStyle: (args["countdownStyle"] as? String) ?? "both",
+                    segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
+                    segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0)
+            }
+>>>>>>> origin/main
         case "hideSkipSegment":
-            playerVC?.hideSkipSegment()
+            if (lastCinemaSkipState?["active"] as? Bool) != true {
+                playerVC?.hideSkipSegment()
+            }
         case "showEpisodeBrowser":
             playerVC?.showEpisodeBrowser(args)
         case "updateEpisodeBrowser":
@@ -314,8 +332,17 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         vc.onSkipSegmentSelect = { [weak self] in
             self?.send(["event": "skipSegment"])
         }
+<<<<<<< HEAD
         vc.onSkipSegmentDismiss = { [weak self] in
             self?.send(["event": "skipSegmentDismiss"])
+=======
+        vc.onCinemaSkipAction = { [weak self] action, generation in
+            self?.send([
+                "event": "cinemaSkipAction",
+                "action": action,
+                "generation": generation,
+            ])
+>>>>>>> origin/main
         }
         vc.onUserSeek = { [weak self] positionMs in
             self?.send(["event": "userSeeked", "positionMs": positionMs])
@@ -362,6 +389,9 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         if let slots = lastTimeSlots {
             vc.applyTimeSlots(slots)
         }
+        if let cinema = lastCinemaSkipState {
+            vc.applyCinemaSkipState(cinema)
+        }
         playerVC = vc
         rootViewController?.present(vc, animated: false) { [weak self] in
             Task { @MainActor in
@@ -372,6 +402,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
     }
 
     private func dismiss() {
+        lastCinemaSkipState = nil
         stopStateTimer()
         player?.shutdown()
         let vc = playerVC
@@ -432,6 +463,7 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
                 audioStreamIndex: (args["audioStreamIndex"] as? NSNumber).flatMap {
                     $0.intValue >= 0 ? Int32($0.intValue) : nil
                 },
+                audioBridgeLossless: (args["audioBridgeLossless"] as? Bool) ?? false,
                 dolbyVisionBaseLayerOnly: (args["dolbyVisionBaseLayerOnly"] as? Bool) ?? false,
                 externalSubtitles: AetherPlayerWrapper.externalSubtitleTracks(
                     from: args["externalSubtitles"])))

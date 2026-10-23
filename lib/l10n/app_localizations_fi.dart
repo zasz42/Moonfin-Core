@@ -19,7 +19,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get animeMarkerMixed => 'Mixed';
 
   @override
-  String get animeMarkerAnimeCanon => 'Animen kaanon';
+  String get animeMarkerAnimeCanon => 'Animen Kaanon';
 
   @override
   String get animeMarkerMangaCanon => 'Manga Kaanon';
@@ -81,24 +81,25 @@ class AppLocalizationsFi extends AppLocalizations {
       'Hyväksy napauttamalla selaimessasi tai skannaa tämä toisella laitteella';
 
   @override
-  String get timesUpTitle => 'Time\'s up';
+  String get timesUpTitle => 'Aika loppui';
 
   @override
-  String get timesUpMessage => 'This account isn\'t available right now.';
+  String get timesUpMessage =>
+      'Tätä tiliä ei ole tällä hetkellä käytettävissä.';
 
   @override
   String timesUpResumesToday(String time) {
-    return 'You can use it again today at $time.';
+    return 'Voit käyttää sitä uudelleen tänään klo $time.';
   }
 
   @override
   String timesUpResumesTomorrow(String time) {
-    return 'You can use it again tomorrow at $time.';
+    return 'Voit käyttää sitä uudelleen huomenna klo $time.';
   }
 
   @override
   String timesUpResumesOn(String day, String time) {
-    return 'You can use it again on $day at $time.';
+    return 'Voit käyttää sitä uudelleen $day klo $time.';
   }
 
   @override
@@ -211,7 +212,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get detailScreenStyleMoonfin => 'Klassinen';
 
   @override
-  String get detailScreenStyleModern => 'Modern';
+  String get detailScreenStyleModern => 'Moderni';
 
   @override
   String get detailScreenStyleSpotlight => 'Esittelyssä';
@@ -227,7 +228,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get spotlightChaptersExtras => 'Kappaleet ja Lisämateriaalit';
 
   @override
-  String get spotlightFileDetails => 'Tiedoston tiedot';
+  String get spotlightFileDetails => 'Tiedoston Tiedot';
 
   @override
   String get spotlightSimilarRecommendations => 'Samankaltaiset ja Suositukset';
@@ -1881,11 +1882,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String channelsCount(int count) {
-    return '$count äänikanavat';
-  }
-
-  @override
   String get mono => 'Mono';
 
   @override
@@ -2021,9 +2017,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String bitrateValueMbps(int mbps) {
     return '$mbps Mbps';
   }
-
-  @override
-  String get bitrateOverride => 'Bittinopeuden ohitus';
 
   @override
   String get audioDelay => 'Äänen viive';
@@ -2269,29 +2262,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hdr => 'HDR';
 
   @override
-  String get hdrOutput => 'HDR-lähtö';
-
-  @override
-  String hdrOutputActive(String format) {
-    return 'Aktiivinen — $format';
-  }
-
-  @override
-  String get hdrOutputActiveTonemapped =>
-      'Aktiivinen — sävykartoitus SDR:ään tälle näytölle';
-
-  @override
-  String get hdrOutputContentSdr => 'Ei käytössä — sisältö on SDR-muodossa';
-
-  @override
-  String get hdrOutputDisabled =>
-      'Ei käytössä — poistettu käytöstä asetuksissa';
-
-  @override
-  String get hdrOutputFailed =>
-      'Ei aktiivinen — käynnistystä ei voitu suorittaa, käytetään oletuspolkua';
-
-  @override
   String get videoRenderer => 'Videon renderointi';
 
   @override
@@ -2309,22 +2279,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get videoRendererInApp => 'Sovelluksen sisäinen (vanha versio)';
 
   @override
-  String get codec => 'Koodekki';
-
-  @override
-  String get videoBitrate => 'Videon bittinopeus';
-
-  @override
   String get track => 'Raita';
 
   @override
   String get channels => 'Kanavat';
-
-  @override
-  String get audioBitrate => 'Äänen bittinopeus';
-
-  @override
-  String get sampleRate => 'Näytetaajuus';
 
   @override
   String get format => 'Muoto';
@@ -2348,6 +2306,13 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get epubUnavailableOnPlatform =>
       'EPUB-renderöinti sovelluksen sisällä ei ole vielä saatavilla tällä alustalla.';
+
+  @override
+  String get bookReadingUnavailableTitle => 'Books can\'t be read on Apple TV';
+
+  @override
+  String get bookReadingUnavailableMessage =>
+      'Open it in Moonfin on a phone, tablet or computer to read it. Audiobooks still play here.';
 
   @override
   String formatCannotRenderInApp(String extension) {
@@ -3102,12 +3067,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Skaalaa kohdennettuja tai leijuvia kortteja ja laattoja';
 
   @override
-  String get backgroundBackdrops => 'Tausta taustat';
-
-  @override
-  String get showBackdropImages => 'Näytä taustakuvat sisällön takana';
-
-  @override
   String get seriesThumbnails => 'Sarjan pikkukuvat';
 
   @override
@@ -3795,22 +3754,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Suosi kuvailutulkkausraitoja tavallisten raitojen sijaan.';
 
   @override
-  String get transcodingAudio => 'Transkoodaus (ääni)';
-
-  @override
-  String get directStreamRemux => 'Suora suoratoisto (remux)';
-
-  @override
-  String get transcodingBitrateOrResolution =>
-      'Transkoodaus (bittinopeus tai tarkkuus)';
-
-  @override
-  String get transcodingVideoAndAudio => 'Transkoodaus (video ja ääni)';
-
-  @override
-  String get transcodingVideo => 'Transkoodaus (video)';
-
-  @override
   String get autoServerDefault => 'Automaattinen (palvelinoletus)';
 
   @override
@@ -3886,6 +3829,13 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get settingsAudioFallbackCodecDescription =>
       'Valitse kohdemuoto, johon monikanavaääni transkoodataan, kun lähdevirtaa ei voi toistaa suoraan tai viedä läpi.';
+
+  @override
+  String get transcodeAudioCodecs => 'Transcode Audio Codecs';
+
+  @override
+  String get transcodeAudioCodecsDescription =>
+      'The server converts audio in these formats instead of sending it as is.';
 
   @override
   String get settingsAudioFallbackCodecAuto =>
@@ -4060,42 +4010,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String settingsAudioPcmChannels(int count) {
     return '$count kan. PCM';
   }
-
-  @override
-  String get settingsAudioDiagnostics => 'Diagnostiikka';
-
-  @override
-  String get settingsAudioDiagnosticsVideoLevel => 'Videon taso';
-
-  @override
-  String get settingsAudioDiagnosticsVideoRange => 'Videoalue';
-
-  @override
-  String get settingsAudioDiagnosticsSubtitleCodec => 'Tekstityksen koodekki';
-
-  @override
-  String get settingsAudioDiagnosticsAllowedAudioCodecs =>
-      'Sallitut äänikoodekit';
-
-  @override
-  String get settingsAudioDiagnosticsHlsMpegTsAudioCodecs =>
-      'HLS MPEG-TS -äänikoodekit';
-
-  @override
-  String get settingsAudioDiagnosticsHlsFmp4AudioCodecs =>
-      'HLS fMP4 -äänikoodekit';
-
-  @override
-  String get settingsAudioDiagnosticsAudioSpdifPassthrough =>
-      'audio-spdif-läpivienti';
-
-  @override
-  String get settingsAudioDiagnosticsActiveAudioRoute =>
-      'Aktiivinen äänireitti';
-
-  @override
-  String get settingsAudioDiagnosticsRouteHdAudioSupport =>
-      'Reitin HD-äänituki';
 
   @override
   String get nightMode => 'Yötila';
@@ -4959,6 +4873,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get enableTrailerAudio => 'Ota trailerien ääni käyttöön mediapalkissa';
 
   @override
+  String get trailerVolume => 'Trailer Volume';
+
+  @override
+  String get trailerVolumeDescription => 'How loud media bar trailers play';
+
+  @override
   String get trailerCaptions => 'Trailerin tekstitykset';
 
   @override
@@ -4984,6 +4904,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get enablePreviewAudio => 'Ota ääni käyttöön mediaesikatseluissa';
+
+  @override
+  String get previewVolume => 'Preview Volume';
+
+  @override
+  String get previewVolumeDescription =>
+      'How loud media previews on cards play';
 
   @override
   String get latestMedia => 'Äskettäin lisätty media';
@@ -5119,6 +5046,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get enablePinCode => 'Ota PIN-koodi käyttöön';
+
+  @override
+  String get pinSynced => 'PIN-koodi synkronoitu';
+
+  @override
+  String get pinResetFailed =>
+      'Palvelimen PIN-koodia ei voitu poistaa. Jos se on edelleen asetettuna, pyydä palvelimen järjestelmänvalvojaa poistamaan se.';
 
   @override
   String get requirePinToAccess => 'Vaadi PIN-koodi päästäksesi tilillesi';
@@ -7891,7 +7825,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String adminRemoveDeviceConfirm(String name) {
-    return 'Poistetaanko laite \'$name\'? Käyttäjän on kirjauduttava tällä laitteella uudelleen sisään.';
+    return 'Poistetaanko laite \"$name\"? Käyttäjän on kirjauduttava tällä laitteella uudelleen sisään.';
   }
 
   @override
@@ -8812,10 +8746,10 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get adminLastExecution => 'Viimeinen teloitus';
+  String get adminLastExecution => 'Viimeisin Suoritus';
 
   @override
-  String get adminTriggers => 'Liipaisimet';
+  String get adminTriggers => 'Ajastimet';
 
   @override
   String get adminAddTrigger => 'Lisää triggeri';
@@ -9149,14 +9083,14 @@ class AppLocalizationsFi extends AppLocalizations {
       'Määritä, milloin sisältö merkitään osittain tai kokonaan toistetuksi.';
 
   @override
-  String get adminMinResumePercentage => 'Minimi jatkamisprosentti';
+  String get adminMinResumePercentage => 'Pienin jatkamisprosentti';
 
   @override
   String get adminMinResumeSubtitle =>
       'Sisältöä on toistettava tämän prosenttiosuuden yli, jotta edistyminen tallentuu';
 
   @override
-  String get adminMaxResumePercentage => 'Maksimi jatkamisprosentti';
+  String get adminMaxResumePercentage => 'Suurin jatkamisprosentti';
 
   @override
   String get adminMaxResumeSubtitle =>
@@ -9172,11 +9106,11 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get adminMinAudiobookResume =>
-      'Äänikirjan ansioluettelon vähimmäisprosentti';
+      'Äänikirjan jatkamisen vähimmäisprosenttiosuus';
 
   @override
   String get adminMaxAudiobookResume =>
-      'Äänikirjan ansioluettelon enimmäisprosentti';
+      'Äänikirjan jatkamisen enimmäisprosenttiosuus';
 
   @override
   String get adminNetworkingLoadFailed =>
@@ -9202,7 +9136,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get adminPublicHttpsPort => 'Julkinen HTTPS-portti';
 
   @override
-  String get adminBaseUrl => 'Perus-URL-osoite';
+  String get adminBaseUrl => 'Perus-URL';
 
   @override
   String get adminBaseUrlHint => 'esim. /jellyfin';
@@ -9214,13 +9148,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get adminEnableHttps => 'Ota HTTPS käyttöön';
 
   @override
-  String get adminLocalNetwork => 'Paikallinen verkko';
+  String get adminLocalNetwork => 'Lähiverkko';
 
   @override
-  String get adminLocalNetworkAddresses => 'Paikalliset verkko-osoitteet';
+  String get adminLocalNetworkAddresses => 'Lähiverkko osoitteet';
 
   @override
-  String get adminKnownProxies => 'Tunnetut välityspalvelimet';
+  String get adminKnownProxies => 'Ehdotetut proxyt';
 
   @override
   String get adminRemoteIpFilter => 'Etä-IP-suodatin';
@@ -10350,7 +10284,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get adminStreamingBitrateLimit =>
-      'Etäasiakkaan bittinopeusrajoitus (Mbps)';
+      'Etäasiakkaan bittinopeus rajoitin (Mbps)';
 
   @override
   String get adminStreamingBitrateLimitHint =>
@@ -10446,7 +10380,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get adminTaskRun => 'Suorita';
 
   @override
-  String get adminTaskDetailLastExecution => 'Viimeinen teloitus';
+  String get adminTaskDetailLastExecution => 'Viimeisin Suoritus';
 
   @override
   String get adminTaskDetailStarted => 'Aloitettu';
@@ -12048,10 +11982,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Näytä valitun kohteen tiedot kirjastosivujen yläosassa.';
 
   @override
-  String get hideBackdropsInLibraries =>
-      'Piilota taustakuvat selaamisen aikana';
-
-  @override
   String get useDetailedSubHeadings => 'Käytä yksityiskohtaisia alaotsikoita';
 
   @override
@@ -12431,6 +12361,13 @@ class AppLocalizationsFi extends AppLocalizations {
       'Avaa videon toisto valitsemallasi ulkoisella sovelluksella Android TV:ssä.';
 
   @override
+  String get externalPlayerLiveTvOnly => 'Live TV Only';
+
+  @override
+  String get externalPlayerLiveTvOnlySubtitle =>
+      'Use the external player for Live TV and keep everything else in the built-in player.';
+
+  @override
   String get automaticQueuing => 'Automaattinen jonotus';
 
   @override
@@ -12562,33 +12499,34 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get webDiagnosticsNonWebNote =>
-      'Tämä diagnostiikkareitti on tarkoitettu verkkorakennuksiin. Jos näet tämän toisella alustalla, nämä tarkistukset eivät välttämättä päde.';
+      'Tämä vianmääritysohje on tarkoitettu verkkosovelluksille. Jos näet tämän viestin jollain muulla alustalla, nämä tarkistukset eivät välttämättä koske sitä.';
 
   @override
-  String get backToServerSelect => 'Takaisin palvelimeen Valitse';
+  String get backToServerSelect => 'Takaisin palvelinvalintaan';
 
   @override
-  String get signOutAllUsers => 'Kirjaudu ulos kaikista käyttäjistä';
+  String get signOutAllUsers => 'Kirjaa kaikki käyttäjät ulos';
 
   @override
   String get voiceSearchPermissionPermanentlyDenied =>
-      'Mikrofonin käyttöoikeus evätään pysyvästi. Ota se käyttöön järjestelmäasetuksissa.';
+      'Mikrofonin käyttöoikeus on kielletty pysyvästi. Ota se käyttöön järjestelmäasetuksissa.';
 
   @override
   String get voiceSearchPermissionRequired =>
-      'Äänihaku vaatii mikrofonin luvan.';
+      'Äänihaku edellyttää mikrofonin käyttöoikeutta.';
 
   @override
-  String get voiceSearchNoMatch => 'Ei saanut kiinni siitä. Yritä uudelleen.';
+  String get voiceSearchNoMatch => 'En saanut selvää. Yritä uudestaan.';
 
   @override
   String get voiceSearchNoSpeechDetected => 'Puhetta ei havaittu.';
 
   @override
-  String get voiceSearchMicrophoneError => 'Mikrofonivirhe.';
+  String get voiceSearchMicrophoneError => 'Mikrofonivika.';
 
   @override
-  String get voiceSearchNeedsInternet => 'Äänihaku vaatii Internetiä.';
+  String get voiceSearchNeedsInternet =>
+      'Äänihaku edellyttää internetyhteyttä.';
 
   @override
   String get voiceSearchServiceBusy =>
@@ -12596,7 +12534,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get microphonePermissionPermanentlyDenied =>
-      'Mikrofonin käyttöoikeus evätään pysyvästi.';
+      'Mikrofonin käyttöoikeus on evätty pysyvästi.';
 
   @override
   String get microphonePermissionDenied => 'Mikrofonin käyttöoikeus on evätty.';
@@ -13987,7 +13925,7 @@ class AppLocalizationsFi extends AppLocalizations {
     String libraryName,
     String failedPath,
   ) {
-    return 'Kirjastosi \'$libraryName\' on määritetty tallentamaan kuvitus suoraan mediakansioihin (\'Tallenna kuvitus mediakansioihin\' on käytössä). Jellyfin on kuitenkin testannut kirjoitusoikeudet, eikä sillä ole oikeutta kirjoittaa tiedostoja tähän hakemistoon:\n\n$failedPath';
+    return 'Kirjastosi \"$libraryName\" on määritetty tallentamaan kuvitus suoraan mediakansioihin (\'Tallenna kuvitus mediakansioihin\' on käytössä). Jellyfin on kuitenkin testannut kirjoitusoikeudet, eikä sillä ole oikeutta kirjoittaa tiedostoja tähän hakemistoon:\n\n$failedPath';
   }
 
   @override
@@ -14190,6 +14128,9 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get transcodeDirectPlayError =>
       'Tämän mediaformaatin suoraa toistoa ei tueta.';
+
+  @override
+  String get sortServerOrder => 'Server Order';
 
   @override
   String get sortAlphabetical => 'Aakkosjärjestys';
@@ -15144,6 +15085,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get navYou => 'You';
 
   @override
+  String get cinemaSkipPrerolls => 'Elokuvamoodin ohituspainike';
+
+  @override
+  String get cinemaSkipPrerollsDescription =>
+      'Näytä Ohita-painike Cinema-tilan elokuvatrailereiden, mainosten ja muiden esittelyvideoiden aikana.';
+
+  @override
   String get detailsPage => 'Tietosivu';
 
   @override
@@ -15340,4 +15288,225 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get librarySortLength => 'Pituus';
+
+  @override
+  String get homeScreenBackdrop => 'Home Screen Backdrop';
+
+  @override
+  String get detailsScreenBackdrop => 'Details Screen Backdrop';
+
+  @override
+  String get libraryBackdrops => 'Library Backdrops';
+
+  @override
+  String get playbackInfoChannel => 'Channel';
+
+  @override
+  String get playbackInfoProgram => 'Program';
+
+  @override
+  String get playbackInfoWhy => 'Why';
+
+  @override
+  String get playbackInfoQualityLimit => 'Quality Limit';
+
+  @override
+  String get playbackInfoFrameRate => 'Frame Rate';
+
+  @override
+  String get playbackInfoDelivery => 'Delivery';
+
+  @override
+  String get playbackInfoFile => 'File';
+
+  @override
+  String get playbackInfoTechnical => 'Technical';
+
+  @override
+  String get playbackInfoDevice => 'Device';
+
+  @override
+  String get playbackInfoAudioRoute => 'Audio Route';
+
+  @override
+  String get playbackInfoSurround51 => '5.1 surround';
+
+  @override
+  String get playbackInfoSurround71 => '7.1 surround';
+
+  @override
+  String playbackInfoChannelCount(int count) {
+    return '$count channels';
+  }
+
+  @override
+  String get playbackInfoBurnedIn => 'Burned in by the server';
+
+  @override
+  String playbackInfoOriginal(String value, String original) {
+    return '$value (original $original)';
+  }
+
+  @override
+  String playbackInfoConvertedFrom(String value, String source) {
+    return '$value (converted from $source)';
+  }
+
+  @override
+  String playbackInfoResolutionConverted(
+    String name,
+    String size,
+    String source,
+  ) {
+    return '$name ($size, converted from $source)';
+  }
+
+  @override
+  String get playbackInfoNoteDirectPlay => 'Playing the original file as is.';
+
+  @override
+  String get playbackInfoNoteDirectStream =>
+      'The server is repackaging the file without converting it.';
+
+  @override
+  String get playbackInfoNoteTranscodeVideo =>
+      'The server is converting the video so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeAudio =>
+      'The server is converting the audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeBoth =>
+      'The server is converting the video and audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeUnknown =>
+      'The server is converting this file so this device can play it.';
+
+  @override
+  String get playbackInfoNoteOffline => 'Playing a downloaded copy.';
+
+  @override
+  String get playbackInfoWhyForced => 'Transcoding is forced in settings';
+
+  @override
+  String get playbackInfoWhyBitrate =>
+      'The bitrate is above the streaming limit';
+
+  @override
+  String get playbackInfoWhyContainer =>
+      'This device can\'t play this file type';
+
+  @override
+  String get playbackInfoWhyVideo =>
+      'This device can\'t play this video format';
+
+  @override
+  String get playbackInfoWhyHdr => 'This device can\'t display this HDR format';
+
+  @override
+  String get playbackInfoWhyAudio =>
+      'This device can\'t play this audio format';
+
+  @override
+  String get playbackInfoWhySubtitles =>
+      'Subtitles are being burned into the video';
+
+  @override
+  String get playbackInfoWhyOther => 'The file couldn\'t be played directly';
+
+  @override
+  String playbackInfoWhyBitrateLimit(String bitrate, String limit) {
+    return '$bitrate is above the $limit streaming limit';
+  }
+
+  @override
+  String playbackInfoWhyContainerName(String container) {
+    return 'This device can\'t open $container files';
+  }
+
+  @override
+  String playbackInfoWhyVideoCodec(String codec) {
+    return 'This device can\'t play $codec video';
+  }
+
+  @override
+  String playbackInfoWhyVideoProfile(String codec, String profile) {
+    return 'This device can\'t play $codec $profile video';
+  }
+
+  @override
+  String playbackInfoWhyVideoLevel(String codec, String level) {
+    return 'This device can\'t play $codec level $level video';
+  }
+
+  @override
+  String playbackInfoWhyVideoBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit video';
+  }
+
+  @override
+  String playbackInfoWhyVideoResolution(String resolution) {
+    return 'This device can\'t play $resolution video';
+  }
+
+  @override
+  String playbackInfoWhyVideoFrameRate(String fps) {
+    return 'This device can\'t play $fps fps video';
+  }
+
+  @override
+  String get playbackInfoWhyInterlaced =>
+      'This device can\'t play interlaced video';
+
+  @override
+  String get playbackInfoWhyAnamorphic =>
+      'This device can\'t play anamorphic video';
+
+  @override
+  String playbackInfoWhyHdrName(String range) {
+    return 'This device can\'t display $range';
+  }
+
+  @override
+  String playbackInfoWhyAudioCodec(String format) {
+    return 'This device can\'t play $format audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioProfile(String fullFormat) {
+    return 'This device can\'t play $fullFormat';
+  }
+
+  @override
+  String playbackInfoWhyAudioChannels(String channels) {
+    return 'This device can\'t play $channels audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioSampleRate(String rate) {
+    return 'This device can\'t play $rate kHz audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit audio';
+  }
+
+  @override
+  String get playbackInfoWhyAudioExternal =>
+      'The audio track is in a separate file';
+
+  @override
+  String get playbackInfoWhySecondaryAudio =>
+      'This device can only play the first audio track';
+
+  @override
+  String playbackInfoWhySubtitleFormat(String format) {
+    return '$format subtitles are being burned into the video';
+  }
+
+  @override
+  String get playbackInfoDroppedFrames => 'Dropped Frames';
 }

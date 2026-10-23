@@ -713,6 +713,10 @@ class PlaybackManager implements AudioOwnable {
   }
 
   int? get maxBitrateOverrideMbps => _maxBitrateOverrideMbps;
+
+  /// True when this queue was started with direct play and direct stream both
+  /// turned off.
+  bool get isTranscodeForced => _forceTranscodeForQueue;
   bool get isOfflinePlayback => _isOfflinePlayback;
 
   /// Completes when any in-flight stop operation (including the offline
@@ -2480,6 +2484,36 @@ class PlaybackManager implements AudioOwnable {
       return;
     }
 
+    // Unless the request names the source as well, the server judges the
+    // audio by its own default track whatever track was asked for, and with
+    // none asked for it can direct play without checking the audio at all.
+    // So when a codec the profile holds back is involved either way, it is
+    // asked again with the track and source named. A live stream is left
+    // alone, since asking again would open a second one.
+    final requestedAudioIndex =
+        _audioStreamIndex ?? resolution.selectedAudioStreamIndex;
+    if (_mediaSourceId == null &&
+        requestedAudioIndex != null &&
+        resolution.liveStreamId == null &&
+        {requestedAudioIndex, resolution.selectedAudioStreamIndex}.any(
+          (index) => _videoWithholdsAudioCodec(
+            profile,
+            resolution.mediaStreams.firstWhere(
+                  (s) => s['Type'] == 'Audio' && s['Index'] == index,
+                  orElse: () => const <String, dynamic>{},
+                )['Codec']
+                as String?,
+          ),
+        )) {
+      _audioStreamIndex = requestedAudioIndex;
+      _mediaSourceId = resolution.mediaSourceId;
+      resolution = await resolve(maxBitrate);
+      if (sessionToken != _playbackSessionToken) {
+        _cleanupPreemptedSession(item, resolution);
+        return;
+      }
+    }
+
     // An item that came without its sources only learns the source bitrate
     // from the server, so the ceiling is weighed again once it's known. A live
     // stream is left as is, since asking again would open a second one.
@@ -3419,11 +3453,13 @@ class PlaybackManager implements AudioOwnable {
     }
 
     final streams = _currentMediaStreams;
+    String? selectedCodec;
     if (streams.isNotEmpty) {
       final selectedStream = streams.firstWhere(
         (s) => s['Type'] == 'Audio' && s['Index'] == streamIndex,
         orElse: () => const <String, dynamic>{},
       );
+      selectedCodec = selectedStream['Codec'] as String?;
       if (selectedStream.isNotEmpty) {
         _lastExplicitAudioLanguage = _extractLanguage(selectedStream);
         _lastExplicitAudioIndex = streamIndex;
@@ -3439,7 +3475,11 @@ class PlaybackManager implements AudioOwnable {
         _waitAndApplyTrackSelections(_playbackSessionToken);
       }
     } else if (_currentResolution?.playMethod == StreamPlayMethod.directPlay &&
-        (_backend?.supportsDirectPlayAudioSwitch ?? false)) {
+        (_backend?.supportsDirectPlayAudioSwitch ?? false) &&
+        !_videoWithholdsAudioCodec(
+          _backend?.getDeviceProfile(),
+          selectedCodec,
+        )) {
       // Every embedded track is already in a direct-played stream, so a
       // re-resolve would tear the player down and rebuild it for a track it
       // already has. The next progress report carries the new index anyway.
@@ -3453,6 +3493,27 @@ class PlaybackManager implements AudioOwnable {
       await _reResolveAtCurrentPosition();
     }
   });
+
+  /// Whether [profile] keeps [codec] out of video direct play while music
+  /// still direct plays it, which is how a codec the user has the server
+  /// convert shows up.
+  static bool _videoWithholdsAudioCodec(
+    Map<String, dynamic>? profile,
+    String? codec,
+  ) {
+    final entries = profile?['DirectPlayProfiles'];
+    if (codec == null || codec.isEmpty || entries is! List) return false;
+    final lowered = codec.toLowerCase();
+    bool lists(String type) => entries.any(
+      (entry) =>
+          entry is Map &&
+          entry['Type'] == type &&
+          (entry['AudioCodec'] as String? ?? '')
+              .split(',')
+              .any((c) => c.trim().toLowerCase() == lowered),
+    );
+    return lists('Audio') && !lists('Video');
+  }
 
   static const _bitmapSubCodecs = {
     'pgs',

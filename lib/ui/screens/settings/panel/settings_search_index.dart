@@ -608,10 +608,19 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'scaling',
     ]),
     style.leaf(
-      'pref_show_backdrop',
-      l10n.backgroundBackdrops,
-      subtitle: l10n.showBackdropImages,
+      'pref_show_home_backdrop',
+      l10n.homeScreenBackdrop,
       keywords: ['background images'],
+    ),
+    style.leaf(
+      'pref_show_details_backdrop',
+      l10n.detailsScreenBackdrop,
+      keywords: ['background images'],
+    ),
+    style.leaf(
+      'pref_hide_backdrops_in_libraries',
+      l10n.libraryBackdrops,
+      keywords: ['background images', 'browsing'],
     ),
     style.leaf(
       'pref_oled_mode',
@@ -939,6 +948,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       subtitle: l10n.enablePreviewAudio,
       keywords: ['mute'],
     ),
+    home.leaf(
+      'previewVolume',
+      l10n.previewVolume,
+      subtitle: l10n.previewVolumeDescription,
+      keywords: ['loud', 'quiet'],
+    ),
     home.leaf('home_rows_padding', l10n.homeRowsPadding, keywords: [
       'spacing',
       'gap',
@@ -1190,11 +1205,6 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       l10n.useDetailedSubHeadings,
       subtitle: l10n.useDetailedSubHeadingsDescription,
     ),
-    libraries.leaf(
-      'pref_hide_backdrops_in_libraries',
-      l10n.hideBackdropsInLibraries,
-      keywords: ['background'],
-    ),
 
     mediaBar.screen(keywords: ['featured', 'carousel', 'banner', 'hero']),
     mediaBar.leaf('mediaBarMode', l10n.mediaBarMode),
@@ -1229,6 +1239,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       l10n.trailerAudio,
       subtitle: l10n.enableTrailerAudio,
       keywords: ['mute'],
+    ),
+    mediaBar.leaf(
+      'trailerVolume',
+      l10n.trailerVolume,
+      subtitle: l10n.trailerVolumeDescription,
+      keywords: ['loud', 'quiet'],
     ),
     mediaBar.leaf(
       'mediaBarTrailerCaptions',
@@ -1540,6 +1556,11 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       ),
       audio.leaf('audio_fallback_codec', l10n.settingsAudioFallbackCodec),
       audio.leaf(
+        'pref_transcode_audio_codecs',
+        l10n.transcodeAudioCodecs,
+        keywords: ['transcode', 'convert', 'aac', 'opus', 'pcm', 'direct play'],
+      ),
+      audio.leaf(
         'pref_passthrough_ac3',
         l10n.ac3Passthrough,
         keywords: ['dolby digital', 'bitstream'],
@@ -1650,6 +1671,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       l10n.settingsCinemaMode,
       subtitle: l10n.settingsCinemaModeSubtitle,
       keywords: ['trailers before movie'],
+    ),
+    automation.leaf(
+      'pref_cinema_mode_skip_enabled',
+      l10n.cinemaSkipPrerolls,
+      subtitle: l10n.cinemaSkipPrerollsDescription,
+      keywords: ['cinema mode trailer preroll pre-roll skip'],
     ),
     for (final type in configurableMediaSegmentTypes)
       automation.leaf(
@@ -1826,6 +1853,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
         l10n.useExternalPlayer,
         subtitle: l10n.useExternalPlayerSubtitle,
         keywords: ['vlc', 'just player'],
+      ),
+      advanced.leaf(
+        'external_player_live_tv_only',
+        l10n.externalPlayerLiveTvOnly,
+        subtitle: l10n.externalPlayerLiveTvOnlySubtitle,
+        keywords: ['vlc', 'channel'],
       ),
     ],
     if (!PlatformDetection.isTV &&

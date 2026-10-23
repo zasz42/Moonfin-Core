@@ -15,8 +15,9 @@ import '../../auth/repositories/session_repository.dart';
 import '../../auth/repositories/user_repository.dart';
 import '../../auth/store/authentication_store.dart';
 import '../../l10n/app_localizations.dart';
+import '../../data/services/pin_guard.dart';
+import '../../data/services/server_pin_service.dart';
 import '../../util/platform_detection.dart';
-import '../../util/pin_code_util.dart';
 import '../navigation/destinations.dart';
 import 'adaptive/adaptive_dialog.dart';
 import '../screens/settings/settings_side_panel.dart';
@@ -110,6 +111,7 @@ class _AccountDialogState extends State<_AccountDialog> {
     }
     return '$base&tag=$tag';
   }
+
   Future<void> _switchAccount(_StoredAccount account) async {
     if (_busy) return;
 
@@ -118,14 +120,32 @@ class _AccountDialogState extends State<_AccountDialog> {
       return;
     }
 
-    final store = GetIt.instance<PreferenceStore>();
-    final pinUtil = PinCodeUtil(store, account.user.id);
+    // Held through the PIN lookup and dialog too, or another account could be
+    // picked while this one is still being asked for.
+    setState(() => _busy = true);
+    try {
+      await _switchVerifiedAccount(account);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
-    if (pinUtil.isPinEnabled) {
+  Future<void> _switchVerifiedAccount(_StoredAccount account) async {
+    final guard = PinGuard.forAccount(
+      store: GetIt.instance<PreferenceStore>(),
+      service: GetIt.instance<ServerPinService>(),
+      userId: account.user.id,
+      serverAddress: account.server.address,
+      accessToken: account.user.accessToken,
+    );
+    await guard.refresh();
+    if (!mounted) return;
+
+    if (guard.pin.isPinEnabled) {
       final verified = await PinEntryDialog.show(
         context,
         mode: PinEntryMode.verify,
-        onVerify: pinUtil.verifyPin,
+        onVerifyAsync: guard.verify,
         onForgotPin: () {
           if (mounted) {
             Navigator.of(context).pop();
@@ -138,13 +158,11 @@ class _AccountDialogState extends State<_AccountDialog> {
       if (!verified) return;
     }
 
-    setState(() => _busy = true);
     final ok = await _sessionRepo.switchCurrentSession(
       serverId: account.server.id,
       userId: account.user.id,
     );
     if (!mounted) return;
-    setState(() => _busy = false);
     final router = GoRouter.of(context);
 
     if (ok) {
@@ -871,7 +889,7 @@ class _AccountCardState extends State<_AccountCard> {
                               headers: serverImageHeaders,
                               fit: BoxFit.cover,
                               cacheWidth: ArtworkDecode.widthFor(
-                                68,
+                                130,
                                 MediaQuery.devicePixelRatioOf(context),
                               ),
                               errorBuilder: (_, _, _) {

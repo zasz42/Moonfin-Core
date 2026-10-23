@@ -367,6 +367,7 @@ class _MusicTrackTileState extends State<MusicTrackTile> {
               : AppColorScheme.buttonFocused.withValues(alpha: 0.14))
         : (widget.highlighted ? accent.withValues(alpha: 0.16) : null);
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: widget.focusNode,
       borderRadius: 10,
       disableScale: true,
@@ -471,6 +472,7 @@ class MusicQuickTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final height = large ? 64.0 : 56.0;
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: focusNode,
       borderRadius: 10,
       autoScroll: true,
@@ -536,6 +538,7 @@ class MusicTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final onSurface = AppColorScheme.onSurface;
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: focusNode,
       borderRadius: 14,
       autoScroll: true,

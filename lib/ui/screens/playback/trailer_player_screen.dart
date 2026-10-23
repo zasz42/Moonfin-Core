@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:playback_core/playback_core.dart';
 
+import '../../../data/models/aggregated_item.dart';
 import '../../../data/services/sponsorblock_service.dart';
 import '../../../data/services/youtube_stream_resolver.dart';
 import '../../../l10n/app_localizations.dart';
@@ -58,6 +60,12 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     // Keep the screen awake and the screensaver disarmed while a trailer plays,
     // matching the other full-screen players.
     _screensaverController.setPlaybackActive(true);
+    // Background music would otherwise keep playing under the trailer.
+    final manager = GetIt.instance<PlaybackManager>();
+    final current = manager.queueService.currentItem;
+    if (current is AggregatedItem && current.isAudioLike) {
+      unawaited(manager.stop(userInitiated: false));
+    }
     final resolvedVideoId = _resolvedVideoId();
 
     if (kIsWeb) {

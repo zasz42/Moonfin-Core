@@ -6646,7 +6646,7 @@
             }
         }
     },
-    "settingsLiveTvDirect": "Télévision en direct en direct",
+    "settingsLiveTvDirect": "Lecture directe pour la TV en direct",
     "settingsLiveTvDirectSubtitle": "Activer la lecture directe pour la télévision en direct",
     "settingsOpenGroups": "Groupes ouverts",
     "settingsOpenGroupsSubtitle": "Créer, rejoindre ou gérer des groupes SyncPlay",
@@ -7784,7 +7784,7 @@
     "@dismiss": {
         "description": "Dismiss button text"
     },
-    "libraryWriteAccessProactiveBody": "Votre bibliothèque « {libraryName} » est configurée pour enregistrer les visuels directement dans les dossiers multimédias (l'option « Enregistrer les visuels dans les dossiers multimédias » est activée). Cependant, Jellyfin a testé l'accès en écriture et n'a pas la permission d'écrire des fichiers dans ce répertoire :\n\n{failedPath}",
+    "libraryWriteAccessProactiveBody": "Votre bibliothèque « {libraryName} » est configurée pour enregistrer les visuels directement dans les dossiers multimédias (l'option « Enregistrer les visuels dans les dossiers multimédias » est activée). Cependant, Jellyfin a testé l'accès en écriture et n'a pas la permission d'écrire des fichiers dans ce répertoire :\n\n{failedPath}",
     "@libraryWriteAccessProactiveBody": {
         "description": "Proactive warning message about server write access",
         "placeholders": {
@@ -8549,7 +8549,7 @@
     "adminDrawerNfo": "Paramètres NFO",
     "adminActivitySeverityAll": "Toutes les gravités",
     "adminActivityDateRange": "Plage de dates",
-    "adminRemoveDeviceConfirm": "Supprimer l'appareil « {name} » ? L'utilisateur devra se reconnecter sur cet appareil.",
+    "adminRemoveDeviceConfirm": "Supprimer l'appareil « {name} » ? L'utilisateur devra se reconnecter sur cet appareil.",
     "@adminRemoveDeviceConfirm": {
         "placeholders": {
             "name": {
@@ -13897,11 +13897,11 @@
     "@libraryStyle": {
         "description": "Label for the setting that picks the library page header layout"
     },
-    "libraryStyleDescription": "Classique correspond à l'en-tête d'origine, avec des boutons en icônes. Moderne réunit la recherche et les boutons de tri, de regroupement et de filtre, avec leurs libellés, dans une seule barre. Ancré déplace les commandes et l'index alphabétique dans un panneau latéral.",
+    "libraryStyleDescription": "Classique correspond à l'en-tête d'origine, avec des boutons en icônes. Moderne réunit la recherche et les boutons de tri, de regroupement et de filtre, avec leurs libellés, dans une seule barre. Dock déplace les commandes et l'index alphabétique dans un panneau latéral.",
     "@libraryStyleDescription": {
         "description": "Explanation under the library style setting on TV and desktop"
     },
-    "libraryStyleDescriptionPhone": "Classique correspond à l'en-tête d'origine, avec des boutons en icônes. Moderne ajoute sous la recherche des boutons de tri, de regroupement et de filtre, avec leurs libellés. Ancré garde les commandes dans une barre en bas de l'écran.",
+    "libraryStyleDescriptionPhone": "Classique correspond à l'en-tête d'origine, avec des boutons en icônes. Moderne ajoute sous la recherche des boutons de tri, de regroupement et de filtre, avec leurs libellés. Dock garde les commandes dans une barre en bas de l'écran.",
     "@libraryStyleDescriptionPhone": {
         "description": "Explanation under the library style setting on phones"
     },
@@ -13913,7 +13913,7 @@
     "@libraryStyleModern": {
         "description": "Library style option: one bar with labeled buttons"
     },
-    "libraryStyleDocked": "Ancré",
+    "libraryStyleDocked": "Dock",
     "@libraryStyleDocked": {
         "description": "Library style option: a side panel on TV and desktop, a bottom bar on phones"
     },
@@ -14690,5 +14690,131 @@
     "librarySortLength": "Durée",
     "@librarySortLength": {
         "description": "Sort option for music: by track or album length"
+    },
+    "loginForbidden": "Impossible de se connecter avec ce compte pour le moment. Il est peut-être hors des horaires autorisés, verrouillé ou désactivé. Réessayez plus tard ou contactez un administrateur.",
+    "@loginForbidden": {
+        "description": "Sign in error when the server refuses the account with a 403, which Jellyfin does for an access schedule, a lockout or a disabled account without saying which"
+    },
+    "landscape": "Paysage",
+    "@landscape": {
+        "description": "Orientation choice: the device held sideways"
+    },
+    "portrait": "Portrait",
+    "@portrait": {
+        "description": "Orientation choice: the device held upright"
+    },
+    "gameKeepPlaying": "Continuer à jouer",
+    "@gameKeepPlaying": {
+        "description": "Exit confirmation choice that returns to the game"
+    },
+    "gameExitGame": "Quitter le jeu",
+    "@gameExitGame": {
+        "description": "Exit confirmation choice that leaves the game"
+    },
+    "gameSavingBeforeExit": "Sauvegarde…",
+    "@gameSavingBeforeExit": {
+        "description": "Shown over the paused game while it saves on the way out"
+    },
+    "keyNameDelete": "Suppr",
+    "@keyNameDelete": {
+        "description": "Key cap label for the Delete key"
+    },
+    "shortcutHideControls": "Masquer les commandes",
+    "@shortcutHideControls": {
+        "description": "What Backspace and Delete do in the player: hide the controls or the panel on top of them"
+    },
+    "shortcutSkipSegment": "Ignorer l'intro ou le générique lorsque c'est proposé",
+    "@shortcutSkipSegment": {
+        "description": "Player shortcut action that presses the skip intro or credits button while it is showing"
+    },
+    "liveTvJumpToLive": "Revenir au direct",
+    "@liveTvJumpToLive": {
+        "description": "Live TV player button that leaves a rewound or paused stream and returns to what is airing now"
+    },
+    "playbackVideoUnsupported": "Cet appareil ne peut pas lire le format de cette vidéo. Essayez un lecteur externe.",
+    "@playbackVideoUnsupported": {
+        "description": "Shown when the player can't show an item's video and no transcode is left to try, instead of playing the audio over a black screen"
+    },
+    "buttonShownInSyncPlayGroup": "S'affiche uniquement lorsque vous êtes dans un groupe SyncPlay",
+    "@buttonShownInSyncPlayGroup": {
+        "description": "Hint under the SyncPlay and Watch with group buttons in the button settings, which only appear once the user has joined a group"
+    },
+    "jumpBackIn": "Reprendre l'écoute",
+    "@jumpBackIn": {
+        "description": "Heading over the albums and playlists the user played recently in a music library"
+    },
+    "yourPlaylists": "Vos playlists",
+    "@yourPlaylists": {
+        "description": "Heading over the user's playlists in a music library"
+    },
+    "fromThisAlbum": "De cet album",
+    "@fromThisAlbum": {
+        "description": "Heading over the track list of the album shown in the music library hero"
+    },
+    "searchMusic": "Rechercher de la musique",
+    "@searchMusic": {
+        "description": "Placeholder and label for the search control in a music library"
+    },
+    "bookSeriesCount": "{count, plural, one{{count} série} other{{count} séries}}",
+    "@bookSeriesCount": {
+        "description": "How many series a book library holds",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "bookInProgressCount": "{count} en cours",
+    "@bookInProgressCount": {
+        "description": "How many books or audiobooks are started but not finished",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "bookBrowseAllTitles": "{count, plural, one{Parcourir {count} titre} other{Parcourir tous les {count} titres}}",
+    "@bookBrowseAllTitles": {
+        "description": "Link from the book library to the full title grid",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "searchBooks": "Rechercher des livres",
+    "@searchBooks": {
+        "description": "Button in the book library that opens search within it"
+    },
+    "libraryShowLabel": "Afficher",
+    "@libraryShowLabel": {
+        "description": "Library button that opens the played status filter, followed by its current value such as All or Unwatched"
+    },
+    "libraryAToZ": "A à Z",
+    "@libraryAToZ": {
+        "description": "Library bottom bar button that turns the alphabet on and off"
+    },
+    "libraryJumpToLetter": "Aller à une lettre",
+    "@libraryJumpToLetter": {
+        "description": "Label of the alphabet in a library, which scrolls to the first item starting with the chosen letter"
+    },
+    "analyticsLibraryShare": "Répartition des éléments par bibliothèque",
+    "analyticsTopRating": "Classification la plus fréquente",
+    "analyticsTypicalRuntime": "Durée habituelle",
+    "analyticsShareOfItems": "{percent} % des éléments",
+    "@analyticsShareOfItems": {
+        "placeholders": {
+            "percent": {
+                "type": "String"
+            }
+        }
+    },
+    "smartDownloadsEnableDescription": "Lorsque vous terminez un épisode sur n'importe quel appareil, Moonfin télécharge les suivants. Les épisodes qu'il télécharge sont supprimés une fois vus.",
+    "@smartDownloadsEnableDescription": {
+        "description": "Explains the smart downloads switch, including that watched episodes are deleted"
+    },
+    "autoDownloadDeleteFollowedSubtitle": "Quand supprimer les épisodes téléchargés pour les séries que vous suivez, après les avoir vus",
+    "@autoDownloadDeleteFollowedSubtitle": {
+        "description": "Explains the delete-after-watching setting"
     }
 }

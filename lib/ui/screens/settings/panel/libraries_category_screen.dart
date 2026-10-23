@@ -201,12 +201,6 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
                 icon: Icons.subtitles,
                 onChanged: _pushPersonalizationSync,
               ),
-              SwitchPreferenceTile(
-                preference: UserPreferences.hideBackdropsInLibraries,
-                title: l10n.hideBackdropsInLibraries,
-                icon: Icons.hide_image_outlined,
-                onChanged: _pushPersonalizationSync,
-              ),
             ],
           ),
         ],

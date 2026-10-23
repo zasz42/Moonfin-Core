@@ -707,22 +707,18 @@ class _MediaBarState extends State<MediaBar>
         _cancelTrailerPreview();
       }
     } else if (_trailerUsingMedia3) {
-      final audioEnabled = widget.prefs.get(
-        UserPreferences.mediaBarTrailerAudio,
-      );
-      _media3TrailerBackend!.setVolume(audioEnabled ? 100 : 0);
+      _media3TrailerBackend!.setVolume(_trailerVolume);
     } else if (_trailerUsingAppleTv) {
-      final audioEnabled = widget.prefs.get(
-        UserPreferences.mediaBarTrailerAudio,
-      );
-      unawaited(_appleTvTrailerPlayer?.setVolume(audioEnabled ? 100 : 0));
+      unawaited(_appleTvTrailerPlayer?.setVolume(_trailerVolume));
     } else if (_trailerPlayer != null) {
-      final audioEnabled = widget.prefs.get(
-        UserPreferences.mediaBarTrailerAudio,
-      );
-      _trailerPlayer?.setVolume(audioEnabled ? 100 : 0);
+      _trailerPlayer?.setVolume(_trailerVolume);
     }
   }
+
+  double get _trailerVolume =>
+      widget.prefs.get(UserPreferences.mediaBarTrailerAudio)
+      ? widget.prefs.get(UserPreferences.trailerVolume).toDouble()
+      : 0;
 
   void _syncHomeRouteActive() {
     final isHome = _isHomeRouteCurrent();
@@ -1313,11 +1309,8 @@ class _MediaBarState extends State<MediaBar>
     }
 
     if (_trailerUsingMedia3) {
-      final audioEnabled = widget.prefs.get(
-        UserPreferences.mediaBarTrailerAudio,
-      );
       try {
-        await _media3TrailerBackend!.setVolume(audioEnabled ? 100 : 0);
+        await _media3TrailerBackend!.setVolume(_trailerVolume);
         if (!mounted || resolveId != _trailerResolveId) return;
 
         await _media3TrailerBackend.resume();
@@ -1356,11 +1349,8 @@ class _MediaBarState extends State<MediaBar>
     if (_trailerUsingAppleTv) {
       final player = _appleTvTrailerPlayer;
       if (player == null) return;
-      final audioEnabled = widget.prefs.get(
-        UserPreferences.mediaBarTrailerAudio,
-      );
       try {
-        await player.setVolume(audioEnabled ? 100 : 0);
+        await player.setVolume(_trailerVolume);
         if (!mounted || resolveId != _trailerResolveId) return;
         await player.resume();
         if (resolveId != _trailerResolveId || !_trailerShouldBeActive()) {
@@ -1383,9 +1373,8 @@ class _MediaBarState extends State<MediaBar>
     final player = _trailerPlayer;
     if (player == null) return;
 
-    final audioEnabled = widget.prefs.get(UserPreferences.mediaBarTrailerAudio);
     try {
-      await player.setVolume(audioEnabled ? 100 : 0);
+      await player.setVolume(_trailerVolume);
       if (!mounted || resolveId != _trailerResolveId) return;
 
       await player.play();

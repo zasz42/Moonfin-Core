@@ -148,7 +148,7 @@ class _QuickAccessMusicScreenState
   }
 
   Widget _buildHeader(AppLocalizations l10n, double inset, bool hasQuick) {
-    final top = MediaQuery.paddingOf(context).top + 56;
+    final top = topReserve;
     VoidCallback leave(bool isUp) =>
         () => move(headerIndex, isUp);
 
@@ -170,6 +170,7 @@ class _QuickAccessMusicScreenState
               ),
             ),
             FocusableWrapper(
+              highlightOnHover: true,
               focusNode: node('filter'),
               borderRadius: 20,
               disableScale: true,
@@ -213,6 +214,7 @@ class _QuickAccessMusicScreenState
 
     Widget iconButton(String id, IconData icon, String label, VoidCallback on) =>
         FocusableWrapper(
+          highlightOnHover: true,
           focusNode: node(id),
           borderRadius: 22,
           disableScale: true,
@@ -285,6 +287,7 @@ class _QuickAccessMusicScreenState
   ) {
     final selected = i == 0;
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: node('chip:$i'),
       borderRadius: 18,
       disableScale: true,
@@ -402,7 +405,7 @@ class _QuickAccessMusicScreenState
       onNavigateRight: focusContent,
     );
 
-    final top = MediaQuery.paddingOf(context).top + 56;
+    final top = topReserve;
     final muted = AppColorScheme.onSurface.withValues(alpha: 0.62);
     return Container(
       width: _railWidth,
@@ -504,6 +507,7 @@ class _RailItem extends StatelessWidget {
         ? accent
         : AppColorScheme.onSurface.withValues(alpha: 0.86);
     return FocusableWrapper(
+      highlightOnHover: true,
       focusNode: focusNode,
       borderRadius: 10,
       disableScale: true,

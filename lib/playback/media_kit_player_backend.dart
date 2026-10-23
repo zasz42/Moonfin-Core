@@ -203,6 +203,7 @@ class MediaKitPlayerBackend extends PlayerBackend
   StreamSubscription<MpvCropGeometry?>? _letterboxGeometrySub;
   String? _appliedCustomMpvConfPath;
   DateTime? _appliedCustomMpvConfMtime;
+  bool _desktopRenderQualityApplied = false;
   static final Map<String, _ParsedMpvConfCacheEntry> _parsedMpvConfCache =
       <String, _ParsedMpvConfCacheEntry>{};
 
@@ -713,6 +714,7 @@ class MediaKitPlayerBackend extends PlayerBackend
       maxBitrateMbps: maxBitrate,
       audioCapabilityProfile: audioCapabilityProfile,
       audioFallbackCodec: _prefs.resolveAudioFallbackCodec(),
+      transcodeAudioCodecs: _prefs.resolveTranscodeAudioCodecs(),
       ac3PassthroughEnabled: _prefs.resolveAc3PassthroughEnabled(),
       eac3PassthroughEnabled: _prefs.resolveEac3PassthroughEnabled(),
       dtsCorePassthroughEnabled: _prefs.resolveDtsCorePassthroughEnabled(),
@@ -799,6 +801,14 @@ class MediaKitPlayerBackend extends PlayerBackend
     await _configureAppleMobileLibassFont();
     await _configureAndroidLibassFonts();
     await _applyAudioPassthroughOptions();
+    // Applied once and before the custom mpv.conf, which is only re-applied
+    // when it changes, so the user's own values still win.
+    if (!_desktopRenderQualityApplied &&
+        (PlatformDetection.isWindows || PlatformDetection.isLinux) &&
+        _player.platform is NativePlayer) {
+      _desktopRenderQualityApplied = true;
+      await _applyDesktopRenderQuality(_player.platform as NativePlayer);
+    }
     await _applyCustomMpvConfIfEnabled();
     await _applyAssOverrideMode();
 
@@ -1613,10 +1623,10 @@ class MediaKitPlayerBackend extends PlayerBackend
   ///
   /// It sets `dither=no`, `scale=bilinear`, `dscale=bilinear`,
   /// `hdr-compute-peak=no` and `sigmoid-upscaling=no` regardless of platform.
-  /// Those are phone performance choices; on a desktop GPU driving an HDR
-  /// display they are all wrong, and `dither=no` alone visibly bands dark
-  /// gradients. The caller re-applies any custom mpv.conf afterwards, so a
-  /// user who set these keys themselves still wins.
+  /// Those are phone performance choices that a desktop GPU doesn't need, and
+  /// `dither=no` alone visibly bands dark gradients. The caller re-applies any
+  /// custom mpv.conf afterwards, so a user who set these keys themselves still
+  /// wins.
   Future<void> _applyDesktopRenderQuality(NativePlayer native) async {
     await _nativeSetProperty(native, 'dither', 'fruit');
     await _nativeSetProperty(native, 'dither-depth', 'auto');

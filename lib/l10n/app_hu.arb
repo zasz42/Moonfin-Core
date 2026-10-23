@@ -9009,11 +9009,11 @@
     "@animeMarkerMixed": {
         "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
     },
-    "animeMarkerAnimeCanon": "Anime Kánon",
+    "animeMarkerAnimeCanon": "Anime kánon",
     "@animeMarkerAnimeCanon": {
         "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
     },
-    "animeMarkerMangaCanon": "Manga Kánon",
+    "animeMarkerMangaCanon": "Manga kánon",
     "@animeMarkerMangaCanon": {
         "description": "Badge on an anime episode adapted from the source manga"
     },

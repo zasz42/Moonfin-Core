@@ -5145,8 +5145,8 @@
             }
         }
     },
-    "adminLastExecution": "Viimeinen teloitus",
-    "adminTriggers": "Liipaisimet",
+    "adminLastExecution": "Viimeisin Suoritus",
+    "adminTriggers": "Ajastimet",
     "adminAddTrigger": "Lisää triggeri",
     "adminNoTriggers": "Liipaimia ei ole määritetty",
     "adminTriggerType": "Liipaisimen tyyppi",
@@ -5383,14 +5383,14 @@
     "adminResumeSaved": "Jatka asetukset tallennettu",
     "adminResumeLoadFailed": "Jatkamisasetusten lataaminen epäonnistui",
     "adminResumeDescription": "Määritä, milloin sisältö merkitään osittain tai kokonaan toistetuksi.",
-    "adminMinResumePercentage": "Minimi jatkamisprosentti",
+    "adminMinResumePercentage": "Pienin jatkamisprosentti",
     "adminMinResumeSubtitle": "Sisältöä on toistettava tämän prosenttiosuuden yli, jotta edistyminen tallentuu",
-    "adminMaxResumePercentage": "Maksimi jatkamisprosentti",
+    "adminMaxResumePercentage": "Suurin jatkamisprosentti",
     "adminMaxResumeSubtitle": "Sisältö katsotaan kokonaan toistetuksi tämän prosenttiosuuden jälkeen",
     "adminMinResumeDuration": "Ansioluettelon vähimmäiskesto (sekuntia)",
     "adminMinResumeDurationSubtitle": "Tätä lyhyempiä tuotteita ei voida jatkaa",
-    "adminMinAudiobookResume": "Äänikirjan ansioluettelon vähimmäisprosentti",
-    "adminMaxAudiobookResume": "Äänikirjan ansioluettelon enimmäisprosentti",
+    "adminMinAudiobookResume": "Äänikirjan jatkamisen vähimmäisprosenttiosuus",
+    "adminMaxAudiobookResume": "Äänikirjan jatkamisen enimmäisprosenttiosuus",
     "adminNetworkingSaved": "Verkkoasetukset tallennettu. Palvelin voi olla tarpeen käynnistää uudelleen.",
     "adminNetworkingLoadFailed": "Verkkoasetusten lataaminen epäonnistui",
     "adminNetworkingWarning": "Verkkoasetusten muutokset voivat vaatia palvelimen uudelleenkäynnistyksen.",
@@ -5399,13 +5399,13 @@
     "adminHttpPort": "HTTP-portti",
     "adminHttpsPort": "HTTPS-portti",
     "adminPublicHttpsPort": "Julkinen HTTPS-portti",
-    "adminBaseUrl": "Perus-URL-osoite",
+    "adminBaseUrl": "Perus-URL",
     "adminBaseUrlHint": "esim. /jellyfin",
     "https": "HTTPS",
     "adminEnableHttps": "Ota HTTPS käyttöön",
-    "adminLocalNetwork": "Paikallinen verkko",
-    "adminLocalNetworkAddresses": "Paikalliset verkko-osoitteet",
-    "adminKnownProxies": "Tunnetut välityspalvelimet",
+    "adminLocalNetwork": "Lähiverkko",
+    "adminLocalNetworkAddresses": "Lähiverkko osoitteet",
+    "adminKnownProxies": "Ehdotetut proxyt",
     "adminRemoteIpFilter": "Etä-IP-suodatin",
     "adminRemoteIpFilterEntries": "Etä-IP-suodatin",
     "adminCertificatePath": "Varmenteen polku",
@@ -5956,7 +5956,7 @@
     "adminResumeAudiobooks": "Äänikirjat",
     "adminResumeMinAudiobookPct": "Äänikirjan ansioluettelon vähimmäisprosentti",
     "adminResumeMaxAudiobookPct": "Äänikirjan ansioluettelon enimmäisprosentti",
-    "adminStreamingBitrateLimit": "Etäasiakkaan bittinopeusrajoitus (Mbps)",
+    "adminStreamingBitrateLimit": "Etäasiakkaan bittinopeus rajoitin (Mbps)",
     "adminStreamingBitrateLimitHint": "Jätä tyhjäksi tai 0 rajattomasti",
     "adminTrickplayHwAccel": "Ota käyttöön laitteistokiihdytys",
     "adminTrickplayHwEncoding": "Ota käyttöön laitteistokoodaus",
@@ -5985,7 +5985,7 @@
     "adminTaskNeverRun": "Älä koskaan suorita",
     "adminTaskStop": "Pysäytä",
     "adminTaskRun": "Suorita",
-    "adminTaskDetailLastExecution": "Viimeinen teloitus",
+    "adminTaskDetailLastExecution": "Viimeisin Suoritus",
     "adminTaskDetailStarted": "Aloitettu",
     "adminTaskDetailEnded": "Päättyi",
     "adminTaskDetailDuration": "Kesto",
@@ -7141,17 +7141,17 @@
     "webDiagnosticsCorsChecklistItem4": "• Palauta numero 204 OPTIONS-esitarkastuspyyntöihin.",
     "webDiagnosticsHeaderSnippetTitle": "Esimerkki otsikkokatkelmasta (nginx-tyylinen)",
     "note": "Huom",
-    "webDiagnosticsNonWebNote": "Tämä diagnostiikkareitti on tarkoitettu verkkorakennuksiin. Jos näet tämän toisella alustalla, nämä tarkistukset eivät välttämättä päde.",
-    "backToServerSelect": "Takaisin palvelimeen Valitse",
-    "signOutAllUsers": "Kirjaudu ulos kaikista käyttäjistä",
-    "voiceSearchPermissionPermanentlyDenied": "Mikrofonin käyttöoikeus evätään pysyvästi. Ota se käyttöön järjestelmäasetuksissa.",
-    "voiceSearchPermissionRequired": "Äänihaku vaatii mikrofonin luvan.",
-    "voiceSearchNoMatch": "Ei saanut kiinni siitä. Yritä uudelleen.",
+    "webDiagnosticsNonWebNote": "Tämä vianmääritysohje on tarkoitettu verkkosovelluksille. Jos näet tämän viestin jollain muulla alustalla, nämä tarkistukset eivät välttämättä koske sitä.",
+    "backToServerSelect": "Takaisin palvelinvalintaan",
+    "signOutAllUsers": "Kirjaa kaikki käyttäjät ulos",
+    "voiceSearchPermissionPermanentlyDenied": "Mikrofonin käyttöoikeus on kielletty pysyvästi. Ota se käyttöön järjestelmäasetuksissa.",
+    "voiceSearchPermissionRequired": "Äänihaku edellyttää mikrofonin käyttöoikeutta.",
+    "voiceSearchNoMatch": "En saanut selvää. Yritä uudestaan.",
     "voiceSearchNoSpeechDetected": "Puhetta ei havaittu.",
-    "voiceSearchMicrophoneError": "Mikrofonivirhe.",
-    "voiceSearchNeedsInternet": "Äänihaku vaatii Internetiä.",
+    "voiceSearchMicrophoneError": "Mikrofonivika.",
+    "voiceSearchNeedsInternet": "Äänihaku edellyttää internetyhteyttä.",
     "voiceSearchServiceBusy": "Puhepalvelu on varattu. Yritä uudelleen.",
-    "microphonePermissionPermanentlyDenied": "Mikrofonin käyttöoikeus evätään pysyvästi.",
+    "microphonePermissionPermanentlyDenied": "Mikrofonin käyttöoikeus on evätty pysyvästi.",
     "microphonePermissionDenied": "Mikrofonin käyttöoikeus on evätty.",
     "speechRecognitionUnavailable": "Puheentunnistus ei ole käytettävissä tällä laitteella.",
     "openIosRoutePicker": "Avaa iOS-reitinvalitsin",
@@ -7337,7 +7337,7 @@
     "@detailScreenStyleMoonfin": {
         "description": "Detail screen style option: the classic centered layout"
     },
-    "detailScreenStyleModern": "Modern",
+    "detailScreenStyleModern": "Moderni",
     "@detailScreenStyleModern": {
         "description": "Detail screen style option: the responsive cinematic layout"
     },
@@ -8202,7 +8202,7 @@
     "adminDrawerNfo": "NFO-asetukset",
     "adminActivitySeverityAll": "Kaikki vakavuusasteet",
     "adminActivityDateRange": "Aikaväli",
-    "adminRemoveDeviceConfirm": "Poistetaanko laite '{name}'? Käyttäjän on kirjauduttava tällä laitteella uudelleen sisään.",
+    "adminRemoveDeviceConfirm": "Poistetaanko laite \"{name}\"? Käyttäjän on kirjauduttava tällä laitteella uudelleen sisään.",
     "@adminRemoveDeviceConfirm": {
         "placeholders": {
             "name": {
@@ -8851,7 +8851,7 @@
     "@dismiss": {
         "description": "Dismiss button text"
     },
-    "libraryWriteAccessProactiveBody": "Kirjastosi '{libraryName}' on määritetty tallentamaan kuvitus suoraan mediakansioihin ('Tallenna kuvitus mediakansioihin' on käytössä). Jellyfin on kuitenkin testannut kirjoitusoikeudet, eikä sillä ole oikeutta kirjoittaa tiedostoja tähän hakemistoon:\n\n{failedPath}",
+    "libraryWriteAccessProactiveBody": "Kirjastosi \"{libraryName}\" on määritetty tallentamaan kuvitus suoraan mediakansioihin ('Tallenna kuvitus mediakansioihin' on käytössä). Jellyfin on kuitenkin testannut kirjoitusoikeudet, eikä sillä ole oikeutta kirjoittaa tiedostoja tähän hakemistoon:\n\n{failedPath}",
     "@libraryWriteAccessProactiveBody": {
         "description": "Proactive warning message about server write access",
         "placeholders": {
@@ -11611,7 +11611,7 @@
     "@animeMarkerMixed": {
         "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
     },
-    "animeMarkerAnimeCanon": "Animen kaanon",
+    "animeMarkerAnimeCanon": "Animen Kaanon",
     "@animeMarkerAnimeCanon": {
         "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
     },
@@ -13407,7 +13407,7 @@
     "@topShelfAppBanner": {
         "description": "Top Shelf option that shows only the static Moonfin logo banner, nothing from the library"
     },
-    "spotlightFileDetails": "Tiedoston tiedot",
+    "spotlightFileDetails": "Tiedoston Tiedot",
     "@spotlightFileDetails": {
         "description": "Title of the spotlight summary card that opens the file details modal"
     },
@@ -14782,5 +14782,153 @@
     "shortcutHideControls": "Piilota hallintapainikkeet",
     "@shortcutHideControls": {
         "description": "What Backspace and Delete do in the player: hide the controls or the panel on top of them"
+    },
+    "timesUpTitle": "Aika loppui",
+    "@timesUpTitle": {
+        "description": "Title of the screen that covers the app when the user's access schedule doesn't allow the current time"
+    },
+    "timesUpMessage": "Tätä tiliä ei ole tällä hetkellä käytettävissä.",
+    "@timesUpMessage": {
+        "description": "Explanation on the Time's up screen"
+    },
+    "timesUpResumesToday": "Voit käyttää sitä uudelleen tänään klo {time}.",
+    "@timesUpResumesToday": {
+        "description": "When access returns, on the Time's up screen, for a time later today",
+        "placeholders": {
+            "time": {
+                "type": "String"
+            }
+        }
+    },
+    "timesUpResumesTomorrow": "Voit käyttää sitä uudelleen huomenna klo {time}.",
+    "@timesUpResumesTomorrow": {
+        "description": "When access returns, on the Time's up screen, for a time tomorrow",
+        "placeholders": {
+            "time": {
+                "type": "String"
+            }
+        }
+    },
+    "timesUpResumesOn": "Voit käyttää sitä uudelleen {day} klo {time}.",
+    "@timesUpResumesOn": {
+        "description": "When access returns, on the Time's up screen, for a time on a later day",
+        "placeholders": {
+            "day": {
+                "type": "String"
+            },
+            "time": {
+                "type": "String"
+            }
+        }
+    },
+    "pinSynced": "PIN-koodi synkronoitu",
+    "@pinSynced": {
+        "description": "Shown under the PIN switch when the PIN is kept on the server, so it applies on every device"
+    },
+    "pinResetFailed": "Palvelimen PIN-koodia ei voitu poistaa. Jos se on edelleen asetettuna, pyydä palvelimen järjestelmänvalvojaa poistamaan se.",
+    "@pinResetFailed": {
+        "description": "Shown on sign in when Forgot PIN could not clear a PIN kept on the server"
+    },
+    "cinemaSkipPrerolls": "Elokuvamoodin ohituspainike",
+    "cinemaSkipPrerollsDescription": "Näytä Ohita-painike Cinema-tilan elokuvatrailereiden, mainosten ja muiden esittelyvideoiden aikana.",
+    "bookReadingUnavailableTitle": "Apple TV:llä ei voi lukea kirjoja",
+    "@bookReadingUnavailableTitle": {
+        "description": "Title of the dialog shown on Apple TV when the user tries to open a book or comic, which tvOS has no reader for"
+    },
+    "bookReadingUnavailableMessage": "Avaa se Moonfin-sovelluksessa puhelimella, tabletilla tai tietokoneella lukeaksesi sen. Äänikirjat toimivat edelleen tässä sovelluksessa.",
+    "@bookReadingUnavailableMessage": {
+        "description": "Body of the dialog shown on Apple TV when the user tries to open a book or comic"
+    },
+    "transcodeAudioCodecs": "Audiokoodekkien transkoodaus",
+    "@transcodeAudioCodecs": {
+        "description": "Setting that lists the audio codecs the server converts instead of the device playing them"
+    },
+    "transcodeAudioCodecsDescription": "Palvelin muuntaa näissä muodoissa olevan äänen sen sijaan, että lähettäisi sen sellaisenaan.",
+    "@transcodeAudioCodecsDescription": {
+        "description": "Description for the transcode audio codecs setting"
+    },
+    "trailerVolume": "Trailerin äänenvoimakkuus",
+    "@trailerVolume": {
+        "description": "Setting for how loud media bar trailers play"
+    },
+    "trailerVolumeDescription": "Kuinka kovaa äänenvoimakkuudella media-baarin mainosvideot toistetaan",
+    "@trailerVolumeDescription": {
+        "description": "Description for the trailer volume slider"
+    },
+    "previewVolume": "Äänenvoimakkuuden esikatselu",
+    "@previewVolume": {
+        "description": "Setting for how loud media previews on cards play"
+    },
+    "previewVolumeDescription": "Kuinka kovaa ääni kuuluu korttien esikatselussa",
+    "@previewVolumeDescription": {
+        "description": "Description for the preview volume slider"
+    },
+    "externalPlayerLiveTvOnly": "Live TV ainoastaan",
+    "@externalPlayerLiveTvOnly": {
+        "description": "Setting that limits the external player to Live TV channels"
+    },
+    "externalPlayerLiveTvOnlySubtitle": "Käytä ulkoista soittinta suorana lähetettävän television katseluun ja pidä kaikki muu sisäänrakennetussa soittimessa.",
+    "@externalPlayerLiveTvOnlySubtitle": {
+        "description": "Description for the Live TV Only external player setting"
+    },
+    "homeScreenBackdrop": "Aloitusnäytön taustakuva",
+    "@homeScreenBackdrop": {
+        "description": "Setting to show or hide the backdrop image behind the home screen"
+    },
+    "detailsScreenBackdrop": "Tietonäytön taustakuva",
+    "@detailsScreenBackdrop": {
+        "description": "Setting to show or hide the backdrop image behind the item details screen"
+    },
+    "libraryBackdrops": "Kirjaston taustakuvat",
+    "@libraryBackdrops": {
+        "description": "Setting to show or hide backdrop images while browsing library pages"
+    },
+    "playbackInfoChannel": "Kanava",
+    "@playbackInfoChannel": {
+        "description": "Playback information row label: the Live TV channel being watched"
+    },
+    "playbackInfoProgram": "Ohjelma",
+    "@playbackInfoProgram": {
+        "description": "Playback information row label: the Live TV program on now"
+    },
+    "playbackInfoWhy": "Miksi",
+    "@playbackInfoWhy": {
+        "description": "Playback information row label: why the server isn't sending the original file as is"
+    },
+    "playbackInfoQualityLimit": "Laaturaja",
+    "@playbackInfoQualityLimit": {
+        "description": "Playback information row label: the maximum streaming bitrate the user picked"
+    },
+    "playbackInfoFrameRate": "Kuvataajuus",
+    "@playbackInfoFrameRate": {
+        "description": "Playback information row label: video frames per second"
+    },
+    "playbackInfoDelivery": "Toimitus",
+    "@playbackInfoDelivery": {
+        "description": "Playback information row label: how the subtitles reach the player (embedded, external, burned in)"
+    },
+    "playbackInfoFile": "Tiedosto",
+    "@playbackInfoFile": {
+        "description": "Playback information section header for the media file"
+    },
+    "playbackInfoTechnical": "Tekninen",
+    "@playbackInfoTechnical": {
+        "description": "Playback information section header for details aimed at developers and testers"
+    },
+    "playbackInfoDevice": "Laite",
+    "@playbackInfoDevice": {
+        "description": "Playback information row label: this device's model and operating system"
+    },
+    "playbackInfoAudioRoute": "Audioreitti",
+    "@playbackInfoAudioRoute": {
+        "description": "Playback information row label: where the sound goes, like HDMI or Bluetooth"
+    },
+    "playbackInfoSurround51": "5.1 surround",
+    "@playbackInfoSurround51": {
+        "description": "Playback information value: six channel surround audio"
+    },
+    "playbackInfoSurround71": "7.1 surround",
+    "@playbackInfoSurround71": {
+        "description": "Playback information value: eight channel surround audio"
     }
 }

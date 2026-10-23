@@ -125,17 +125,18 @@ class _MinimalistEpisodesSectionState extends State<MinimalistEpisodesSection> {
     showContextMenu(context, episode, onChanged: () => setState(() {}));
   }
 
+  // From an episode the one picked takes its page, so Back leaves the run of
+  // episodes in one press.
   void _openEpisode(BuildContext context, AggregatedItem episode) {
-    context.push(
-      Destinations.item(
-        episode.id,
-        serverId: episode.serverId,
-        seasonContext: seasonContextParam(
-          contextSeasonId: _isSeason ? _vm.item?.id : null,
-          episodeSeasonId: episode.seasonId,
-        ),
+    final location = Destinations.item(
+      episode.id,
+      serverId: episode.serverId,
+      seasonContext: seasonContextParam(
+        contextSeasonId: _isSeason ? _vm.item?.id : null,
+        episodeSeasonId: episode.seasonId,
       ),
     );
+    _isEpisode ? context.pushReplacement(location) : context.push(location);
   }
 
   /// The room under the still. Measured rather than guessed, or a larger user
@@ -255,6 +256,7 @@ class _MinimalistEpisodesSectionState extends State<MinimalistEpisodesSection> {
                     episode: episode,
                     width: cardWidth,
                     isFocused: isFocused,
+                    isCurrent: _isEpisode && episode.id == _vm.item?.id,
                     imageUrl: minimalistEpisodeImageUrl(
                       episode,
                       _vm,

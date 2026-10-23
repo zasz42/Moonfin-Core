@@ -367,6 +367,17 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
                 icon: Icons.volume_up,
                 onChanged: _pushPersonalizationSync,
               ),
+              SliderPreferenceTile(
+                preference: UserPreferences.previewVolume,
+                title: l10n.previewVolume,
+                description: l10n.previewVolumeDescription,
+                icon: Icons.volume_down,
+                min: 0,
+                max: 100,
+                divisions: 20,
+                labelOf: (v) => '$v%',
+                onChangeEnd: _pushPersonalizationSync,
+              ),
             ],
           ),
 

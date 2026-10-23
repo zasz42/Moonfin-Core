@@ -2011,19 +2011,6 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String channelsCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count kanałów',
-      many: '$count kanałów',
-      few: '$count kanały',
-      one: '$count kanał',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get mono => 'Mono';
 
   @override
@@ -2160,9 +2147,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String bitrateValueMbps(int mbps) {
     return '$mbps Mbps';
   }
-
-  @override
-  String get bitrateOverride => 'Wymuszony bitrate';
 
   @override
   String get audioDelay => 'Opóźnienie dźwięku';
@@ -2405,28 +2389,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get hdr => 'HDR';
 
   @override
-  String get hdrOutput => 'Wyjście HDR';
-
-  @override
-  String hdrOutputActive(String format) {
-    return 'Aktywne — $format';
-  }
-
-  @override
-  String get hdrOutputActiveTonemapped =>
-      'Aktywne — mapowanie tonów do SDR dla tego wyświetlacza';
-
-  @override
-  String get hdrOutputContentSdr => 'Nieaktywne — materiał jest w SDR';
-
-  @override
-  String get hdrOutputDisabled => 'Nieaktywne — wyłączone w ustawieniach';
-
-  @override
-  String get hdrOutputFailed =>
-      'Nieaktywne — nie udało się uruchomić, używana jest standardowa ścieżka';
-
-  @override
   String get videoRenderer => 'Renderowanie wideo';
 
   @override
@@ -2443,22 +2405,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get videoRendererInApp => 'W aplikacji (tryb starszego typu)';
 
   @override
-  String get codec => 'Kodek';
-
-  @override
-  String get videoBitrate => 'Bitrate wideo';
-
-  @override
   String get track => 'Ścieżka';
 
   @override
   String get channels => 'Kanały';
-
-  @override
-  String get audioBitrate => 'Bitrate dźwięku';
-
-  @override
-  String get sampleRate => 'Częstotliwość próbkowania';
 
   @override
   String get format => 'Format';
@@ -2482,6 +2432,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get epubUnavailableOnPlatform =>
       'Renderowanie plików EPUB w aplikacji nie jest jeszcze dostępne na tej platformie.';
+
+  @override
+  String get bookReadingUnavailableTitle => 'Books can\'t be read on Apple TV';
+
+  @override
+  String get bookReadingUnavailableMessage =>
+      'Open it in Moonfin on a phone, tablet or computer to read it. Audiobooks still play here.';
 
   @override
   String formatCannotRenderInApp(String extension) {
@@ -3266,12 +3223,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Skaluj karty i kafelki po najechaniu lub zaznaczeniu';
 
   @override
-  String get backgroundBackdrops => 'Grafiki tła';
-
-  @override
-  String get showBackdropImages => 'Pokazuj grafiki tła za treścią';
-
-  @override
   String get seriesThumbnails => 'Wyświetlaj miniatury seriali';
 
   @override
@@ -3961,22 +3912,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Preferuj audiodeskrypcję zamiast zwykłej ścieżki audio.';
 
   @override
-  String get transcodingAudio => 'Transkodowanie (audio)';
-
-  @override
-  String get directStreamRemux => 'Direct Stream (Remux)';
-
-  @override
-  String get transcodingBitrateOrResolution =>
-      'Transkodowanie z powodu bitrate’u lub rozdzielczości';
-
-  @override
-  String get transcodingVideoAndAudio => 'Transkodowanie (wideo i audio)';
-
-  @override
-  String get transcodingVideo => 'Transkodowanie (wideo)';
-
-  @override
   String get autoServerDefault => 'Automatycznie (domyślne serwera)';
 
   @override
@@ -4052,6 +3987,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get settingsAudioFallbackCodecDescription =>
       'Wybierz format docelowy transkodowania dźwięku wielokanałowego, gdy strumienia źródłowego nie można odtworzyć bezpośrednio ani przekazać bez dekodowania.';
+
+  @override
+  String get transcodeAudioCodecs => 'Transcode Audio Codecs';
+
+  @override
+  String get transcodeAudioCodecsDescription =>
+      'The server converts audio in these formats instead of sending it as is.';
 
   @override
   String get settingsAudioFallbackCodecAuto =>
@@ -4226,42 +4168,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String settingsAudioPcmChannels(int count) {
     return '$count kan. PCM';
   }
-
-  @override
-  String get settingsAudioDiagnostics => 'Diagnostyka';
-
-  @override
-  String get settingsAudioDiagnosticsVideoLevel => 'Poziom wideo';
-
-  @override
-  String get settingsAudioDiagnosticsVideoRange => 'Zakres wideo';
-
-  @override
-  String get settingsAudioDiagnosticsSubtitleCodec => 'Kodek napisów';
-
-  @override
-  String get settingsAudioDiagnosticsAllowedAudioCodecs =>
-      'Dozwolone kodeki audio';
-
-  @override
-  String get settingsAudioDiagnosticsHlsMpegTsAudioCodecs =>
-      'Kodeki audio HLS MPEG-TS';
-
-  @override
-  String get settingsAudioDiagnosticsHlsFmp4AudioCodecs =>
-      'Kodeki audio HLS fMP4';
-
-  @override
-  String get settingsAudioDiagnosticsAudioSpdifPassthrough =>
-      'audio-spdif passthrough';
-
-  @override
-  String get settingsAudioDiagnosticsActiveAudioRoute =>
-      'Aktywne wyjście audio';
-
-  @override
-  String get settingsAudioDiagnosticsRouteHdAudioSupport =>
-      'Obsługa audio HD przez wyjście';
 
   @override
   String get nightMode => 'Tryb nocny';
@@ -5126,6 +5032,12 @@ class AppLocalizationsPl extends AppLocalizations {
       'Włącz dźwięk w zwiastunach na pasku multimediów';
 
   @override
+  String get trailerVolume => 'Trailer Volume';
+
+  @override
+  String get trailerVolumeDescription => 'How loud media bar trailers play';
+
+  @override
   String get trailerCaptions => 'Napisy w zwiastunach';
 
   @override
@@ -5151,6 +5063,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get enablePreviewAudio => 'Włącz dźwięk w podglądach materiałów';
+
+  @override
+  String get previewVolume => 'Preview Volume';
+
+  @override
+  String get previewVolumeDescription =>
+      'How loud media previews on cards play';
 
   @override
   String get latestMedia => 'Ostatnio dodane';
@@ -5287,6 +5206,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get enablePinCode => 'Włącz kod PIN';
+
+  @override
+  String get pinSynced => 'PIN synced';
+
+  @override
+  String get pinResetFailed =>
+      'The PIN on the server could not be cleared. If it is still set, ask a server administrator to remove it.';
 
   @override
   String get requirePinToAccess =>
@@ -12280,9 +12206,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Pokazuj szczegóły wybranej pozycji u góry stron biblioteki.';
 
   @override
-  String get hideBackdropsInLibraries => 'Ukryj tła podczas przeglądania';
-
-  @override
   String get useDetailedSubHeadings =>
       'Używaj szczegółowych informacji pomocniczych';
 
@@ -12664,6 +12587,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get useExternalPlayerSubtitle =>
       'Otwieraj odtwarzanie wideo w wybranej zewnętrznej aplikacji na Android TV.';
+
+  @override
+  String get externalPlayerLiveTvOnly => 'Live TV Only';
+
+  @override
+  String get externalPlayerLiveTvOnlySubtitle =>
+      'Use the external player for Live TV and keep everything else in the built-in player.';
 
   @override
   String get automaticQueuing => 'Automatyczne kolejkowanie';
@@ -14463,6 +14393,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Direct Play nie jest obsługiwane dla tego formatu materiału.';
 
   @override
+  String get sortServerOrder => 'Server Order';
+
+  @override
   String get sortAlphabetical => 'Alfabetycznie';
 
   @override
@@ -15425,6 +15358,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get navYou => 'Ty';
 
   @override
+  String get cinemaSkipPrerolls => 'Cinema Mode Skip Button';
+
+  @override
+  String get cinemaSkipPrerollsDescription =>
+      'Show a Skip button during Cinema Mode trailers, commercials, and other pre-rolls.';
+
+  @override
   String get detailsPage => 'Strona szczegółów';
 
   @override
@@ -15624,4 +15564,225 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get librarySortLength => 'Length';
+
+  @override
+  String get homeScreenBackdrop => 'Home Screen Backdrop';
+
+  @override
+  String get detailsScreenBackdrop => 'Details Screen Backdrop';
+
+  @override
+  String get libraryBackdrops => 'Library Backdrops';
+
+  @override
+  String get playbackInfoChannel => 'Channel';
+
+  @override
+  String get playbackInfoProgram => 'Program';
+
+  @override
+  String get playbackInfoWhy => 'Why';
+
+  @override
+  String get playbackInfoQualityLimit => 'Quality Limit';
+
+  @override
+  String get playbackInfoFrameRate => 'Frame Rate';
+
+  @override
+  String get playbackInfoDelivery => 'Delivery';
+
+  @override
+  String get playbackInfoFile => 'File';
+
+  @override
+  String get playbackInfoTechnical => 'Technical';
+
+  @override
+  String get playbackInfoDevice => 'Device';
+
+  @override
+  String get playbackInfoAudioRoute => 'Audio Route';
+
+  @override
+  String get playbackInfoSurround51 => '5.1 surround';
+
+  @override
+  String get playbackInfoSurround71 => '7.1 surround';
+
+  @override
+  String playbackInfoChannelCount(int count) {
+    return '$count channels';
+  }
+
+  @override
+  String get playbackInfoBurnedIn => 'Burned in by the server';
+
+  @override
+  String playbackInfoOriginal(String value, String original) {
+    return '$value (original $original)';
+  }
+
+  @override
+  String playbackInfoConvertedFrom(String value, String source) {
+    return '$value (converted from $source)';
+  }
+
+  @override
+  String playbackInfoResolutionConverted(
+    String name,
+    String size,
+    String source,
+  ) {
+    return '$name ($size, converted from $source)';
+  }
+
+  @override
+  String get playbackInfoNoteDirectPlay => 'Playing the original file as is.';
+
+  @override
+  String get playbackInfoNoteDirectStream =>
+      'The server is repackaging the file without converting it.';
+
+  @override
+  String get playbackInfoNoteTranscodeVideo =>
+      'The server is converting the video so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeAudio =>
+      'The server is converting the audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeBoth =>
+      'The server is converting the video and audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeUnknown =>
+      'The server is converting this file so this device can play it.';
+
+  @override
+  String get playbackInfoNoteOffline => 'Playing a downloaded copy.';
+
+  @override
+  String get playbackInfoWhyForced => 'Transcoding is forced in settings';
+
+  @override
+  String get playbackInfoWhyBitrate =>
+      'The bitrate is above the streaming limit';
+
+  @override
+  String get playbackInfoWhyContainer =>
+      'This device can\'t play this file type';
+
+  @override
+  String get playbackInfoWhyVideo =>
+      'This device can\'t play this video format';
+
+  @override
+  String get playbackInfoWhyHdr => 'This device can\'t display this HDR format';
+
+  @override
+  String get playbackInfoWhyAudio =>
+      'This device can\'t play this audio format';
+
+  @override
+  String get playbackInfoWhySubtitles =>
+      'Subtitles are being burned into the video';
+
+  @override
+  String get playbackInfoWhyOther => 'The file couldn\'t be played directly';
+
+  @override
+  String playbackInfoWhyBitrateLimit(String bitrate, String limit) {
+    return '$bitrate is above the $limit streaming limit';
+  }
+
+  @override
+  String playbackInfoWhyContainerName(String container) {
+    return 'This device can\'t open $container files';
+  }
+
+  @override
+  String playbackInfoWhyVideoCodec(String codec) {
+    return 'This device can\'t play $codec video';
+  }
+
+  @override
+  String playbackInfoWhyVideoProfile(String codec, String profile) {
+    return 'This device can\'t play $codec $profile video';
+  }
+
+  @override
+  String playbackInfoWhyVideoLevel(String codec, String level) {
+    return 'This device can\'t play $codec level $level video';
+  }
+
+  @override
+  String playbackInfoWhyVideoBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit video';
+  }
+
+  @override
+  String playbackInfoWhyVideoResolution(String resolution) {
+    return 'This device can\'t play $resolution video';
+  }
+
+  @override
+  String playbackInfoWhyVideoFrameRate(String fps) {
+    return 'This device can\'t play $fps fps video';
+  }
+
+  @override
+  String get playbackInfoWhyInterlaced =>
+      'This device can\'t play interlaced video';
+
+  @override
+  String get playbackInfoWhyAnamorphic =>
+      'This device can\'t play anamorphic video';
+
+  @override
+  String playbackInfoWhyHdrName(String range) {
+    return 'This device can\'t display $range';
+  }
+
+  @override
+  String playbackInfoWhyAudioCodec(String format) {
+    return 'This device can\'t play $format audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioProfile(String fullFormat) {
+    return 'This device can\'t play $fullFormat';
+  }
+
+  @override
+  String playbackInfoWhyAudioChannels(String channels) {
+    return 'This device can\'t play $channels audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioSampleRate(String rate) {
+    return 'This device can\'t play $rate kHz audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit audio';
+  }
+
+  @override
+  String get playbackInfoWhyAudioExternal =>
+      'The audio track is in a separate file';
+
+  @override
+  String get playbackInfoWhySecondaryAudio =>
+      'This device can only play the first audio track';
+
+  @override
+  String playbackInfoWhySubtitleFormat(String format) {
+    return '$format subtitles are being burned into the video';
+  }
+
+  @override
+  String get playbackInfoDroppedFrames => 'Dropped Frames';
 }

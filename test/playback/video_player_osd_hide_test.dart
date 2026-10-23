@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:playback_core/playback_core.dart';
 import 'package:server_core/server_core.dart';
@@ -23,6 +25,8 @@ import 'package:moonfin/playback/playback_lifecycle_handler.dart';
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:moonfin/ui/screens/playback/video_player_screen.dart';
 import 'package:moonfin/ui/screensaver/screensaver_controller.dart';
+import 'package:moonfin/ui/widgets/playback/skip_segment_overlay.dart';
+import 'package:moonfin/util/platform_detection.dart';
 
 import '../util/media_segment_fakes.dart';
 
@@ -71,6 +75,8 @@ class _Users extends Fake implements UserRepository {
 class _Manager extends PlaybackManager {
   final transport = <String>[];
   final seeks = <Duration>[];
+  int stopCalls = 0;
+  int nextInQueueCalls = 0;
   PlaybackBringupState bringup = const PlaybackBringupState.idle();
 
   @override
@@ -84,6 +90,17 @@ class _Manager extends PlaybackManager {
 
   @override
   Future<void> seekTo(Duration position) async => seeks.add(position);
+
+  @override
+  Future<void> stop({bool userInitiated = true}) async {
+    stopCalls++;
+  }
+
+  @override
+  Future<void> nextInQueue() async {
+    nextInQueueCalls++;
+    queueService.next();
+  }
 }
 
 void main() {
@@ -121,6 +138,223 @@ void main() {
     await GetIt.instance.reset();
   });
 
+  Future<void> mountPlayer(WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: const VideoPlayerScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('desktop Escape and Cinema Skip dismiss keys', (tester) async {
+    var fullscreen = true;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'),
+      (call) async {
+        if (call.method == 'isFullScreen') return fullscreen;
+        if (call.method == 'setFullScreen') {
+          fullscreen = (call.arguments as Map)['isFullScreen'] as bool;
+        }
+        if (call.method == 'isVisible') return true;
+        return call.method.startsWith('is') ? false : null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('window_manager'), null));
+    await GetIt.instance<UserPreferences>()
+        .set(UserPreferences.cinemaModeSkipEnabled, true);
+    manager.queueService.setQueue([
+      {'Id': 'trailer', '__moonfinIsPreroll': true, 'RunTimeTicks': 900000000},
+    ]);
+    await mountPlayer(tester);
+    final skip = find.byType(SkipSegmentOverlay);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(fullscreen, isFalse);
+    expect(skip, findsOneWidget);
+
+    for (final key in [
+      LogicalKeyboardKey.backspace,
+      LogicalKeyboardKey.delete,
+    ]) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+      expect(skip, findsNothing);
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+      expect(manager.stopCalls, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(skip, findsOneWidget);
+    }
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('moving the mouse after the X keeps Cinema Skip hidden', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'),
+      (call) async {
+        if (call.method == 'isVisible') return true;
+        return call.method.startsWith('is') ? false : null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('window_manager'), null));
+    await GetIt.instance<UserPreferences>()
+        .set(UserPreferences.cinemaModeSkipEnabled, true);
+    manager.queueService.setQueue([
+      {'Id': 'trailer', '__moonfinIsPreroll': true, 'RunTimeTicks': 900000000},
+    ]);
+    await mountPlayer(tester);
+    final skip = find.byType(SkipSegmentOverlay);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump();
+    expect(skip, findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(100, 300));
+    await tester.pump(const Duration(seconds: 2));
+    await mouse.moveTo(const Offset(300, 300));
+    await tester.pump();
+    expect(skip, findsNothing);
+    await mouse.removePointer();
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('with Cinema Skip off, Escape in a pre-roll still exits', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('window_manager'),
+      (call) async {
+        if (call.method == 'isFullScreen' || call.method == 'isVisible') {
+          return true;
+        }
+        return call.method.startsWith('is') ? false : null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('window_manager'), null));
+    // Leaving playback resets the orientations, which waits on this channel.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (_) async => null,
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    manager.queueService.setQueue([
+      {'Id': 'trailer', '__moonfinIsPreroll': true, 'RunTimeTicks': 900000000},
+    ]);
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(path: '/home', builder: (_, _) => const SizedBox()),
+        GoRoute(path: '/play', builder: (_, _) => const VideoPlayerScreen()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+      ),
+    );
+    router.push('/play');
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(manager.stopCalls, 1);
+    expect(find.byType(VideoPlayerScreen), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('Back hides, Right reveals, Select and Fast Forward advance', (
+    tester,
+  ) async {
+    PlatformDetection.setTvMode(true);
+    addTearDown(() => PlatformDetection.setTvMode(false));
+    await GetIt.instance<UserPreferences>().set(
+      UserPreferences.cinemaModeSkipEnabled,
+      true,
+    );
+    manager.queueService.setQueue([
+      {'Id': 'first', '__moonfinIsPreroll': true, 'RunTimeTicks': 900000000},
+      {'Id': 'second', '__moonfinIsPreroll': true, 'RunTimeTicks': 450000000},
+      {'Id': 'short', '__moonfinIsPreroll': true, 'RunTimeTicks': 50000000},
+    ]);
+    await mountPlayer(tester);
+    final button = find.byType(SkipSegmentOverlay);
+    expect(
+      tester.widget<SkipSegmentOverlay>(button).focusNode!.hasPrimaryFocus,
+      isTrue,
+    );
+    await tester.sendKeyEvent(
+      LogicalKeyboardKey.goBack,
+      physicalKey: PhysicalKeyboardKey.escape,
+    );
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+    expect(manager.queueService.currentIndex, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(manager.queueService.currentIndex, 1);
+    expect(tester.widget<SkipSegmentOverlay>(button).segment.itemId, 'second');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.sendKeyEvent(LogicalKeyboardKey.mediaFastForward);
+    await tester.pump();
+    expect(manager.queueService.currentIndex, 2);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('short Cinema pre-roll blocks ordinary intro/outro actions', (
+    tester,
+  ) async {
+    final prefs = GetIt.instance<UserPreferences>();
+    await prefs.set(UserPreferences.cinemaModeSkipEnabled, true);
+    await prefs.set(UserPreferences.mediaSegmentActions, 'intro:skip,outro:skip');
+    (GetIt.instance<MediaServerClient>() as _Client).items.segments = [
+      segmentJson(id: 'intro', type: 'Intro', startMs: 1000, endMs: 2000),
+      segmentJson(id: 'outro', type: 'Outro', startMs: 3000, endMs: 4000),
+    ];
+    manager.queueService.setQueue([
+      const AggregatedItem(
+        id: 'short',
+        serverId: 'server',
+        rawData: {
+          'Id': 'short',
+          '__moonfinIsPreroll': true,
+          'RunTimeTicks': 50000000,
+          'Chapters': [{'StartPositionTicks': 0}],
+        },
+      ),
+    ]);
+    await mountPlayer(tester);
+    expect(find.byType(SkipSegmentOverlay), findsNothing);
+    manager.state.setPosition(const Duration(milliseconds: 1500));
+    await tester.pump();
+    manager.state.setPosition(const Duration(milliseconds: 3500));
+    await tester.pump();
+    expect(manager.seeks, isEmpty);
+    expect(manager.stopCalls, 0);
+    await prefs.set(UserPreferences.cinemaModeSkipEnabled, false);
+    manager.state.setPosition(const Duration(milliseconds: 1500));
+    await tester.pump();
+    expect(manager.seeks, [const Duration(seconds: 2)]);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   // Issue #1688: a resume that takes longer than the hide delay to start
   // playing left the controls up until a key was pressed.
   testWidgets('controls hide after a start slower than the hide delay', (
@@ -144,6 +378,34 @@ void main() {
     );
 
     manager.state.setPlaying(true);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.byType(Slider), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('controls stay up while a dialog covers the player', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: const VideoPlayerScreen(),
+      ),
+    );
+    await tester.pump();
+    manager.state.setPlaying(true);
+    await tester.pump();
+
+    final player = tester.element(find.byType(VideoPlayerScreen));
+    showDialog<void>(context: player, builder: (_) => const SizedBox());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.byType(Slider), findsOneWidget);
+
+    Navigator.of(player).pop();
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
     expect(find.byType(Slider), findsNothing);

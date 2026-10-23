@@ -1836,11 +1836,6 @@ class AppLocalizationsYue extends AppLocalizations {
   }
 
   @override
-  String channelsCount(int count) {
-    return '$count 聲道';
-  }
-
-  @override
   String get mono => '單聲道';
 
   @override
@@ -1974,9 +1969,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String bitrateValueMbps(int mbps) {
     return '$mbps Mbps';
   }
-
-  @override
-  String get bitrateOverride => '比特率覆蓋';
 
   @override
   String get audioDelay => '音訊延遲';
@@ -2217,28 +2209,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String get hdr => '高動態範圍';
 
   @override
-  String get hdrOutput => 'HDR output';
-
-  @override
-  String hdrOutputActive(String format) {
-    return 'Active — $format';
-  }
-
-  @override
-  String get hdrOutputActiveTonemapped =>
-      'Active — tone-mapped to SDR for this display';
-
-  @override
-  String get hdrOutputContentSdr => 'Inactive — content is SDR';
-
-  @override
-  String get hdrOutputDisabled => 'Inactive — turned off in settings';
-
-  @override
-  String get hdrOutputFailed =>
-      'Inactive — could not start, using the standard path';
-
-  @override
   String get videoRenderer => 'Video Renderer';
 
   @override
@@ -2255,22 +2225,10 @@ class AppLocalizationsYue extends AppLocalizations {
   String get videoRendererInApp => 'In-app (legacy)';
 
   @override
-  String get codec => '編解碼器';
-
-  @override
-  String get videoBitrate => '視訊比特率';
-
-  @override
   String get track => '音軌';
 
   @override
   String get channels => '頻道';
-
-  @override
-  String get audioBitrate => '音訊比特率';
-
-  @override
-  String get sampleRate => '取樣率';
 
   @override
   String get format => '格式';
@@ -2293,6 +2251,13 @@ class AppLocalizationsYue extends AppLocalizations {
 
   @override
   String get epubUnavailableOnPlatform => '應用程式內 EPUB 渲染在此平台上尚不可用。';
+
+  @override
+  String get bookReadingUnavailableTitle => 'Books can\'t be read on Apple TV';
+
+  @override
+  String get bookReadingUnavailableMessage =>
+      'Open it in Moonfin on a phone, tablet or computer to read it. Audiobooks still play here.';
 
   @override
   String formatCannotRenderInApp(String extension) {
@@ -3034,12 +2999,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String get scaleFocusedCards => '縮放聚焦或懸停的卡片和圖塊';
 
   @override
-  String get backgroundBackdrops => '背景背景';
-
-  @override
-  String get showBackdropImages => '顯示內容後面的背景影像';
-
-  @override
   String get seriesThumbnails => '系列縮圖';
 
   @override
@@ -3712,21 +3671,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String get preferAudioDescriptionDescription => '優先用口述影像音軌，唔用普通音軌。';
 
   @override
-  String get transcodingAudio => '轉碼（音訊）';
-
-  @override
-  String get directStreamRemux => '直接串流（重新封裝）';
-
-  @override
-  String get transcodingBitrateOrResolution => '轉碼（位元率或解析度）';
-
-  @override
-  String get transcodingVideoAndAudio => '轉碼（視訊同音訊）';
-
-  @override
-  String get transcodingVideo => '轉碼（視訊）';
-
-  @override
   String get autoServerDefault => '自動（伺服器預設）';
 
   @override
@@ -3801,6 +3745,13 @@ class AppLocalizationsYue extends AppLocalizations {
   @override
   String get settingsAudioFallbackCodecDescription =>
       '揀當來源串流冇辦法直接播放或者直通嗰陣，多聲道音訊要轉碼成咩格式。';
+
+  @override
+  String get transcodeAudioCodecs => 'Transcode Audio Codecs';
+
+  @override
+  String get transcodeAudioCodecsDescription =>
+      'The server converts audio in these formats instead of sending it as is.';
 
   @override
   String get settingsAudioFallbackCodecAuto => '自動偵測\n（建議）';
@@ -3971,37 +3922,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String settingsAudioPcmChannels(int count) {
     return '$count 聲道 PCM';
   }
-
-  @override
-  String get settingsAudioDiagnostics => '診斷';
-
-  @override
-  String get settingsAudioDiagnosticsVideoLevel => '視訊等級';
-
-  @override
-  String get settingsAudioDiagnosticsVideoRange => '視訊範圍';
-
-  @override
-  String get settingsAudioDiagnosticsSubtitleCodec => '字幕編解碼器';
-
-  @override
-  String get settingsAudioDiagnosticsAllowedAudioCodecs => '允許嘅音訊編解碼器';
-
-  @override
-  String get settingsAudioDiagnosticsHlsMpegTsAudioCodecs =>
-      'HLS MPEG-TS 音訊編解碼器';
-
-  @override
-  String get settingsAudioDiagnosticsHlsFmp4AudioCodecs => 'HLS fMP4 音訊編解碼器';
-
-  @override
-  String get settingsAudioDiagnosticsAudioSpdifPassthrough => 'audio-spdif 直通';
-
-  @override
-  String get settingsAudioDiagnosticsActiveAudioRoute => '使用中嘅音訊路由';
-
-  @override
-  String get settingsAudioDiagnosticsRouteHdAudioSupport => '路由 HD 音訊支援';
 
   @override
   String get nightMode => '夜間模式';
@@ -4835,6 +4755,12 @@ class AppLocalizationsYue extends AppLocalizations {
   String get enableTrailerAudio => '喺媒體列嘅預告片開聲';
 
   @override
+  String get trailerVolume => 'Trailer Volume';
+
+  @override
+  String get trailerVolumeDescription => 'How loud media bar trailers play';
+
+  @override
   String get trailerCaptions => 'Trailer Captions';
 
   @override
@@ -4858,6 +4784,13 @@ class AppLocalizationsYue extends AppLocalizations {
 
   @override
   String get enablePreviewAudio => '為預告片和劇集預覽啟用音訊';
+
+  @override
+  String get previewVolume => 'Preview Volume';
+
+  @override
+  String get previewVolumeDescription =>
+      'How loud media previews on cards play';
 
   @override
   String get latestMedia => '最新媒體';
@@ -4983,6 +4916,13 @@ class AppLocalizationsYue extends AppLocalizations {
 
   @override
   String get enablePinCode => '啟用 PIN 碼';
+
+  @override
+  String get pinSynced => 'PIN synced';
+
+  @override
+  String get pinResetFailed =>
+      'The PIN on the server could not be cleared. If it is still set, ask a server administrator to remove it.';
 
   @override
   String get requirePinToAccess => '需要 PIN 碼才能存取您的帳戶';
@@ -11651,9 +11591,6 @@ class AppLocalizationsYue extends AppLocalizations {
   String get showMediaDetailsOnLibraryPageDescription => '喺媒體庫頁面頂部顯示已揀項目嘅詳情。';
 
   @override
-  String get hideBackdropsInLibraries => '瀏覽嗰陣隱藏背景圖？';
-
-  @override
   String get useDetailedSubHeadings => '用詳細副標題';
 
   @override
@@ -12009,6 +11946,13 @@ class AppLocalizationsYue extends AppLocalizations {
 
   @override
   String get useExternalPlayerSubtitle => '喺 Android TV 度用你揀咗嘅外部應用程式播片。';
+
+  @override
+  String get externalPlayerLiveTvOnly => 'Live TV Only';
+
+  @override
+  String get externalPlayerLiveTvOnlySubtitle =>
+      'Use the external player for Live TV and keep everything else in the built-in player.';
 
   @override
   String get automaticQueuing => '自動排隊';
@@ -13728,6 +13672,9 @@ class AppLocalizationsYue extends AppLocalizations {
       'Direct play is not supported for this media format.';
 
   @override
+  String get sortServerOrder => 'Server Order';
+
+  @override
   String get sortAlphabetical => '按字母順序';
 
   @override
@@ -14671,6 +14618,13 @@ class AppLocalizationsYue extends AppLocalizations {
   String get navYou => 'You';
 
   @override
+  String get cinemaSkipPrerolls => 'Cinema Mode Skip Button';
+
+  @override
+  String get cinemaSkipPrerollsDescription =>
+      'Show a Skip button during Cinema Mode trailers, commercials, and other pre-rolls.';
+
+  @override
   String get detailsPage => 'Details Page';
 
   @override
@@ -14866,6 +14820,227 @@ class AppLocalizationsYue extends AppLocalizations {
 
   @override
   String get librarySortLength => 'Length';
+
+  @override
+  String get homeScreenBackdrop => 'Home Screen Backdrop';
+
+  @override
+  String get detailsScreenBackdrop => 'Details Screen Backdrop';
+
+  @override
+  String get libraryBackdrops => 'Library Backdrops';
+
+  @override
+  String get playbackInfoChannel => 'Channel';
+
+  @override
+  String get playbackInfoProgram => 'Program';
+
+  @override
+  String get playbackInfoWhy => 'Why';
+
+  @override
+  String get playbackInfoQualityLimit => 'Quality Limit';
+
+  @override
+  String get playbackInfoFrameRate => 'Frame Rate';
+
+  @override
+  String get playbackInfoDelivery => 'Delivery';
+
+  @override
+  String get playbackInfoFile => 'File';
+
+  @override
+  String get playbackInfoTechnical => 'Technical';
+
+  @override
+  String get playbackInfoDevice => 'Device';
+
+  @override
+  String get playbackInfoAudioRoute => 'Audio Route';
+
+  @override
+  String get playbackInfoSurround51 => '5.1 surround';
+
+  @override
+  String get playbackInfoSurround71 => '7.1 surround';
+
+  @override
+  String playbackInfoChannelCount(int count) {
+    return '$count channels';
+  }
+
+  @override
+  String get playbackInfoBurnedIn => 'Burned in by the server';
+
+  @override
+  String playbackInfoOriginal(String value, String original) {
+    return '$value (original $original)';
+  }
+
+  @override
+  String playbackInfoConvertedFrom(String value, String source) {
+    return '$value (converted from $source)';
+  }
+
+  @override
+  String playbackInfoResolutionConverted(
+    String name,
+    String size,
+    String source,
+  ) {
+    return '$name ($size, converted from $source)';
+  }
+
+  @override
+  String get playbackInfoNoteDirectPlay => 'Playing the original file as is.';
+
+  @override
+  String get playbackInfoNoteDirectStream =>
+      'The server is repackaging the file without converting it.';
+
+  @override
+  String get playbackInfoNoteTranscodeVideo =>
+      'The server is converting the video so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeAudio =>
+      'The server is converting the audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeBoth =>
+      'The server is converting the video and audio so this device can play it.';
+
+  @override
+  String get playbackInfoNoteTranscodeUnknown =>
+      'The server is converting this file so this device can play it.';
+
+  @override
+  String get playbackInfoNoteOffline => 'Playing a downloaded copy.';
+
+  @override
+  String get playbackInfoWhyForced => 'Transcoding is forced in settings';
+
+  @override
+  String get playbackInfoWhyBitrate =>
+      'The bitrate is above the streaming limit';
+
+  @override
+  String get playbackInfoWhyContainer =>
+      'This device can\'t play this file type';
+
+  @override
+  String get playbackInfoWhyVideo =>
+      'This device can\'t play this video format';
+
+  @override
+  String get playbackInfoWhyHdr => 'This device can\'t display this HDR format';
+
+  @override
+  String get playbackInfoWhyAudio =>
+      'This device can\'t play this audio format';
+
+  @override
+  String get playbackInfoWhySubtitles =>
+      'Subtitles are being burned into the video';
+
+  @override
+  String get playbackInfoWhyOther => 'The file couldn\'t be played directly';
+
+  @override
+  String playbackInfoWhyBitrateLimit(String bitrate, String limit) {
+    return '$bitrate is above the $limit streaming limit';
+  }
+
+  @override
+  String playbackInfoWhyContainerName(String container) {
+    return 'This device can\'t open $container files';
+  }
+
+  @override
+  String playbackInfoWhyVideoCodec(String codec) {
+    return 'This device can\'t play $codec video';
+  }
+
+  @override
+  String playbackInfoWhyVideoProfile(String codec, String profile) {
+    return 'This device can\'t play $codec $profile video';
+  }
+
+  @override
+  String playbackInfoWhyVideoLevel(String codec, String level) {
+    return 'This device can\'t play $codec level $level video';
+  }
+
+  @override
+  String playbackInfoWhyVideoBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit video';
+  }
+
+  @override
+  String playbackInfoWhyVideoResolution(String resolution) {
+    return 'This device can\'t play $resolution video';
+  }
+
+  @override
+  String playbackInfoWhyVideoFrameRate(String fps) {
+    return 'This device can\'t play $fps fps video';
+  }
+
+  @override
+  String get playbackInfoWhyInterlaced =>
+      'This device can\'t play interlaced video';
+
+  @override
+  String get playbackInfoWhyAnamorphic =>
+      'This device can\'t play anamorphic video';
+
+  @override
+  String playbackInfoWhyHdrName(String range) {
+    return 'This device can\'t display $range';
+  }
+
+  @override
+  String playbackInfoWhyAudioCodec(String format) {
+    return 'This device can\'t play $format audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioProfile(String fullFormat) {
+    return 'This device can\'t play $fullFormat';
+  }
+
+  @override
+  String playbackInfoWhyAudioChannels(String channels) {
+    return 'This device can\'t play $channels audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioSampleRate(String rate) {
+    return 'This device can\'t play $rate kHz audio';
+  }
+
+  @override
+  String playbackInfoWhyAudioBitDepth(int bits) {
+    return 'This device can\'t play $bits-bit audio';
+  }
+
+  @override
+  String get playbackInfoWhyAudioExternal =>
+      'The audio track is in a separate file';
+
+  @override
+  String get playbackInfoWhySecondaryAudio =>
+      'This device can only play the first audio track';
+
+  @override
+  String playbackInfoWhySubtitleFormat(String format) {
+    return '$format subtitles are being burned into the video';
+  }
+
+  @override
+  String get playbackInfoDroppedFrames => 'Dropped Frames';
 }
 
 /// The translations for Yue Chinese Cantonese, as used in China (`yue_CN`).
@@ -15957,11 +16132,6 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   String get perfectMatch => '完美搭配';
 
   @override
-  String channelsCount(int count) {
-    return '${count}ch';
-  }
-
-  @override
   String get mono => '单核细胞增多症';
 
   @override
@@ -16097,9 +16267,6 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   }
 
   @override
-  String get bitrateOverride => '比特率覆盖';
-
-  @override
   String get audioDelay => '音频延迟';
 
   @override
@@ -16161,22 +16328,10 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   String get hdr => '高动态范围';
 
   @override
-  String get codec => '编解码器';
-
-  @override
-  String get videoBitrate => '视频比特率';
-
-  @override
   String get track => '追踪';
 
   @override
   String get channels => '渠道';
-
-  @override
-  String get audioBitrate => '音频比特率';
-
-  @override
-  String get sampleRate => '采样率';
 
   @override
   String get format => '格式';
@@ -16774,12 +16929,6 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   String get scaleFocusedCards => '缩放聚焦或悬停的卡片和图块';
 
   @override
-  String get backgroundBackdrops => '背景背景';
-
-  @override
-  String get showBackdropImages => '显示内容后面的背景图像';
-
-  @override
   String get seriesThumbnails => '系列缩略图';
 
   @override
@@ -17038,41 +17187,6 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   String settingsAudioPcmChannels(int count) {
     return '${count}ch PCM';
   }
-
-  @override
-  String get settingsAudioDiagnostics => 'Diagnostics';
-
-  @override
-  String get settingsAudioDiagnosticsVideoLevel => 'Video Level';
-
-  @override
-  String get settingsAudioDiagnosticsVideoRange => 'Video Range';
-
-  @override
-  String get settingsAudioDiagnosticsSubtitleCodec => 'Subtitle Codec';
-
-  @override
-  String get settingsAudioDiagnosticsAllowedAudioCodecs =>
-      'Allowed Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsHlsMpegTsAudioCodecs =>
-      'HLS MPEG-TS Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsHlsFmp4AudioCodecs =>
-      'HLS fMP4 Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsAudioSpdifPassthrough =>
-      'audio-spdif passthrough';
-
-  @override
-  String get settingsAudioDiagnosticsActiveAudioRoute => 'Active Audio Route';
-
-  @override
-  String get settingsAudioDiagnosticsRouteHdAudioSupport =>
-      'Route HD Audio Support';
 
   @override
   String get nightMode => '夜间模式';
@@ -22945,11 +23059,6 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
   String get perfectMatch => '完美搭配';
 
   @override
-  String channelsCount(int count) {
-    return '${count}ch';
-  }
-
-  @override
   String get mono => '單核白血球增多症';
 
   @override
@@ -23085,9 +23194,6 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
   }
 
   @override
-  String get bitrateOverride => '比特率覆蓋';
-
-  @override
   String get audioDelay => '音訊延遲';
 
   @override
@@ -23149,22 +23255,10 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
   String get hdr => '高動態範圍';
 
   @override
-  String get codec => '編解碼器';
-
-  @override
-  String get videoBitrate => '視訊比特率';
-
-  @override
   String get track => '追蹤';
 
   @override
   String get channels => '頻道';
-
-  @override
-  String get audioBitrate => '音訊比特率';
-
-  @override
-  String get sampleRate => '取樣率';
 
   @override
   String get format => '格式';
@@ -23762,12 +23856,6 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
   String get scaleFocusedCards => '縮放聚焦或懸停的卡片和圖塊';
 
   @override
-  String get backgroundBackdrops => '背景背景';
-
-  @override
-  String get showBackdropImages => '顯示內容後面的背景影像';
-
-  @override
   String get seriesThumbnails => '系列縮圖';
 
   @override
@@ -24026,41 +24114,6 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
   String settingsAudioPcmChannels(int count) {
     return '${count}ch PCM';
   }
-
-  @override
-  String get settingsAudioDiagnostics => 'Diagnostics';
-
-  @override
-  String get settingsAudioDiagnosticsVideoLevel => 'Video Level';
-
-  @override
-  String get settingsAudioDiagnosticsVideoRange => 'Video Range';
-
-  @override
-  String get settingsAudioDiagnosticsSubtitleCodec => 'Subtitle Codec';
-
-  @override
-  String get settingsAudioDiagnosticsAllowedAudioCodecs =>
-      'Allowed Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsHlsMpegTsAudioCodecs =>
-      'HLS MPEG-TS Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsHlsFmp4AudioCodecs =>
-      'HLS fMP4 Audio Codecs';
-
-  @override
-  String get settingsAudioDiagnosticsAudioSpdifPassthrough =>
-      'audio-spdif passthrough';
-
-  @override
-  String get settingsAudioDiagnosticsActiveAudioRoute => 'Active Audio Route';
-
-  @override
-  String get settingsAudioDiagnosticsRouteHdAudioSupport =>
-      'Route HD Audio Support';
 
   @override
   String get nightMode => '夜間模式';

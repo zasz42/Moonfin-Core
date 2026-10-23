@@ -16,6 +16,7 @@ import 'dolby_vision_av1.dart';
 import 'engine_trust.dart';
 import 'known_defects.dart';
 import 'letterbox_croppers.dart';
+import 'lossless_audio_bridge.dart';
 import 'server_transcode_capabilities.dart';
 
 class AppleTvBackend implements PlayerBackend {
@@ -176,6 +177,7 @@ class AppleTvBackend implements PlayerBackend {
       case 'nextUpDismiss':
       case 'skipSegment':
       case 'skipSegmentDismiss':
+      case 'cinemaSkipAction':
       case 'userSeeked':
       case 'searchSubtitles':
       case 'downloadSubtitle':
@@ -348,6 +350,11 @@ class AppleTvBackend implements PlayerBackend {
       'audioProfile': payload['audioProfile']?.toString(),
       'audioChannels': payload['audioChannels'],
       'audioStreamIndex': (payload['audioStreamIndex'] as num?)?.toInt() ?? -1,
+      'audioBridgeLossless': usesLosslessAudioBridge(
+        _prefs.detectedAudioCapabilities,
+        maxAudioChannels: _prefs.resolveMaxAudioChannels(),
+        downmixToStereo: _prefs.get(UserPreferences.downmixToStereo),
+      ),
       'isLive': payload['isLive'] == true,
       'mediaType': payload['mediaType']?.toString() ?? 'video',
       'normalizationGainDb': (payload['normalizationGainDb'] as num?)?.toDouble(),
@@ -456,11 +463,13 @@ class AppleTvBackend implements PlayerBackend {
       maxBitrateMbps: maxBitrate,
       audioCapabilityProfile: audioCapabilityProfile,
       audioFallbackCodec: _prefs.resolveAudioFallbackCodec(),
+      transcodeAudioCodecs: _prefs.resolveTranscodeAudioCodecs(),
       ac3PassthroughEnabled: _prefs.resolveAc3PassthroughEnabled(),
       eac3PassthroughEnabled: _prefs.resolveEac3PassthroughEnabled(),
       dtsCorePassthroughEnabled: _prefs.resolveDtsCorePassthroughEnabled(),
       trueHdPassthroughEnabled: _prefs.resolveTrueHdPassthroughEnabled(),
       downmixToStereo: _prefs.get(UserPreferences.downmixToStereo),
+      maxAudioChannels: _prefs.resolveMaxAudioChannels(),
       // AetherEngine plays every advertised audio codec: AAC/AC3/EAC3(+JOC
       // Atmos)/FLAC/ALAC are stream-copied intact, and TrueHD/DTS/MP3/Opus/
       // Vorbis/PCM are bridged to EAC3 or FLAC on-device, so stereo routes
@@ -537,6 +546,8 @@ class AppleTvBackend implements PlayerBackend {
     required List<Map<String, dynamic>> subtitleTracks,
     String logoUrl = '',
     List<Map<String, dynamic>> streamInfoSections = const [],
+    String streamInfoTitle = '',
+    String streamInfoDroppedFramesLabel = '',
     Map<String, dynamic>? trickplay,
     bool hasCast = false,
     List<Map<String, dynamic>> castPeople = const [],
@@ -567,6 +578,8 @@ class AppleTvBackend implements PlayerBackend {
       'subtitleTracks': subtitleTracks,
       'logoUrl': logoUrl,
       'streamInfoSections': streamInfoSections,
+      'streamInfoTitle': streamInfoTitle,
+      'streamInfoDroppedFramesLabel': streamInfoDroppedFramesLabel,
       'trickplay': ?trickplay,
       'hasCast': hasCast,
       'castPeople': castPeople,
@@ -630,6 +643,9 @@ class AppleTvBackend implements PlayerBackend {
     final presented = await _invoke<bool>('showStillWatching');
     return presented ?? false;
   }
+
+  Future<void> setCinemaSkipState(Map<String, Object?> state) =>
+      _invoke<void>('setCinemaSkipState', state);
 
   Future<void> showSkipSegment(
     String label, {

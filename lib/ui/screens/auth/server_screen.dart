@@ -13,8 +13,9 @@ import '../../../auth/repositories/server_user_repository.dart';
 import '../../../auth/repositories/session_repository.dart';
 import '../../../auth/store/authentication_preferences.dart';
 import '../../../data/services/media_server_client_factory.dart';
+import '../../../data/services/pin_guard.dart';
+import '../../../data/services/server_pin_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../util/pin_code_util.dart';
 import '../../../util/platform_detection.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/login_scaffold.dart';
@@ -138,18 +139,43 @@ class _ServerScreenState extends State<ServerScreen> {
     ).toString();
   }
 
+  /// Set while a tapped user is being handled, since the PIN lookup before the
+  /// dialog takes long enough that Select gets pressed again.
+  bool _handlingUserTap = false;
+
   Future<void> _onUserTap(_MergedUser user) async {
+    if (_handlingUserTap) return;
+    _handlingUserTap = true;
+    try {
+      await _handleUserTap(user);
+    } finally {
+      _handlingUserTap = false;
+    }
+  }
+
+  Future<void> _handleUserTap(_MergedUser user) async {
     final server = _server;
     if (server == null) return;
 
-    final store = GetIt.instance<PreferenceStore>();
-    final pinUtil = PinCodeUtil(store, user.id);
+    final guard = PinGuard.forAccount(
+      store: GetIt.instance<PreferenceStore>(),
+      service: GetIt.instance<ServerPinService>(),
+      userId: user.id,
+      serverAddress: server.address,
+      accessToken: _userRepo
+          .getStoredServerUsers(server.id)
+          .where((stored) => stored.id == user.id)
+          .map((stored) => stored.accessToken)
+          .firstOrNull,
+    );
+    await guard.refresh();
+    if (!mounted) return;
 
-    if (pinUtil.isPinEnabled) {
+    if (guard.pin.isPinEnabled) {
       final verified = await PinEntryDialog.show(
         context,
         mode: PinEntryMode.verify,
-        onVerify: pinUtil.verifyPin,
+        onVerifyAsync: guard.verify,
         onForgotPin: () {
           if (mounted) {
             context.go(_buildUserLoginRoute(server, user, resetPin: true));

@@ -59,6 +59,7 @@ import 'util/game_core_licenses.dart';
 import 'util/device_performance.dart';
 import 'ui/navigation/app_router.dart';
 import 'ui/screensaver/screensaver_controller.dart';
+import 'ui/widgets/reader/epub_js_view.dart';
 import 'util/platform_detection.dart';
 import 'util/process_exit_reporter.dart';
 import 'util/system_ui.dart';
@@ -857,6 +858,7 @@ void main() async {
   await LiquidGlassWidgets.initialize();
 
   registerGameCoreLicenses();
+  registerEpubJsLicenses();
 
   if (!PlatformDetection.isWeb && PlatformDetection.isWindows) {
     try {

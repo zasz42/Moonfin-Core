@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
+import 'package:playback_core/playback_core.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
@@ -9,6 +12,8 @@ import '../../../data/models/home_row.dart';
 import '../../../data/services/row_data_source.dart';
 import '../../../data/viewmodels/music_browse_view_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../preference/preference_constants.dart';
+import '../../../preference/user_preferences.dart';
 import '../../../util/focus/row_focus_coordinator.dart';
 import '../../../util/platform_detection.dart';
 import '../../navigation/destinations.dart';
@@ -52,8 +57,23 @@ abstract class MusicLibraryState<T extends StatefulWidget> extends State<T> {
   List<Widget> _sections = [];
   final _rowKeys = <String, GlobalKey<LockedFocusRowState>>{};
   final _sectionKeys = <String, GlobalKey>{};
+  StreamSubscription<void>? _queueSub;
+  double _musicBarHeight = TopToolbar.musicBarExtraHeight();
 
   bool get wide => !PlatformDetection.useMobileUi;
+
+  /// Where the page's own header starts, below the top navbar and the music
+  /// pill under it while music plays.
+  double get topReserve =>
+      MediaQuery.paddingOf(context).top +
+      (NavigationLayout.sanitizeNavbarPosition(
+                GetIt.instance<UserPreferences>().get(
+                  UserPreferences.navbarPosition,
+                ),
+              ) ==
+              NavbarPosition.top
+          ? TopToolbar.heightFor(context)
+          : 56);
 
   @override
   void initState() {
@@ -65,10 +85,20 @@ abstract class MusicLibraryState<T extends StatefulWidget> extends State<T> {
     );
     vm.addListener(_onChanged);
     reload();
+    _queueSub = GetIt.instance<PlaybackManager>()
+        .queueService
+        .queueChangedStream
+        .listen((_) {
+          final height = TopToolbar.musicBarExtraHeight();
+          if (height != _musicBarHeight && mounted) {
+            setState(() => _musicBarHeight = height);
+          }
+        });
   }
 
   @override
   void dispose() {
+    _queueSub?.cancel();
     vm.removeListener(_onChanged);
     vm.dispose();
     initialFocusNode.dispose();

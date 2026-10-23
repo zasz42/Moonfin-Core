@@ -537,6 +537,17 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                   icon: Icons.volume_up,
                   onChanged: _pushSync,
                 ),
+                SliderPreferenceTile(
+                  preference: UserPreferences.trailerVolume,
+                  title: l10n.trailerVolume,
+                  description: l10n.trailerVolumeDescription,
+                  icon: Icons.volume_down,
+                  min: 0,
+                  max: 100,
+                  divisions: 20,
+                  labelOf: (v) => '$v%',
+                  onChangeEnd: _pushSync,
+                ),
                 SwitchPreferenceTile(
                   preference: UserPreferences.mediaBarTrailerCaptions,
                   title: l10n.trailerCaptions,
