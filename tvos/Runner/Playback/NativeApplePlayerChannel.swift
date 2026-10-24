@@ -2,6 +2,7 @@ import AetherEngine
 import Flutter
 import UIKit
 
+@MainActor
 final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
     private let control: FlutterMethodChannel
     private let events: FlutterEventChannel
