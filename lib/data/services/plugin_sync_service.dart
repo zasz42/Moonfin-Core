@@ -12,6 +12,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../data/repositories/seerr_repository.dart';
 import 'seerr/seerr_discover_sliders.dart';
+import 'incomplete_recordings_service.dart';
 import 'server_messages_service.dart';
 import 'settings_stream_transport.dart';
 import 'storage_path_service.dart';
@@ -31,8 +32,8 @@ enum _PluginAvailabilityStatus { available, unavailable, unknown }
 /// Without them the socket falls back to whatever the system allows, which is
 /// minutes on a link that drops connection attempts. Sign-in waits on the
 /// themes call before it reads the profile that decides which home rows exist,
-/// so a request left hanging there holds the whole profile back.
-@visibleForTesting
+/// so a request left hanging there holds the whole profile back. The
+/// incomplete recordings service shares them.
 BaseOptions pluginRequestOptions() => BaseOptions(
   connectTimeout: const Duration(seconds: 8),
   receiveTimeout: const Duration(seconds: 30),
@@ -57,6 +58,11 @@ class PluginSyncService extends ChangeNotifier {
   ServerMessagesService? get _messages =>
       GetIt.instance.isRegistered<ServerMessagesService>()
       ? GetIt.instance<ServerMessagesService>()
+      : null;
+
+  IncompleteRecordingsService? get _incompleteRecordings =>
+      GetIt.instance.isRegistered<IncompleteRecordingsService>()
+      ? GetIt.instance<IncompleteRecordingsService>()
       : null;
 
   bool _pluginAvailable = false;
@@ -94,6 +100,13 @@ class PluginSyncService extends ChangeNotifier {
   bool _tmdbPersonLinksSupported = false;
   bool get tmdbPersonLinksAvailable =>
       _pluginAvailable && _tmdbPersonLinksSupported;
+  bool _tmdbReviewsSupported = false;
+  bool get tmdbReviewsAvailable => _pluginAvailable && _tmdbReviewsSupported;
+
+  /// Whether the plugin can fill in a title the server doesn't have with its
+  /// TMDB overview, score, logo and trailer.
+  bool _tmdbDetailsSupported = false;
+  bool get tmdbDetailsAvailable => _pluginAvailable && _tmdbDetailsSupported;
   bool _recommendationsSupported = false;
   bool get recommendationsSupported =>
       _pluginAvailable && _recommendationsSupported;
@@ -216,7 +229,11 @@ class PluginSyncService extends ChangeNotifier {
     return value is String ? value : null;
   }
 
-  void resetState({bool notify = true, bool stopStream = true}) {
+  void resetState({
+    bool notify = true,
+    bool stopStream = true,
+    bool keepIncompleteRecordings = false,
+  }) {
     _syncRetryTimer?.cancel();
     if (stopStream) {
       _stopSettingsStream();
@@ -233,8 +250,11 @@ class PluginSyncService extends ChangeNotifier {
     _tmdbAvailable = false;
     _tmdbThumbsSupported = false;
     _tmdbPersonLinksSupported = false;
+    _tmdbReviewsSupported = false;
+    _tmdbDetailsSupported = false;
     _recommendationsSupported = false;
     _clientLogSupported = false;
+    if (!keepIncompleteRecordings) _incompleteRecordings?.setSupported(false);
     _activeThemeCacheServerId = null;
     if (notify) {
       _setLocalSeerrEnabled(false);
@@ -259,11 +279,18 @@ class PluginSyncService extends ChangeNotifier {
   Future<_PluginAvailabilityStatus> _refreshAvailabilityStatus(
     MediaServerClient client,
   ) async {
-    resetState(notify: false, stopStream: false);
+    // A re-ping of the same session keeps the incomplete recordings it has
+    // unless the answer says the plugin no longer offers them.
+    resetState(
+      notify: false,
+      stopStream: false,
+      keepIncompleteRecordings: true,
+    );
 
     try {
       final pingResult = await _ping(client);
       if (pingResult == null) {
+        _incompleteRecordings?.setSupported(false);
         _stopSettingsStream();
         notifyListeners();
         return _PluginAvailabilityStatus.unknown;
@@ -271,6 +298,7 @@ class PluginSyncService extends ChangeNotifier {
 
       final installed = _readBool(pingResult, 'installed');
       if (installed != null && !installed) {
+        _incompleteRecordings?.setSupported(false);
         _stopSettingsStream();
         _setLocalSeerrEnabled(false);
         notifyListeners();
@@ -279,6 +307,7 @@ class PluginSyncService extends ChangeNotifier {
 
       final syncEnabled = _readBool(pingResult, 'settingsSyncEnabled');
       if (syncEnabled != null && !syncEnabled) {
+        _incompleteRecordings?.setSupported(false);
         _stopSettingsStream();
         _setLocalSeerrEnabled(false);
         notifyListeners();
@@ -295,6 +324,10 @@ class PluginSyncService extends ChangeNotifier {
           _readBool(pingResult, 'tmdbThumbsSupported') ?? false;
       _tmdbPersonLinksSupported =
           _readBool(pingResult, 'tmdbPersonLinksSupported') ?? false;
+      _tmdbReviewsSupported =
+          _readBool(pingResult, 'tmdbReviewsSupported') ?? false;
+      _tmdbDetailsSupported =
+          _readBool(pingResult, 'tmdbDetailsSupported') ?? false;
       _recommendationsSupported =
           _readBool(pingResult, 'recommendationsSupported') ?? false;
       // Older plugins leave this out, which reads as false and hides the button.
@@ -302,6 +335,11 @@ class PluginSyncService extends ChangeNotifier {
         _readBool(pingResult, 'messagesSupported') ?? false,
       );
       _clientLogSupported = _readBool(pingResult, 'clientLogSupported') ?? false;
+      // The Emby port and older plugins leave this out, which hides the feature.
+      _incompleteRecordings?.setSupported(
+        _readBool(pingResult, 'incompleteRecordingsSupported') ?? false,
+        extended: _readBool(pingResult, 'extendedCompleteShowingsSupported') ?? false,
+      );
 
       final seerrConfig = await _fetchSeerrConfig(client);
       if (seerrConfig != null) {
@@ -1617,6 +1655,9 @@ class PluginSyncService extends ChangeNotifier {
       }
     }
 
+    // A profile written by an app that only knows the preview switch can
+    // carry a mode that disagrees with it.
+    await _prefs.reconcileMediaPreviewMode();
     _prefs.notifyPreferenceChanged();
 
     final currentNavbarPos = _prefs.get(UserPreferences.navbarPosition);

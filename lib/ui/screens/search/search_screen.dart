@@ -950,8 +950,8 @@ class _SearchScreenState extends State<SearchScreen>
                                 inputPurpose: InputPurpose.search,
                                 suggestionsBuilder: _fetchKeyboardSuggestions,
                                 recentSuggestions: _recentSearches,
-                                preferSystemIme: _userPreferences.get(
-                                  UserPreferences.preferSystemImeKeyboard,
+                                keyboardStyle: _userPreferences.get(
+                                  UserPreferences.keyboardStyle,
                                 ),
                                 hint: searchHint,
                                 textStyle: TextStyle(

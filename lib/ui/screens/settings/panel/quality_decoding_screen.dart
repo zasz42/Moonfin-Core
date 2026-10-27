@@ -106,6 +106,13 @@ class _QualityDecodingScreen extends StatelessWidget {
                   subtitle: l10n.preferSoftwareDecodersSubtitle,
                   icon: Icons.memory,
                 ),
+              if (PlatformDetection.offersHevcSoftwareDecode)
+                SwitchPreferenceTile(
+                  preference: UserPreferences.hevcSoftwareDirectPlay,
+                  title: l10n.hevcSoftwareDirectPlay,
+                  subtitle: l10n.hevcSoftwareDirectPlaySubtitle,
+                  icon: Icons.memory,
+                ),
               if (DisplayHdrProbe.isSupported) const _RedetectDisplayTile(),
               if (isAndroidTv)
                 EnumPreferenceTile<RefreshRateSwitchingBehavior>(

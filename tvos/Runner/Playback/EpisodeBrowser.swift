@@ -127,7 +127,6 @@ final class EpisodeBrowserViewController: UIViewController, RemotePlayerNavigabl
         seasonsView = UICollectionView(frame: .zero, collectionViewLayout: seasonsLayout)
         seasonsView.translatesAutoresizingMaskIntoConstraints = false
         seasonsView.backgroundColor = .clear
-        seasonsView.clipsToBounds = false
         seasonsView.showsHorizontalScrollIndicator = false
         seasonsView.dataSource = self
         seasonsView.delegate = self

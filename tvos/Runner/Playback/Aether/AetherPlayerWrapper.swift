@@ -832,6 +832,7 @@ final class AetherPlayerWrapper: NSObject, ObservableObject {
             httpHeaders: sourceConfiguration.headers,
             dolbyVisionHandling: sourceConfiguration.dolbyVisionBaseLayerOnly
                 ? .baseLayerOnly : .automatic,
+            preferDualLayerDolbyVision: true,
             matchContentEnabled: displayCriteriaMatchingEnabled(),
             panelIsInHDRMode: panelIsInHDRMode(),
             audioBridgeMode: sourceConfiguration.audioBridgeLossless ? .lossless : .surroundCompat,

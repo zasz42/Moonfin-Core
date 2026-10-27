@@ -1269,6 +1269,8 @@ class Media3PlayerBackend extends PlayerBackend
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _loadRequestedAtMs = 0;
+    // Ticks between this stop and the next load still carry this position.
+    _previousItemPosition = _position;
     await _invoke<void>(command);
     if (_isPlaying) {
       _isPlaying = false;

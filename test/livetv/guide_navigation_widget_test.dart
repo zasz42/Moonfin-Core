@@ -502,6 +502,19 @@ void main() {
     expect(_focusedLabel(), 'GuideFilter:0');
   });
 
+  testWidgets('LEFT from the channel column jumps to the genre rail', (
+    tester,
+  ) async {
+    await pumpGuide(tester);
+
+    _nodeLabelled(tester, 'GuideChannel:5').requestFocus();
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(_focusedLabel(), 'GuideFilter:0');
+  });
+
   testWidgets('the controls row is one horizontal run and descends to the '
       'channel column', (tester) async {
     await pumpGuide(tester);

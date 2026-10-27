@@ -187,6 +187,20 @@ void main() {
       expect(find.byType(InkWell), findsNWidgets(7));
     });
 
+    testWidgets('switching the links off in Details sections hides them', (
+      tester,
+    ) async {
+      final prefs = GetIt.instance<UserPreferences>();
+      await prefs.set(UserPreferences.hiddenDetailSectionsMobile, 'personLinks');
+      await prefs.set(UserPreferences.hiddenDetailSectionsDesktop, 'personLinks');
+
+      await tester.pumpWidget(
+        app(PersonLinksRow(item: _person(), accounts: _jackBlack)),
+      );
+
+      expect(find.byType(InkWell), findsNothing);
+    });
+
     testWidgets('a person with nothing to link gets no row', (tester) async {
       await tester.pumpWidget(
         app(PersonLinksRow(item: _person(ids: const {}))),

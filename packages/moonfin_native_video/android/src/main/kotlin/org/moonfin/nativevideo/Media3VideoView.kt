@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
@@ -971,7 +972,13 @@ class Media3VideoView(
     private var sourceFrameRateHint: Float? = null
     private var sourceVideoWidthHint = 0
     private var sourceVideoHeightHint = 0
-    private var audioOffloadDisabled = false
+    // Offload only saves battery, which a TV has no use for, and on some TVs an
+    // offloaded audio-only track never starts.
+    private var audioOffloadDisabled = runCatching {
+        val pm = context.packageManager
+        pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            pm.hasSystemFeature("amazon.hardware.fire_tv")
+    }.getOrDefault(false)
     private var audioOffloadRetryAttemptedForCurrentSource = false
     private var sessionTunnelingDisabled = Media3Bridge.sessionTunnelingDisabledEnabled()
     private var currentAudioIsBitstream = false

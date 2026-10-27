@@ -92,6 +92,7 @@ class Destinations {
   static const gameSystem = '/games/:libraryId/system/:systemId';
   static const gameDetail = '/game/:libraryId/:gameId';
   static const gamePlayer = '/game-player/:libraryId/:gameId';
+  static const rommAccount = '/romm-account';
 
   // Live TV
   static const liveTv = '/live-tv';

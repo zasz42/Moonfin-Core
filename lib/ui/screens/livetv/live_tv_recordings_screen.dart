@@ -12,9 +12,11 @@ import '../../../l10n/app_localizations.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../ui/mixins/focus_state_mixin.dart';
 import '../../../util/focus/dpad_keys.dart';
+import '../../../util/focus/focus_scroll.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/focus/request_initial_focus.dart';
+import '../../widgets/live_tv/incomplete_recording.dart';
 import '../../widgets/live_tv/series_recording_dialog.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/offline_aware_image.dart';
@@ -312,7 +314,9 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
     );
     if (confirmed == true) {
       try {
-        await _scheduleVm.cancelTimer(item.id);
+        await _scheduleVm.cancelTimer(
+          item.timerId ?? (throw StateError('No timer for ${item.name}')),
+        );
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -625,41 +629,43 @@ class _RecordingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 60, bottom: 8),
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+    return RevealOnFocus(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 60, bottom: 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
-          ),
-          SizedBox(
-            height: 160,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 60),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return _RecordingCard(
-                  item: item,
-                  imageUrl: item.imageUrl(imageApi),
-                  onFocused: () => onItemFocused(item),
-                  onTap: () => onItemTap(item),
-                );
-              },
+            SizedBox(
+              height: 160,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 60),
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _RecordingCard(
+                    item: item,
+                    imageUrl: item.imageUrl(imageApi),
+                    onFocused: () => onItemFocused(item),
+                    onTap: () => onItemTap(item),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -737,7 +743,19 @@ class _RecordingCardState extends State<_RecordingCard> with FocusStateMixin {
                             : null,
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: _buildImage(),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _buildImage(),
+                          Positioned(
+                            top: 6,
+                            left: 6,
+                            child: IncompleteRecordingBadge(
+                              itemId: widget.item.id,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Text(

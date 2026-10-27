@@ -4005,6 +4005,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                       if (_controlsVisible &&
                           !_isOsdLocked &&
                           !hideOsdForPreroll) ...[
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: ColoredBox(color: Color(0x4D000000)),
+                          ),
+                        ),
                         // The chrome stays in the tree while mpv owns its own
                         // window: both native windows are WS_EX_TRANSPARENT, so
                         // these widgets are still what gets hit-tested - only

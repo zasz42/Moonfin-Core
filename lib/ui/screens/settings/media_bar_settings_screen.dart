@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:moonfin_design/moonfin_design.dart';
@@ -10,8 +11,10 @@ import '../../../data/repositories/media_bar_repository.dart';
 import '../../../preference/home_section_config.dart';
 import '../../../data/repositories/multi_server_repository.dart';
 import '../../../data/services/plugin_sync_service.dart';
+import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/device_performance.dart';
+import '../../../util/platform_detection.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/settings/settings_section_header.dart';
 import '../../widgets/adaptive/adaptive_list_section.dart';
@@ -19,6 +22,7 @@ import '../../widgets/settings/clean_settings_typography.dart';
 import '../../widgets/settings/preference_binding.dart';
 import '../../widgets/settings/multi_select_dialog.dart';
 import '../../widgets/settings/preference_tiles.dart';
+import 'home_sections_screen.dart';
 import 'settings_app_bar.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 
@@ -161,10 +165,10 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
             final items = (response['Items'] as List? ?? [])
                 .cast<Map<String, dynamic>>()
                 .where(
-                  (item) => supportsMediaBarLibrary(
-                    item,
-                    const ['movies', 'tvshows'],
-                  ),
+                  (item) => supportsMediaBarLibrary(item, const [
+                    'movies',
+                    'tvshows',
+                  ]),
                 )
                 .toList();
             final isActive =
@@ -267,14 +271,7 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     }
   }
 
-/// Custom row lists keyed by their `custom:<section>` source token, for the
-  /// Source Libraries picker.
-  ///
-  /// Built from the whole config (not
-  /// [UserPreferences.activeHomeSectionConfigs]), so a row only hidden from
-  /// the home rows is still offered here — that is how a list keeps feeding
-  /// the banner without sitting on the home screen. A row that is switched
-  /// off entirely is not offered, and its token is forgotten below.
+  /// Custom row lists keyed by their `custom:<section>` source token.
   Map<String, String> _customRowSourceOptions() {
     final configs = _prefs.homeSectionsConfig.where(
       (c) =>
@@ -289,10 +286,6 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     };
   }
 
-  /// Forgets custom lists that can no longer be a source, so the bar stops
-  /// asking for them. Runs when the picker opens: a row turned off in Custom
-  /// Rows drops out of the options, and [_pickSources] then drops the now
-  /// unlisted token along with any other stale id.
   void _pruneDisabledCustomSources(Map<String, String> options) {
     final stored = _splitCsv(UserPreferences.mediaBarLibraryIds);
     final gone = stored
@@ -304,8 +297,6 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     _saveCsv(UserPreferences.mediaBarLibraryIds, kept);
   }
 
-  /// The picker label for a custom row: its display name with the source it
-  /// came from, so two lists called "Top 10" stay distinguishable.
   String _customRowLabel(HomeSectionConfig config) {
     final name = (config.pluginDisplayText ?? '').trim();
     final section = (config.pluginSection ?? '').trim();
@@ -314,12 +305,11 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
     return source == null ? label : '$label ($source)';
   }
 
-  /// The human name of the source a custom row reads from, or null when the
-  /// row carries none (e.g. malformed config) and the plain label will do.
   String? _customRowSourceName(HomeSectionConfig config) {
     try {
-      final rowConfig =
-          jsonDecode(config.pluginAdditionalData ?? '{}') as Map<String, dynamic>;
+      final rowConfig = jsonDecode(
+        config.pluginAdditionalData ?? '{}',
+      ) as Map<String, dynamic>;
       return switch (rowConfig['source'] as String?) {
         'tmdb' => 'TMDB',
         'letterboxd' => 'Letterboxd',
@@ -331,6 +321,33 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
       return null;
     }
   }
+
+  Future<void> _showExternalListSelector() async {
+    if (_selectorOpen) return;
+    _selectorOpen = true;
+    final l10n = AppLocalizations.of(context);
+
+    try {
+      final lists = mediaBarExternalLists(
+        _prefs.homeSectionsConfig,
+        tmdbAvailable: GetIt.instance<PluginSyncService>().tmdbAvailable,
+      );
+      await _pickSources(
+        pref: UserPreferences.mediaBarExternalLists,
+        title: l10n.homeRowsExternalLists,
+        options: {
+          for (final MapEntry(:key, value: config) in lists.entries)
+            key: switch (HomeSectionType.fromSerialized(key)) {
+              HomeSectionType.none => config.pluginDisplayText ?? key,
+              final chart => homeSectionTypeLabel(chart, l10n),
+            },
+        },
+      );
+    } finally {
+      _selectorOpen = false;
+    }
+  }
+
   String _sourceSubtitle(
     Preference<String> pref,
     String noneLabel,
@@ -376,13 +393,28 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                     UserPreferences.mediaBarModeMakd: l10n.mediaBarModeMakd,
                     UserPreferences.mediaBarModeBookshelf:
                         l10n.mediaBarModeBookshelf,
-                    UserPreferences.mediaBarModeGallery: l10n.mediaBarModeGallery,
+                    UserPreferences.mediaBarModeGallery:
+                        l10n.mediaBarModeGallery,
                     UserPreferences.mediaBarModeBanner: l10n.mediaBarModeBanner,
                     UserPreferences.mediaBarModeAya: l10n.mediaBarModeAya,
                     UserPreferences.mediaBarModeOff: l10n.mediaBarModeOff,
                   },
-                  onChanged: _pushSync,
+                  onChanged: () {
+                    _pushSync();
+                    setState(() {});
+                  },
                 ),
+                if (!PlatformDetection.useMobileUi &&
+                    UserPreferences.mediaBarModeAllowsRowPeek(
+                      _prefs.get(UserPreferences.mediaBarMode),
+                    ))
+                  SwitchPreferenceTile(
+                    preference: UserPreferences.mediaBarRowPeek,
+                    title: l10n.peekHomeRows,
+                    subtitle: l10n.peekHomeRowsDescription,
+                    icon: Icons.view_day_outlined,
+                    onChanged: _pushSync,
+                  ),
                 StringPickerPreferenceTile(
                   preference: UserPreferences.mediaBarContentType,
                   title: l10n.contentType,
@@ -477,6 +509,21 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                   ),
                   onTap: _showCollectionSelector,
                 ),
+                // Outside lists come through Moonbase, the same as their
+                // Home rows.
+                if (GetIt.instance<PluginSyncService>().pluginAvailable)
+                  _MediaBarActionTile(
+                    icon: const Icon(Icons.public),
+                    title: Text(l10n.homeRowsExternalLists),
+                    subtitle: Text(
+                      _sourceSubtitle(
+                        UserPreferences.mediaBarExternalLists,
+                        l10n.noneSelected,
+                        l10n,
+                      ),
+                    ),
+                    onTap: _showExternalListSelector,
+                  ),
                 _MediaBarActionTile(
                   icon: const Icon(Icons.label_off),
                   title: Text(l10n.excludedGenres),

@@ -8265,7 +8265,7 @@
     "@trailerCaptions": {
         "description": "Setting for YouTube trailer captions"
     },
-    "trailerCaptionsDescription": "Show captions on YouTube trailers in the media bar",
+    "trailerCaptionsDescription": "Show captions on YouTube trailers",
     "@trailerCaptionsDescription": {
         "description": "Description for YouTube trailer captions"
     },

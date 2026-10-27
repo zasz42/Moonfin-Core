@@ -119,8 +119,8 @@ class _CredentialFieldState extends State<CredentialField> {
             inputPurpose: widget.isPassword
                 ? InputPurpose.password
                 : InputPurpose.username,
-            preferSystemIme: GetIt.instance<UserPreferences>().get(
-              UserPreferences.preferSystemImeKeyboard,
+            keyboardStyle: GetIt.instance<UserPreferences>().get(
+              UserPreferences.keyboardStyle,
             ),
             hint: widget.label,
             filled: true,

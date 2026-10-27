@@ -289,6 +289,7 @@ class MoonbaseGamesApi implements GamesApi {
     String? gameName,
     bool includeSaveUrl = false,
     String? saveId,
+    bool includeSramUrl = false,
   }) {
     final params = <String, String>{
       'core': core,
@@ -309,6 +310,11 @@ class MoonbaseGamesApi implements GamesApi {
     if (includeSaveUrl) {
       params['save'] = _withApiKey(
         '$_base/Moonfin/Games/Saves/${Uri.encodeComponent(saveId ?? gameId)}?kind=state',
+      );
+    }
+    if (includeSramUrl && !includeSaveUrl) {
+      params['sram'] = _withApiKey(
+        '$_base/Moonfin/Games/Saves/${Uri.encodeComponent(gameId)}?kind=sram',
       );
     }
     final query = params.entries
@@ -347,6 +353,31 @@ class MoonbaseGamesApi implements GamesApi {
         headers: {Headers.contentLengthHeader: data.length},
       ),
     );
+  }
+
+  @override
+  Future<RommAccount> getRommAccount() =>
+      _rommAccount(() => _dio.get('/Moonfin/Games/Romm/Account'));
+
+  @override
+  Future<RommAccount> startRommLink() =>
+      _rommAccount(() => _dio.post('/Moonfin/Games/Romm/Account'));
+
+  @override
+  Future<RommAccount> unlinkRomm() =>
+      _rommAccount(() => _dio.delete('/Moonfin/Games/Romm/Account'));
+
+  /// A plugin older than RomM accounts answers 404.
+  Future<RommAccount> _rommAccount(Future<Response> Function() send) async {
+    try {
+      final data = (await send()).data;
+      return data is Map
+          ? RommAccount.fromJson(data.cast<String, dynamic>())
+          : RommAccount.unavailable;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return RommAccount.unavailable;
+      rethrow;
+    }
   }
 
   String _withApiKey(String url) {

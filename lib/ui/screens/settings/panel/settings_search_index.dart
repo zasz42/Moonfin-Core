@@ -530,10 +530,18 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     ),
     if (PlatformDetection.isTV)
       general.leaf(
-        'pref_prefer_system_ime_keyboard',
-        l10n.keyboardPreferSystemIme,
-        subtitle: l10n.keyboardPreferSystemImeDescription,
-        keywords: ['keyboard', 'input'],
+        'pref_keyboard_style',
+        l10n.keyboardStyle,
+        subtitle: l10n.keyboardStyleDescription,
+        keywords: [
+          'keyboard',
+          'input',
+          'native',
+          'system',
+          'classic',
+          'glass',
+          'docked',
+        ],
       ),
     if (PlatformDetection.isAppleTV)
       general.leaf(
@@ -608,21 +616,6 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'scaling',
     ]),
     style.leaf(
-      'pref_show_home_backdrop',
-      l10n.homeScreenBackdrop,
-      keywords: ['background images'],
-    ),
-    style.leaf(
-      'pref_show_details_backdrop',
-      l10n.detailsScreenBackdrop,
-      keywords: ['background images'],
-    ),
-    style.leaf(
-      'pref_hide_backdrops_in_libraries',
-      l10n.libraryBackdrops,
-      keywords: ['background images', 'browsing'],
-    ),
-    style.leaf(
       'pref_oled_mode',
       l10n.oledMode,
       subtitle: l10n.oledModeSubtitle,
@@ -669,6 +662,17 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'nouveau',
       'minimalist',
     ]),
+    details.leaf(
+      'pref_show_details_backdrop',
+      l10n.detailsScreenBackdrop,
+      keywords: ['background images'],
+    ),
+    if (PlatformDetection.useMobileUi)
+      details.leaf(
+        'pref_details_backdrop_size',
+        l10n.detailsBackdropSize,
+        keywords: ['fit', 'zoom', 'crop'],
+      ),
     details.leaf('detailsBackgroundBlurAmount', l10n.detailsBackgroundBlur),
     details.leaf(
       'pref_detail_expanded_tabs',
@@ -686,6 +690,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       l10n.openTrailersExternally,
       subtitle: l10n.openTrailersExternallySubtitle,
       keywords: ['youtube', 'trailer', 'external app'],
+    ),
+    details.leaf(
+      'mediaBarTrailerCaptions',
+      l10n.trailerCaptions,
+      subtitle: l10n.trailerCaptionsDescription,
+      keywords: ['subtitles'],
     ),
     details.leaf(
       'pref_hide_details_media_description',
@@ -783,7 +793,11 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'media info',
       'seerr',
       'recommendations',
+      'reviews',
+      'streaming',
       'biography',
+      'links',
+      'social media',
     ]),
 
     navigation.screen(keywords: ['navbar', 'toolbar', 'sidebar']),
@@ -932,15 +946,21 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
         subtitle: l10n.showTitleMetadataOnHomeRows,
       ),
     home.leaf(
+      'pref_show_home_backdrop',
+      l10n.homeScreenBackdrop,
+      keywords: ['background images'],
+    ),
+    home.leaf(
       'pref_hide_home_media_description',
       l10n.hideHomeMediaDescription,
       subtitle: l10n.hideHomeMediaDescriptionSubtitle,
       keywords: ['spoiler', 'description', 'overview'],
     ),
     home.leaf(
-      'episodePreviewEnabled',
+      'mediaPreviewMode',
       l10n.mediaPreview,
       subtitle: l10n.mediaPreviewDescription,
+      keywords: ['trailer'],
     ),
     home.leaf(
       'previewAudioEnabled',
@@ -1054,6 +1074,8 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     ],
     if (pluginAvailable) ...[
       imdbLists.screen(keywords: ['top 250', 'popular', 'charts']),
+      imdbLists.leaf('imdb_rows_sort_by', l10n.imdbRowsSorting),
+      imdbLists.leaf('imdb_rows_sort_order', l10n.sortOrder),
       imdbLists.leaf('imdb_top_250_movies_enabled', l10n.imdbTop250Movies),
       imdbLists.leaf('imdb_top_250_tv_shows_enabled', l10n.imdbTop250TvShows),
       imdbLists.leaf(
@@ -1074,6 +1096,8 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       ),
       if (tmdbAvailable) ...[
         tmdbLists.screen(keywords: ['popular', 'top rated', 'trending']),
+        tmdbLists.leaf('tmdb_rows_sort_by', l10n.tmdbRowsSorting),
+        tmdbLists.leaf('tmdb_rows_sort_order', l10n.sortOrder),
         tmdbLists.leaf('tmdb_popular_movies_enabled', 'Popular Movies'),
         tmdbLists.leaf('tmdb_top_rated_movies_enabled', 'Top Rated Movies'),
         tmdbLists.leaf('tmdb_now_playing_movies_enabled', 'Now Playing Movies'),
@@ -1147,6 +1171,8 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
           header: 'Sonarr',
         ),
         seerrLists.screen(keywords: ['discovery rows', 'watchlist', 'trending']),
+        seerrLists.leaf('seerr_rows_sort_by', l10n.seerrRowsSorting),
+        seerrLists.leaf('seerr_rows_sort_order', l10n.sortOrder),
       ],
       customRows.screen(keywords: ['letterboxd', 'mdblist', 'tmdb', 'custom']),
     ],
@@ -1207,6 +1233,11 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       subtitle: l10n.showMediaDetailsOnLibraryPageDescription,
     ),
     libraries.leaf(
+      'pref_hide_backdrops_in_libraries',
+      l10n.libraryBackdrops,
+      keywords: ['background images', 'browsing'],
+    ),
+    libraries.leaf(
       'pref_use_detailed_sub_headings',
       l10n.useDetailedSubHeadings,
       subtitle: l10n.useDetailedSubHeadingsDescription,
@@ -1224,6 +1255,13 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       'recently released',
       'newest',
     ]),
+    if (!PlatformDetection.useMobileUi)
+      mediaBar.leaf(
+        'mediaBarRowPeek',
+        l10n.peekHomeRows,
+        subtitle: l10n.peekHomeRowsDescription,
+        keywords: ['peek', 'first row'],
+      ),
     mediaBar.leaf('mediaBarItemCount', l10n.itemCount),
     mediaBar.leaf('mediaBarLibraryIds', l10n.sourceLibraries),
     mediaBar.leaf('mediaBarCollectionIds', l10n.sourceCollections),
@@ -1488,6 +1526,13 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
         l10n.hardwareDecoding,
         subtitle: l10n.hardwareDecodingSubtitle,
         keywords: ['gpu', 'acceleration'],
+      ),
+    if (PlatformDetection.offersHevcSoftwareDecode)
+      quality.leaf(
+        'hevc_software_direct_play',
+        l10n.hevcSoftwareDirectPlay,
+        subtitle: l10n.hevcSoftwareDirectPlaySubtitle,
+        keywords: ['hevc', 'h265', 'x265', 'software decode'],
       ),
     if (PlatformDetection.isAndroid && PlatformDetection.isTV) ...[
       quality.leaf(

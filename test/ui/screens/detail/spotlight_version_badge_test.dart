@@ -151,6 +151,7 @@ void main() {
     when(() => vm.writers).thenReturn(const []);
     when(() => vm.features).thenReturn(const []);
     when(() => vm.similar).thenReturn(const []);
+    when(() => vm.reviews).thenReturn(const []);
     when(() => vm.similarSource).thenReturn(SimilarSource.jellyfin);
     when(() => vm.seasons).thenReturn(const []);
     when(() => vm.episodes).thenReturn(const []);

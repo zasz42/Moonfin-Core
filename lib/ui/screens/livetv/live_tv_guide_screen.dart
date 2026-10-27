@@ -20,6 +20,7 @@ import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/bounded_network_image.dart';
 import '../../widgets/horizontal_scroll_section.dart';
+import '../../widgets/live_tv/incomplete_recording.dart';
 import '../../widgets/live_tv/live_tv_mini_player.dart';
 import '../../widgets/live_tv/live_tv_recording_icon.dart';
 import '../../widgets/live_tv/series_recording_dialog.dart';
@@ -1879,6 +1880,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
         }
         if (key.isLeftKey) {
           _onNavigationKey();
+          _focusFilterRail();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -2350,7 +2352,6 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
       onRightEdge: () =>
           unawaited(_shiftGuideWindow(const Duration(minutes: 30))),
       noProgramDataLabel: AppLocalizations.of(context).noProgramData,
-      filterLabel: _filterLabel,
       // Per A3: a gap or filtered hole tunes live, never opens the recording
       // dialog. Loading is inert. Failed has no retry producer yet.
       onProgramSelected: (cell) {
@@ -2604,18 +2605,42 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
                   if (dialogActionInProgress) return;
                   dialogActionInProgress = true;
                   try {
-                    await _vm.toggleProgramRecording(program);
+                    final String? message;
+                    if (hasTimer) {
+                      await _vm.toggleProgramRecording(program);
+                      message = l10n.recordingCancelled;
+                    } else {
+                      final outcome = await recordAiring(
+                        context: dialogContext,
+                        programId: program.id,
+                        programName: program.name,
+                        programStart: program.startDate,
+                        rawProgram: program.rawData,
+                        createTimer: () => _vm.toggleProgramRecording(program),
+                        stillValid: () => dialogContext.mounted,
+                        channel: channel == null
+                            ? null
+                            : recordPromptChannel(channel.number, channel.name),
+                      );
+                      // The guide refreshed before the future showing was
+                      // added, or not at all when only the future showing was
+                      // asked for, so refresh to show it.
+                      if (outcome ==
+                              RecordAiringOutcome.recordedWithLaterShowing ||
+                          outcome == RecordAiringOutcome.laterShowingOnly) {
+                        await _vm.recordingChanged();
+                      }
+                      message = recordAiringMessage(l10n, outcome);
+                    }
+                    if (message == null) {
+                      dialogActionInProgress = false;
+                      return;
+                    }
                     if (!pageContext.mounted || !dialogContext.mounted) return;
                     Navigator.of(dialogContext).pop();
-                    ScaffoldMessenger.of(pageContext).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          hasTimer
-                              ? l10n.recordingCancelled
-                              : l10n.programSetToRecord,
-                        ),
-                      ),
-                    );
+                    ScaffoldMessenger.of(
+                      pageContext,
+                    ).showSnackBar(SnackBar(content: Text(message)));
                   } catch (_) {
                     dialogActionInProgress = false;
                     if (!pageContext.mounted) return;
@@ -3017,7 +3042,6 @@ class _GuideProgramRow extends StatefulWidget {
 
   /// Label for a real schedule gap. A genre-filtered hole never shows it.
   final String noProgramDataLabel;
-  final String Function(GuideFilter) filterLabel;
 
   const _GuideProgramRow({
     required this.cells,
@@ -3041,7 +3065,6 @@ class _GuideProgramRow extends StatefulWidget {
     required this.onProgramFocused,
     this.onHorizontalMove,
     required this.noProgramDataLabel,
-    required this.filterLabel,
   });
 
   @override
@@ -3270,10 +3293,6 @@ class _GuideProgramRowState extends State<_GuideProgramRow> {
         builder: (_, _) => EpgProgramCell(
           title: program?.name ?? '',
           episodeLine: program?.episodeLine,
-          rating: program?.officialRating,
-          tags:
-              program?.categoryTags.map(widget.filterLabel).toList() ??
-              const [],
           // The geometry clips a cell to the window, so the program's own
           // start is the only thing that says it began before the left edge.
           startsBeforeWindow:

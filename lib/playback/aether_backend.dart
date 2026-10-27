@@ -735,6 +735,9 @@ class AetherBackend implements PlayerBackend, SubtitleLoadingBackend {
   @override
   bool get demuxesEmbeddedSubtitles => true;
 
+  @override
+  bool get decodesHevcOnlyFromOriginalFile => false;
+
   // Same engine as the Apple TV backend, so a seek costs the same reopen.
   // Provisional pending a trace of its own.
   @override

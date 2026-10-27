@@ -62,8 +62,8 @@ Future<bool> passesPinCheckAfterSignIn({
 }
 
 /// Whether the Quick Connect QR sits beside the code and the buttons, which
-/// takes a card with room to the side: a TV, or a tablet held in landscape. On
-/// a phone, or a tablet in portrait, it goes under the code.
+/// takes a card with room to the side: a TV, or a wide landscape window. In a
+/// small or portrait window it goes under the code.
 @visibleForTesting
 bool quickConnectQrBeside({required bool isTV, required Size screen}) =>
     isTV || (screen.shortestSide >= 600 && screen.width > screen.height);
@@ -738,17 +738,16 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     if (_server == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return SignInBackScope(
+        onBack: _navigateBack,
+        child: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
     }
 
     final l10n = AppLocalizations.of(context);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        _navigateBack();
-      },
+    return SignInBackScope(
+      onBack: _navigateBack,
       child: LoginScaffold(
         maxWidth: _quickConnectQrBeside ? 900 : 600,
         header: Padding(
@@ -888,12 +887,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Where a phone that is already signed in can approve the code. Null when
-  /// the server's web client can't open it with the code filled in.
+  /// Where a phone that is already signed in can approve the code. Null on a
+  /// phone or tablet, since that's the device that would scan it, or when the
+  /// server's web client can't open it with the code filled in.
   String? get _quickConnectApprovalUrl {
     final server = _server;
     final code = _quickConnectCode;
-    if (server == null || code == null || !_quickConnectWebLink) return null;
+    if (PlatformDetection.isMobile ||
+        server == null ||
+        code == null ||
+        !_quickConnectWebLink) {
+      return null;
+    }
     return quickConnectApprovalUrl(server.address, code);
   }
 
@@ -1135,8 +1140,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? InputPurpose.password
                   : InputPurpose.username,
               recentSuggestions: recentSuggestions,
-              preferSystemIme: _userPreferences.get(
-                UserPreferences.preferSystemImeKeyboard,
+              keyboardStyle: _userPreferences.get(
+                UserPreferences.keyboardStyle,
               ),
               hint: label,
               filled: true,

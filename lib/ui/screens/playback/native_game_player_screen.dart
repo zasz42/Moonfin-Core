@@ -23,6 +23,7 @@ import '../../../util/game_cores.dart';
 import '../../../util/touch_gamepad_layout.dart';
 import 'touch_gamepad.dart';
 import '../settings/emulator_core_settings_screen.dart';
+import '../../../util/game_sram_sync.dart';
 import '../../../util/game_storage.dart';
 import '../../../util/core_input_descriptors.dart';
 import '../../../util/native_controller_mapping.dart';
@@ -202,6 +203,7 @@ class _NativeGamePlayerScreenState extends State<NativeGamePlayerScreen>
   // _exiting so a fatal error can tear the core down without also
   // suppressing the route pop that the user still needs.
   bool _sessionStopped = false;
+  GameSramSync? _sram;
   RetroArtworkActivityGate? _artworkActivityGate;
   bool _holdsGameplayArtworkBlock = false;
   ScreensaverController? _screensaverController;
@@ -1068,6 +1070,11 @@ class _NativeGamePlayerScreenState extends State<NativeGamePlayerScreen>
         }
         return;
       }
+
+      // The core reads its battery save file only at load.
+      final sram = GameSramSync(games, widget.gameId, saveDir);
+      await sram.prepare();
+      _sram = sram;
 
       Map<String, String>? settingsJson;
       try {
@@ -2526,6 +2533,10 @@ class _NativeGamePlayerScreenState extends State<NativeGamePlayerScreen>
       _sessionStopped = true;
       try {
         await _player.stop().timeout(const Duration(seconds: 3));
+        // The host writes the battery save as it stops. A stop that stalls may
+        // leave it half written, so that one waits for the next launch instead.
+        final sram = _sram;
+        if (sram != null) unawaited(sram.finishFromFile());
       } catch (_) {
         // The route must still be escapable when native teardown fails or stalls.
       }

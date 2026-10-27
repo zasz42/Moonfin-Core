@@ -146,6 +146,8 @@ class PlatformDetection {
   static bool get supportsHevcMain10 => _capabilityBool('supportsHevcMain10');
   static int get hevcMainLevel => _capabilityInt('hevcMainLevel');
   static int get hevcMain10Level => _capabilityInt('hevcMain10Level');
+  static bool get offersHevcSoftwareDecode =>
+      _capabilityBool('offersHevcSoftwareDecode');
   static bool get supportsHevcDolbyVision =>
       _capabilityBool('supportsHevcDolbyVision');
   static bool get supportsHevcDolbyVisionEl =>

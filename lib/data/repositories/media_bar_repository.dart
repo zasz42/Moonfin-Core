@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
@@ -7,19 +8,22 @@ import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../preference/home_section_config.dart';
+import '../../preference/preference_constants.dart';
 import '../../preference/user_preferences.dart';
+import '../../util/tmdb_thumb.dart';
 import '../models/media_bar_slide_item.dart';
 import '../models/media_bar_state.dart';
 import '../services/custom_external_lists_service.dart';
 import '../services/library_scope_service.dart';
 import '../services/media_server_client_factory.dart';
+import '../services/plugin_sync_service.dart';
 import 'seerr_repository.dart';
 import '../utils/blocked_ratings.dart';
 import 'multi_server_repository.dart';
 import '../utils/bounded_concurrency.dart';
+import 'tmdb_repository.dart';
 
 class MediaBarRepository {
-
   final MediaServerClient _client;
   final UserPreferences _prefs;
   final _random = math.Random();
@@ -53,23 +57,24 @@ class MediaBarRepository {
     // the same preference under a `custom:` token: it is a source library for
     // the banner too, whether or not the row is on and shown among the home
     // rows. Custom lists are read from the list itself, never a server view.
-    final customTokens =
-        storedSources.where(isCustomRowSourceToken).toList();
-    final libraryIds =
-        storedSources.where((t) => !isCustomRowSourceToken(t)).toList();
+    final customTokens = storedSources.where(isCustomRowSourceToken).toList();
+    final libraryIds = storedSources
+        .where((t) => !isCustomRowSourceToken(t))
+        .toList();
     final collectionIds = _splitCsv(UserPreferences.mediaBarCollectionIds);
-    final excludedGenres = _splitCsv(
-      UserPreferences.mediaBarExcludedGenres,
-    ).toSet();
+    final excludedGenres = _splitCsv(UserPreferences.mediaBarExcludedGenres)
+        .toSet();
 
     // The bar draws from what the user picked and nothing else. With no source
     // library, collection or custom list selected there is nothing to draw, so
     // the bar stays off rather than quietly widening to every library (which
     // is what the fallbacks below would otherwise do).
+    final externalListIds = _splitCsv(UserPreferences.mediaBarExternalLists);
     if (!hasMediaBarSourceSelection(
       libraryIds: libraryIds,
       collectionIds: collectionIds,
       customTokens: customTokens,
+      externalListIds: externalListIds,
     )) {
       return const MediaBarDisabled();
     }
@@ -94,8 +99,25 @@ class MediaBarRepository {
     await _loadSessionClients();
 
     // A list switched off entirely is not a source, so its token is skipped even
-      // before the picker gets the chance to forget it.
-      final customSlides = await _loadCustomRowSlides(customTokens, maxItems);
+    // before the picker gets the chance to forget it.
+    final customSlides = await _loadCustomRowSlides(customTokens, maxItems);
+    final externalPool = await _fetchExternalPool(
+      externalListIds,
+      includeTypes,
+    );
+    // External lists fill the bar alone when no server or custom source is set.
+    if (externalPool.isNotEmpty &&
+        libraryIds.isEmpty &&
+        collectionIds.isEmpty &&
+        customSlides.isEmpty) {
+      final slides = await _mixInExternal(
+        const [],
+        externalPool,
+        maxItems,
+        excludedGenres,
+      );
+      if (slides.isNotEmpty) return MediaBarReady(slides);
+    }
 
     try {
       final viewsResponse = await _client.userViewsApi.getUserViews().timeout(
@@ -136,19 +158,16 @@ class MediaBarRepository {
           // A non-active server's library is listed by that server's views.
           final client = _clientForSource(source);
           try {
-            final remoteViews = await client.userViewsApi.getUserViews().timeout(
-              const Duration(seconds: 4),
-            );
+            final remoteViews = await client.userViewsApi
+                .getUserViews()
+                .timeout(const Duration(seconds: 4));
             final remoteItems = (remoteViews['Items'] as List? ?? [])
                 .cast<Map<String, dynamic>>();
             final remoteValid = remoteItems
                 .where(
                   (view) =>
                       view['Id']?.toString() == source.libraryId &&
-                      supportsMediaBarLibrary(
-                        view,
-                        preferredCollectionTypes,
-                      ),
+                      supportsMediaBarLibrary(view, preferredCollectionTypes),
                 )
                 .toList();
             if (remoteValid.isNotEmpty) {
@@ -165,9 +184,7 @@ class MediaBarRepository {
 
       allSources.addAll(validBySource);
       allSources.addAll(
-        collectionIds.map(
-          (id) => _MediaBarSource(serverId: '', libraryId: id),
-        ),
+        collectionIds.map((id) => _MediaBarSource(serverId: '', libraryId: id)),
       );
 
       // No widening to every library here. The bar draws from the selected
@@ -180,9 +197,7 @@ class MediaBarRepository {
       // drop what the policy no longer allows before trusting them.
       allSources.addAll(libraryIds.map(_parseSourceToken));
       allSources.addAll(
-        collectionIds.map(
-          (id) => _MediaBarSource(serverId: '', libraryId: id),
-        ),
+        collectionIds.map((id) => _MediaBarSource(serverId: '', libraryId: id)),
       );
       final permittedOnActive = await GetIt.instance<LibraryScopeService>()
           .retainPermitted(libraryIds);
@@ -214,50 +229,51 @@ class MediaBarRepository {
         allSources.toList()..shuffle(_random),
         _sourceConcurrency,
         (source) async {
-            if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
-                GetIt.instance<MediaBarRepository>() != this) {
-              return null;
-            }
-            if (usableCount >= enough) return null;
-            try {
-              final targetTypes = allSourceItemTypes[source.sourceKey] ?? includeTypes;
-              final client = _clientForSource(source);
-              final batch = await _fetchItems(
-                targetTypes,
-                fetchLimit,
-                parentId: source.libraryId,
-                client: client,
-              );
-              final sourceBatch = <Map<String, dynamic>>[];
-              for (final item in batch) {
-                final id = item['Id']?.toString();
-                if (id != null && !seenIds.add(id)) continue;
-                if (source.serverId.isNotEmpty) {
-                  item['_moonfinServerId'] = source.serverId;
-                }
-                sourceBatch.add(item);
-                if (usable(item)) usableCount++;
-              }
-              if (sourceBatch.isNotEmpty) {
-                perSource.add(sourceBatch);
-              }
-            } catch (_) {
-              // Keep fetching remaining libraries if one fails
-            }
+          if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
+              GetIt.instance<MediaBarRepository>() != this) {
             return null;
-          },
-        );
-        if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
-            GetIt.instance<MediaBarRepository>() != this) {
-          return const MediaBarDisabled();
-        }
+          }
+          if (usableCount >= enough) return null;
+          try {
+            final targetTypes =
+                allSourceItemTypes[source.sourceKey] ?? includeTypes;
+            final client = _clientForSource(source);
+            final batch = await _fetchItems(
+              targetTypes,
+              fetchLimit,
+              parentId: source.libraryId,
+              client: client,
+            );
+            final sourceBatch = <Map<String, dynamic>>[];
+            for (final item in batch) {
+              final id = item['Id']?.toString();
+              if (id != null && !seenIds.add(id)) continue;
+              if (source.serverId.isNotEmpty) {
+                item['_moonfinServerId'] = source.serverId;
+              }
+              sourceBatch.add(item);
+              if (usable(item)) usableCount++;
+            }
+            if (sourceBatch.isNotEmpty) {
+              perSource.add(sourceBatch);
+            }
+          } catch (_) {
+            // Keep fetching remaining libraries if one fails
+          }
+          return null;
+        },
+      );
+      if (!GetIt.instance.isRegistered<MediaBarRepository>() ||
+          GetIt.instance<MediaBarRepository>() != this) {
+        return const MediaBarDisabled();
+      }
 
-        final allItems = perSource.expand((batch) => batch).toList();
+      final allItems = perSource.expand((batch) => batch).toList();
 
-        var selected = _selectItemsWithBackdrops(
-          allItems,
-          maxItems,
-          excludedGenres,
+      var selected = _selectItemsWithBackdrops(
+        allItems,
+        maxItems,
+        excludedGenres,
         // One source reads as before; several share the banner evenly, so the
         // random source rotates through the selected libraries rather than
         // leaning on whichever returned the most titles.
@@ -289,15 +305,20 @@ class MediaBarRepository {
         );
       }
 
-      // No arbitrary-library fallback here either: reaching this point means
-      // the selected sources came back without usable backdrops, and the bar
-      // reports that rather than borrowing titles from a library the user did
-      // not choose.
-      if (selected.isEmpty && customSlides.isEmpty) {
+      // Do not borrow titles from an unselected library when selected sources
+      // have no usable backdrops.
+      final slides = _mergedSlides(customSlides, selected, maxItems);
+      final items = await _mixInExternal(
+        slides,
+        externalPool,
+        maxItems,
+        excludedGenres,
+      );
+      if (items.isEmpty) {
         return const MediaBarError('No items with backdrop images found');
       }
 
-      return MediaBarReady(_mergedSlides(customSlides, selected, maxItems));
+      return MediaBarReady(items);
     } catch (e) {
       // Custom lists were read before any of this, so they still stand even if
       // the server-side selection blew up.
@@ -381,8 +402,8 @@ class MediaBarRepository {
   Future<void> _loadSessionClients() async {
     if (!_prefs.get(UserPreferences.mergeMediaBarLibraries)) return;
     try {
-      final sessions =
-          await GetIt.instance<MultiServerRepository>().getLoggedInServers();
+      final sessions = await GetIt.instance<MultiServerRepository>()
+          .getLoggedInServers();
       _sessionClients = {
         for (final session in sessions) session.server.id: session.client,
       };
@@ -645,7 +666,8 @@ class MediaBarRepository {
         local[slide.itemId] = found;
       } else if (tmdbId.isNotEmpty && seerrRepo != null) {
         // Not in library, try to fetch logo from TMDB directly
-        final isSeries = slide.itemType.toLowerCase() == 'series' ||
+        final isSeries =
+            slide.itemType.toLowerCase() == 'series' ||
             slide.itemType.toLowerCase() == 'tv';
         try {
           final tmdbIdInt = int.tryParse(tmdbId);
@@ -658,10 +680,12 @@ class MediaBarRepository {
             if (images != null) {
               final logos = images['logos'] as List?;
               if (logos != null && logos.isNotEmpty) {
-                final logoPath = (logos.firstWhere(
-                  (l) => l['filePath'] != null,
-                  orElse: () => <String, dynamic>{},
-                )['filePath'] as String?);
+                final logoPath =
+                    (logos.firstWhere(
+                          (l) => l['filePath'] != null,
+                          orElse: () => <String, dynamic>{},
+                        )['filePath']
+                        as String?);
                 if (logoPath != null && logoPath.isNotEmpty) {
                   tmdbLogos[slide.itemId] =
                       'https://image.tmdb.org/t/p/w600$logoPath';
@@ -683,10 +707,11 @@ class MediaBarRepository {
       final tmdbLogo = tmdbLogos[slide.itemId];
       if (match == null && tmdbLogo == null) return slide;
       return _customSlideFor(
-        _asExternalItem(slide),
-        local: match,
-        tmdbLogoUrl: tmdbLogo,
-      ) ?? slide;
+            _asExternalItem(slide),
+            local: match,
+            tmdbLogoUrl: tmdbLogo,
+          ) ??
+          slide;
     }
 
     return [for (final pool in perList) pool.map(rebuild).toList()];
@@ -759,7 +784,9 @@ class MediaBarRepository {
     final tmdbId = item.tmdbId;
     final imdbId = item.imdbId;
     final kind =
-        item.type.toLowerCase() == 'series' || item.type.toLowerCase() == 'tv' ? 'tv' : 'movie';
+        item.type.toLowerCase() == 'series' || item.type.toLowerCase() == 'tv'
+        ? 'tv'
+        : 'movie';
     final routeId = tmdbId.isNotEmpty
         ? 'tmdb:$kind:$tmdbId'
         : (imdbId.isNotEmpty ? imdbId : '');
@@ -772,21 +799,20 @@ class MediaBarRepository {
       // no title) rather than a titled wide image.
       backdropUrl: backdrop,
       // Use library logo if available, otherwise TMDB logo, otherwise null
-      logoUrl: local != null
-          ? _serverLogoUrl(local)
-          : tmdbLogoUrl,
+      logoUrl: local != null ? _serverLogoUrl(local) : tmdbLogoUrl,
       posterUrl: mediaBarCustomImageUrl(item.posterUrl, 'w500'),
       year: item.year,
       officialRating:
           (local?['OfficialRating'] as String?) ?? item.officialRating,
-      genres: (local?['Genres'] as List?)?.cast<String>().take(3).toList() ??
+      genres:
+          (local?['Genres'] as List?)?.cast<String>().take(3).toList() ??
           const [],
       // The list carries no runtime, so the library's answer is used when the
       // title is in one; the meta line just omits it otherwise.
       runtime: _serverRuntime(local),
       // Use library ratings if available, otherwise fall back to external list ratings
-      communityRating: (local?['CommunityRating'] as num?)?.toDouble()
-          ?? item.rating,
+      communityRating:
+          (local?['CommunityRating'] as num?)?.toDouble() ?? item.rating,
       criticRating: (local?['CriticRating'] as num?)?.toInt(),
       tmdbId: tmdbId.isNotEmpty ? tmdbId : null,
       imdbId: imdbId.isNotEmpty ? imdbId : null,
@@ -830,7 +856,8 @@ class MediaBarRepository {
     final value = tmdbId.isNotEmpty ? tmdbId : imdbId;
     if (value.isEmpty) return null;
     // 'Series' for the list's 'Series', 'Movie' for its 'Movie'.
-    final wantType = itemType.toLowerCase() == 'series' || itemType.toLowerCase() == 'tv'
+    final wantType =
+        itemType.toLowerCase() == 'series' || itemType.toLowerCase() == 'tv'
         ? 'Series'
         : 'Movie';
     try {
@@ -980,6 +1007,153 @@ class MediaBarRepository {
     }
   }
 
+  /// The titles of the picked outside lists that can go on the bar, shuffled
+  /// and without repeats. Empty without Moonbase.
+  Future<List<ImdbExternalListItem>> _fetchExternalPool(
+    List<String> listIds,
+    List<String> itemTypes,
+  ) async {
+    if (listIds.isEmpty) return const [];
+    final sync = GetIt.instance<PluginSyncService>();
+    if (!sync.pluginAvailable) return const [];
+    final lists = mediaBarExternalLists(
+      _prefs.homeSectionsConfig,
+      tmdbAvailable: sync.tmdbAvailable,
+    );
+    final service = GetIt.instance<CustomExternalListsService>();
+    final fetched = await Future.wait([
+      for (final id in listIds)
+        if (lists[id] case final config?)
+          () async {
+            try {
+              final cached = await service.loadCustomRowFromCache(
+                config,
+                maxAge: CustomExternalListsService.cacheMaxAge,
+              );
+              return cached.isNotEmpty
+                  ? cached
+                  : await service.fetchCustomRow(config);
+            } catch (_) {
+              return const <ImdbExternalListItem>[];
+            }
+          }(),
+    ]);
+
+    final filter = activeParentalFilter;
+    final seen = <String>{};
+    final pool = <ImdbExternalListItem>[];
+    for (final item in fetched.expand((items) => items)) {
+      final key = _externalId(item);
+      if (key.isEmpty || !seen.add(key)) continue;
+      if (!itemTypes.contains(item.type)) continue;
+      // A missing rating on an outside title means nobody looked it up, so
+      // it stays out once the viewer blocks anything, as on Home.
+      final rating = item.officialRating?.trim() ?? '';
+      if (filter.isActive &&
+          (rating.isEmpty || filter.isBlockedRating(rating))) {
+        continue;
+      }
+      if ((item.backdropUrl ?? '').isEmpty && !sync.tmdbDetailsAvailable) {
+        continue;
+      }
+      pool.add(item);
+    }
+    return pool..shuffle(_random);
+  }
+
+  /// [library] with titles from [external] shuffled in, [maxItems] in all.
+  /// Only the outside titles that make the cut are looked up on TMDB.
+  Future<List<MediaBarSlideItem>> _mixInExternal(
+    List<MediaBarSlideItem> library,
+    List<ImdbExternalListItem> external,
+    int maxItems,
+    Set<String> excludedGenres,
+  ) async {
+    if (external.isEmpty) return library;
+    final chosen = (<Object>[
+      ...library,
+      ...external.take(maxItems),
+    ]..shuffle(_random)).take(maxItems).toList();
+    final slides = <String, MediaBarSlideItem>{};
+    await mapBounded(
+      chosen.whereType<ImdbExternalListItem>().toList(),
+      _sourceConcurrency,
+      (item) async {
+        final slide = await _toExternalSlide(item);
+        if (slide == null || slide.genres.any(excludedGenres.contains)) {
+          return null;
+        }
+        slides[slide.itemId] = slide;
+        return null;
+      },
+    );
+    return [
+      for (final pick in chosen)
+        if (pick is MediaBarSlideItem)
+          pick
+        else
+          ?slides[_externalId(pick as ImdbExternalListItem)],
+    ];
+  }
+
+  static String _externalId(ImdbExternalListItem item) =>
+      item.tmdbId.isNotEmpty ? item.tmdbId : item.imdbId;
+
+  /// The slide for an outside title, filled in from TMDB through Moonbase
+  /// where it can be. Null when there is still no backdrop to show.
+  Future<MediaBarSlideItem?> _toExternalSlide(ImdbExternalListItem item) async {
+    final mediaType = item.type == 'Series' ? 'tv' : 'movie';
+    final tmdbId = item.tmdbId.isNotEmpty ? item.tmdbId : null;
+    final imdbId = item.imdbId.isNotEmpty ? item.imdbId : null;
+    final details = GetIt.instance<PluginSyncService>().tmdbDetailsAvailable
+        ? await GetIt.instance<TmdbRepository>().titleDetails(
+            type: mediaType,
+            tmdbId: tmdbId,
+            imdbId: imdbId,
+          )
+        : null;
+
+    final backdropUrl =
+        _tmdbImage(details?['backdropPath'] as String?, 1280) ??
+        _tmdbImage(item.backdropUrl, 1280);
+    if (backdropUrl == null) return null;
+    final runTimeTicks = (details?['runTimeTicks'] as num?)?.toInt();
+    final trailerUrl = details?['trailerUrl'] as String?;
+
+    return MediaBarSlideItem(
+      itemId: _externalId(item),
+      serverId: MediaBarSlideItem.externalServerId,
+      title: item.title,
+      overview: details?['overview'] as String?,
+      backdropUrl: backdropUrl,
+      bannerUrl: seerrThumbUrl(type: mediaType, tmdbId: tmdbId, imdbId: imdbId),
+      logoUrl: _tmdbImage(details?['logoPath'] as String?, 500),
+      posterUrl: _tmdbImage(item.posterUrl, 500),
+      officialRating: item.officialRating,
+      year: item.year,
+      genres:
+          (details?['genres'] as List?)?.cast<String>().take(3).toList() ??
+          const [],
+      runtime: runTimeTicks != null
+          ? Duration(microseconds: runTimeTicks ~/ 10)
+          : null,
+      communityRating: (details?['rating'] as num?)?.toDouble() ?? item.rating,
+      tmdbId: tmdbId,
+      imdbId: imdbId,
+      itemType: item.type == 'Series' ? 'Series' : 'Movie',
+      remoteTrailers: [
+        if (trailerUrl != null) {'Url': trailerUrl},
+      ],
+    );
+  }
+
+  /// Outside lists hold either a TMDB image path or a full URL.
+  static String? _tmdbImage(String? path, int width) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http')) return path;
+    return 'https://image.tmdb.org/t/p/w$width$path';
+  }
+
   bool _hasBackdrop(Map<String, dynamic> item) {
     final tags = item['BackdropImageTags'] as List?;
     return tags != null && tags.isNotEmpty;
@@ -1103,8 +1277,7 @@ class _MediaBarSource {
 
   bool get isActiveServer => serverId.isEmpty;
 
-  String get sourceKey =>
-      serverId.isEmpty ? libraryId : '$serverId|$libraryId';
+  String get sourceKey => serverId.isEmpty ? libraryId : '$serverId|$libraryId';
 }
 
 /// Source-library token for a custom row list the user added (TMDB /
@@ -1123,15 +1296,18 @@ bool isCustomRowSourceToken(String token) => token.startsWith('custom:');
 
 /// Whether the user picked anything at all for the bar to draw from.
 ///
-/// The bar is a curated view: with no source library, collection or custom
-/// list selected it stays empty rather than falling back to every library, so
-/// "nothing chosen" has to read as "nothing to show" before any server query.
+/// The bar is a curated view: with no source library, collection or list
+/// selected it stays empty rather than falling back to every library.
 bool hasMediaBarSourceSelection({
   required List<String> libraryIds,
   required List<String> collectionIds,
   required List<String> customTokens,
+  List<String> externalListIds = const [],
 }) =>
-    libraryIds.isNotEmpty || collectionIds.isNotEmpty || customTokens.isNotEmpty;
+    libraryIds.isNotEmpty ||
+    collectionIds.isNotEmpty ||
+    customTokens.isNotEmpty ||
+    externalListIds.isNotEmpty;
 
 /// A custom row list image as a fetchable absolute URL.
 ///
@@ -1160,4 +1336,34 @@ bool supportsMediaBarLibrary(
   if (type.isEmpty || type == 'mixed' || type == 'unknown') return true;
 
   return preferredTypes.contains(type);
+}
+
+/// The outside lists the bar can draw from, by the id each one's home row has,
+/// in the order the picker shows them: the IMDb charts, the TMDB charts when
+/// the server has a TMDB key, then the user's custom rows.
+Map<String, HomeSectionConfig> mediaBarExternalLists(
+  List<HomeSectionConfig> sections, {
+  required bool tmdbAvailable,
+}) {
+  // Built the way Home builds these rows, so both read the same cached list.
+  HomeSectionConfig chart(HomeSectionType type, String source, String path) =>
+      HomeSectionConfig.pluginDynamic(
+        serverId: MediaBarSlideItem.externalServerId,
+        pluginSection: type.serializedName,
+        pluginDisplayText: type.serializedName,
+        pluginSource: HomeSectionPluginSource.custom,
+        pluginAdditionalData: jsonEncode({'source': source, 'type': path}),
+      );
+  return {
+    for (final type in imdbChartSections)
+      type.serializedName: chart(type, 'imdb', type.serializedName),
+    if (tmdbAvailable)
+      for (final entry in tmdbChartPaths.entries)
+        entry.key.serializedName: chart(entry.key, 'tmdb_chart', entry.value),
+    for (final section in sections)
+      if (section.isPluginDynamic &&
+          section.pluginSource == HomeSectionPluginSource.custom &&
+          (section.pluginSection ?? '').isNotEmpty)
+        section.pluginSection!: section,
+  };
 }

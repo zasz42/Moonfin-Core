@@ -75,6 +75,25 @@ class _DetailsScreenSettingsScreenState
                       PersonalRatingStyle.numeric => l10n.personalRatingNumeric,
                     },
                   ),
+                  SwitchPreferenceTile(
+                    preference: UserPreferences.detailsBackdropEnabled,
+                    title: l10n.detailsScreenBackdrop,
+                    icon: Icons.photo,
+                    onChanged: _pushPersonalizationSync,
+                  ),
+                  if (PlatformDetection.useMobileUi)
+                    StringPickerPreferenceTile(
+                      preference: UserPreferences.detailsBackdropSize,
+                      title: l10n.detailsBackdropSize,
+                      icon: Icons.fit_screen,
+                      options: {
+                        UserPreferences.detailsBackdropFullScreen:
+                            l10n.detailsBackdropFullScreen,
+                        UserPreferences.detailsBackdropFit:
+                            l10n.detailsBackdropFit,
+                      },
+                      onChanged: _pushPersonalizationSync,
+                    ),
                   if (prefs.get(UserPreferences.detailScreenStyle) == DetailScreenStyle.classic)
                     SliderPreferenceTile(
                       preference: UserPreferences.detailsBackgroundBlurAmount,
@@ -166,6 +185,13 @@ class _DetailsScreenSettingsScreenState
                     title: l10n.openTrailersExternally,
                     subtitle: l10n.openTrailersExternallySubtitle,
                     icon: Icons.open_in_new,
+                    onChanged: _pushPersonalizationSync,
+                  ),
+                  SwitchPreferenceTile(
+                    preference: UserPreferences.mediaBarTrailerCaptions,
+                    title: l10n.trailerCaptions,
+                    subtitle: l10n.trailerCaptionsDescription,
+                    icon: Icons.closed_caption_outlined,
                     onChanged: _pushPersonalizationSync,
                   ),
                   SwitchPreferenceTile(

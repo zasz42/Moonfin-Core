@@ -1566,10 +1566,7 @@ class MultiServerRepository {
     return sorted;
   }
 
-  static DateTime? _parseDateCreated(dynamic value) {
-    if (value is String) return DateTime.tryParse(value);
-    return null;
-  }
+  static DateTime? _parseDateCreated(dynamic value) => parseServerDate(value);
 
   static int _compareNullableDate(DateTime? a, DateTime? b) {
     if (a == null && b == null) return 0;

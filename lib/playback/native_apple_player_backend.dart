@@ -456,12 +456,18 @@ class NativeApplePlayerBackend implements PlayerBackend {
   Stream<bool> get completedStream => _completedStream.stream;
 
   @override
+  bool get decodesHevcOnlyFromOriginalFile =>
+      PlatformDetection.offersHevcSoftwareDecode &&
+      _prefs.get(UserPreferences.hevcSoftwareDirectPlay);
+
+  @override
   Map<String, dynamic> getDeviceProfile({
     bool useProgressiveTranscode = false,
   }) {
     final maxBitrate = int.tryParse(_prefs.get(UserPreferences.maxBitrate));
     final maxResolution = _prefs.get(UserPreferences.maxVideoResolution);
     final audioCapabilityProfile = _prefs.detectedAudioCapabilities;
+    final softwareHevc = decodesHevcOnlyFromOriginalFile;
 
     return DeviceProfileBuilder.build(
       maxBitrateMbps: maxBitrate,
@@ -489,10 +495,11 @@ class NativeApplePlayerBackend implements PlayerBackend {
       avcMainLevel: PlatformDetection.avcMainLevel,
       avcHigh10Level: PlatformDetection.avcHigh10Level,
       capsAvcRefFrames: false,
-      supportsHevc: PlatformDetection.supportsHevc,
-      supportsHevcMain10: PlatformDetection.supportsHevcMain10,
+      supportsHevc: PlatformDetection.supportsHevc || softwareHevc,
+      supportsHevcMain10: PlatformDetection.supportsHevcMain10 || softwareHevc,
       transcodeHevcAllowed: serverAllowsHevcTranscode(),
       hevcRequiresFmp4Hls: true,
+      hevcDirectPlayOnly: softwareHevc,
       hlsAudioForAvFoundation: true,
       hevcMainLevel: PlatformDetection.hevcMainLevel,
       supportsHevcDolbyVision: PlatformDetection.supportsHevcDolbyVision,

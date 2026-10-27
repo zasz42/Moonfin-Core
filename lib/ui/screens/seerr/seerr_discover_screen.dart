@@ -750,7 +750,7 @@ class _SeerrDiscoverScreenState extends State<SeerrDiscoverScreen> {
     final platformScale =
         PlatformDetection.isTV ? 0.8 * desktopScale : desktopScale;
     final imageHeight =
-        modernImageHeight(modernPosterSize(_prefs), platformScale);
+        modernImageHeight(_prefs.get(UserPreferences.posterSize), platformScale);
     return (
       imageHeight: imageHeight,
       portraitWidth: imageHeight * 2 / 3,
@@ -916,27 +916,34 @@ class _SeerrDiscoverScreenState extends State<SeerrDiscoverScreen> {
                 card: card,
                 prefs: _prefs,
                 details: expanded
-                    ? ValueListenableBuilder<Map<String, Map<String, double>>>(
-                        valueListenable: _modernRatings,
-                        builder: (context, ratings, _) => ModernCardDetails(
-                          prefs: _prefs,
-                          cardWidth: width,
-                          detailsWidth: modernDetailsWidth(
-                            controller: scrollController,
-                            index: index,
-                            itemCount: row.items.length,
-                            itemExtent: sizes.portraitWidth,
-                            itemSpacing: itemSpacing,
-                            focusedWidth: width,
-                            maxWidth: maxDetailsWidth,
-                            leadingInset: sideInset,
-                            trailingInset: sideInset,
+                    ? ModernHoverBuilder(
+                        expansion: _modernExpansion,
+                        cardKey: key,
+                        controller: scrollController,
+                        builder: (context, hovered) =>
+                            ValueListenableBuilder<Map<String, Map<String, double>>>(
+                          valueListenable: _modernRatings,
+                          builder: (context, ratings, _) => ModernCardDetails(
+                            prefs: _prefs,
+                            cardWidth: width,
+                            detailsWidth: modernDetailsWidth(
+                              controller: scrollController,
+                              index: index,
+                              itemCount: row.items.length,
+                              itemExtent: sizes.portraitWidth,
+                              itemSpacing: itemSpacing,
+                              focusedWidth: width,
+                              maxWidth: maxDetailsWidth,
+                              leadingInset: sideInset,
+                              trailingInset: sideInset,
+                              hovered: hovered,
+                            ),
+                            overview: item.overview,
+                            communityRating: (item.voteAverage ?? 0) > 0
+                                ? item.voteAverage
+                                : null,
+                            additionalRatings: ratings[key] ?? const {},
                           ),
-                          overview: item.overview,
-                          communityRating: (item.voteAverage ?? 0) > 0
-                              ? item.voteAverage
-                              : null,
-                          additionalRatings: ratings[key] ?? const {},
                         ),
                       )
                     : null,

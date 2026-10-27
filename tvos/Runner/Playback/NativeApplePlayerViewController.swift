@@ -293,6 +293,7 @@ final class NativeApplePlayerViewController: UIViewController {
     private var trickplayStripTiles: [UIImageView] = []
     private let trickplayCover = UIImageView()
 
+    private let osdScrim = UIView()
     private let topContainer = UIView()
     private let topGradientLayer = CAGradientLayer()
     private let headerStack = UIStackView()
@@ -481,6 +482,17 @@ final class NativeApplePlayerViewController: UIViewController {
     }
 
     private func setupOsd() {
+        osdScrim.translatesAutoresizingMaskIntoConstraints = false
+        osdScrim.backgroundColor = UIColor(white: 0, alpha: 0.3)
+        osdScrim.alpha = 0
+        view.addSubview(osdScrim)
+        NSLayoutConstraint.activate([
+            osdScrim.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            osdScrim.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            osdScrim.topAnchor.constraint(equalTo: view.topAnchor),
+            osdScrim.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         topContainer.translatesAutoresizingMaskIntoConstraints = false
         topContainer.alpha = 0
         view.addSubview(topContainer)
@@ -951,7 +963,7 @@ final class NativeApplePlayerViewController: UIViewController {
 
         trickplayCover.backgroundColor = .black
         trickplayCover.isHidden = true
-        view.insertSubview(trickplayCover, belowSubview: topContainer)
+        view.insertSubview(trickplayCover, belowSubview: osdScrim)
     }
 
     // Mirrors the Flutter NextUpOverlay layout at TV scale: a thumbnail on
@@ -2837,9 +2849,10 @@ final class NativeApplePlayerViewController: UIViewController {
         player.setSubtitlePosition(pos)
     }
 
-    /// The top bar, the bottom bar and, on iOS, the centered transport come
-    /// and go together.
+    /// The dim, the top bar, the bottom bar and, on iOS, the centered
+    /// transport come and go together.
     private func setOsdAlpha(_ alpha: CGFloat) {
+        osdScrim.alpha = alpha
         osdContainer.alpha = alpha
         topContainer.alpha = alpha
         #if os(iOS)

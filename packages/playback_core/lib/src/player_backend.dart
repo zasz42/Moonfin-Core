@@ -177,6 +177,10 @@ abstract class PlayerBackend {
   /// even when nothing stripped them from the stream.
   bool get demuxesEmbeddedSubtitles => true;
 
+  /// Whether HEVC only plays from the original file. The device decodes it in
+  /// software, and its native player can't take a server HLS copy of it.
+  bool get decodesHevcOnlyFromOriginalFile => false;
+
   /// Caption tracks the player found inside the video, which no server stream
   /// list can describe. Empty on engines that don't decode them.
   List<EmbeddedCaptionTrack> get embeddedCaptionTracks => const [];

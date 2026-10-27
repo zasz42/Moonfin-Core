@@ -6,6 +6,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/repositories/tmdb_repository.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../preference/detail_section_layout.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/detail_trailer.dart';
 import '../../../util/platform_detection.dart';
@@ -98,7 +99,8 @@ List<PersonLink> personLinksFor(
 }
 
 /// A person's own pages as a row of round brand buttons. Shows nothing when
-/// there are none, and nothing on TV, which has no browser to open them in.
+/// there are none or the user switched the links off, and nothing on TV,
+/// which has no browser to open them in.
 class PersonLinksRow extends StatelessWidget {
   final AggregatedItem item;
   final TmdbPersonAccounts? accounts;
@@ -118,7 +120,12 @@ class PersonLinksRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (PlatformDetection.isTV) return const SizedBox.shrink();
+    if (PlatformDetection.isTV ||
+        !DetailSectionVisibility.of(
+          GetIt.instance<UserPreferences>(),
+        ).shows(DetailSection.personLinks)) {
+      return const SizedBox.shrink();
+    }
     final links = personLinksFor(item, accounts);
     if (links.isEmpty) return const SizedBox.shrink();
     return Padding(

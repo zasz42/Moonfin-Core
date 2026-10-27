@@ -20,10 +20,38 @@ typedef TmdbPersonAccounts = ({
   String? youtube,
 });
 
+/// A TMDB user review. The plugin has already turned its text into markdown.
+typedef TmdbReview = ({
+  String author,
+  double? rating,
+  String content,
+  DateTime? createdAt,
+  String? avatarUrl,
+  String? url,
+});
+
+/// The reviews in a plugin answer, leaving out any without text.
+@visibleForTesting
+List<TmdbReview> parseTmdbReviews(Map<String, dynamic> response) => [
+  for (final r in (response['reviews'] as List?) ?? const [])
+    if (r is Map && r['content'] is String && (r['content'] as String).isNotEmpty)
+      (
+        author: r['author'] is String ? r['author'] as String : '',
+        rating: r['rating'] is num ? (r['rating'] as num).toDouble() : null,
+        content: r['content'] as String,
+        createdAt: r['createdAt'] is String
+            ? DateTime.tryParse(r['createdAt'] as String)
+            : null,
+        avatarUrl: r['avatarUrl'] is String ? r['avatarUrl'] as String : null,
+        url: r['url'] is String ? r['url'] as String : null,
+      ),
+];
+
 class TmdbRepository {
   static const _maxEpisodeCacheEntries = 256;
   static const _maxSeasonCacheEntries = 64;
   static const _maxCompaniesCacheEntries = 128;
+  static const _maxReviewsCacheEntries = 64;
 
   final MediaServerClient _client;
 
@@ -32,6 +60,7 @@ class TmdbRepository {
   final _episodeCache = <String, double>{};
   final _seasonCache = <String, Map<int, double>>{};
   final _companiesCache = <String, List<StudioCompany>>{};
+  final _reviewsCache = <String, List<TmdbReview>>{};
   final _pendingEpisodes = <String, Completer<double?>>{};
   final _pendingSeasons = <String, Completer<Map<int, double>?>>{};
   final _pendingCompanies = <String, Completer<List<StudioCompany>?>>{};
@@ -117,6 +146,37 @@ class TmdbRepository {
         _client.serverType.tokenQueryParam: token,
       },
     ).toString();
+  }
+
+  /// What Moonbase finds on TMDB for a movie or show the server doesn't have:
+  /// overview, rating, genres, runTimeTicks, backdropPath, logoPath and
+  /// trailerUrl, with image paths relative to TMDB's image host. Null when
+  /// TMDB doesn't know the title or the call fails.
+  Future<Map<String, dynamic>?> titleDetails({
+    required String type,
+    String? tmdbId,
+    String? imdbId,
+  }) async {
+    final token = _client.accessToken;
+    if (token == null) return null;
+    final hasTmdb = tmdbId != null && tmdbId.isNotEmpty;
+    if (!hasTmdb && (imdbId == null || imdbId.isEmpty)) return null;
+    try {
+      final response = await _dio.get(
+        '${_client.baseUrl}/Moonfin/Tmdb/Details',
+        queryParameters: {
+          'type': type,
+          if (hasTmdb) 'tmdbId': tmdbId else 'imdbId': imdbId,
+        },
+        options: Options(headers: {
+          'Authorization': 'MediaBrowser Token="$token"',
+        }),
+      );
+      final data = response.data;
+      return data is Map<String, dynamic> ? data : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<double?> getEpisodeRating({
@@ -252,6 +312,35 @@ class TmdbRepository {
     }
   }
 
+  /// TMDB's user reviews for a movie or show, in [language] when it has any
+  /// in it. Null when the plugin call fails, so a later visit asks again.
+  Future<List<TmdbReview>?> getReviews({
+    required String tmdbId,
+    required String type,
+    String? language,
+  }) async {
+    final cacheKey = '$type:$tmdbId:$language';
+    final cached = _reviewsCache[cacheKey];
+    if (cached != null) return cached;
+    try {
+      final response = await _get('/Moonfin/Tmdb/Reviews', {
+        'tmdbId': tmdbId,
+        'type': type,
+        'language': ?language,
+      });
+      if (response == null) return null;
+      final reviews = parseTmdbReviews(response);
+      if (_reviewsCache.length >= _maxReviewsCacheEntries) {
+        _reviewsCache.remove(_reviewsCache.keys.first);
+      }
+      _reviewsCache[cacheKey] = reviews;
+      return reviews;
+    } catch (e) {
+      debugPrint('[Moonfin] TMDB reviews fetch failed: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> _get(
     String path,
     Map<String, dynamic> query,
@@ -280,6 +369,7 @@ class TmdbRepository {
     _episodeCache.clear();
     _seasonCache.clear();
     _companiesCache.clear();
+    _reviewsCache.clear();
     _pendingEpisodes.clear();
     _pendingSeasons.clear();
     _pendingCompanies.clear();

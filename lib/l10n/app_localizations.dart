@@ -268,6 +268,24 @@ abstract class AppLocalizations {
   /// **'Subbed/Dubbed'**
   String get animeMarkerSubbedAndDubbed;
 
+  /// Short form of the Subbed badge
+  ///
+  /// In en, this message translates to:
+  /// **'Sub'**
+  String get animeMarkerSubbedShort;
+
+  /// Short form of the Dubbed badge
+  ///
+  /// In en, this message translates to:
+  /// **'Dub'**
+  String get animeMarkerDubbedShort;
+
+  /// Short form of the Subbed/Dubbed badge
+  ///
+  /// In en, this message translates to:
+  /// **'Sub/Dub'**
+  String get animeMarkerSubbedAndDubbedShort;
+
   /// Badge on an anime episode whose filler information the server has matched but not downloaded yet
   ///
   /// In en, this message translates to:
@@ -1030,17 +1048,59 @@ abstract class AppLocalizations {
   /// **'Custom themes alter visual elements across Moonfin. Choose one of these options to suit your style.'**
   String get customThemeSubtitle;
 
-  /// Settings label for preferring the native system keyboard instead of the custom TV keyboard
+  /// Label for the setting that picks how the on-screen keyboard looks, or whether the TV's own keyboard is used
   ///
   /// In en, this message translates to:
-  /// **'Prefer System Keyboard'**
-  String get keyboardPreferSystemIme;
+  /// **'Keyboard Style'**
+  String get keyboardStyle;
 
-  /// Settings subtitle for the system keyboard preference
+  /// Explanation under the keyboard style setting
   ///
   /// In en, this message translates to:
-  /// **'Use your device input method by default for text entry'**
-  String get keyboardPreferSystemImeDescription;
+  /// **'Native uses your TV\'s own keyboard. Classic is the original Moonfin keyboard. Glass is a frosted panel with larger keys. Docked fills the bottom of the screen and shows what you type above the keys.'**
+  String get keyboardStyleDescription;
+
+  /// Keyboard style option: the TV or device's own system keyboard
+  ///
+  /// In en, this message translates to:
+  /// **'Native'**
+  String get keyboardStyleNative;
+
+  /// Keyboard style option: the original in-app keyboard
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get keyboardStyleClassic;
+
+  /// Keyboard style option: a frosted glass panel with larger keys
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get keyboardStyleGlass;
+
+  /// Keyboard style option: a full-width keyboard docked to the bottom of the screen
+  ///
+  /// In en, this message translates to:
+  /// **'Docked'**
+  String get keyboardStyleDocked;
+
+  /// Label on the on-screen keyboard's space bar, lowercase like a printed key
+  ///
+  /// In en, this message translates to:
+  /// **'space'**
+  String get keyboardSpace;
+
+  /// On-screen keyboard hint next to an OK button cap: holding OK on a letter shows its accented versions
+  ///
+  /// In en, this message translates to:
+  /// **'hold for accents'**
+  String get keyboardHoldForAccents;
+
+  /// On-screen keyboard hint next to a Back button cap, lowercase like the hold for accents hint: Back closes the keyboard
+  ///
+  /// In en, this message translates to:
+  /// **'close'**
+  String get keyboardClose;
 
   /// Settings section header for game controller options
   ///
@@ -6514,6 +6574,18 @@ abstract class AppLocalizations {
   /// **'Stats'**
   String get detailSectionSeerrStats;
 
+  /// Details screen Seerr section: logos of the services streaming the title in the user's region
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming services'**
+  String get detailSectionSeerrStreaming;
+
+  /// Heading over the logos of the services streaming a Seerr title
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming on'**
+  String get seerrStreamingOn;
+
   /// Details screen Seerr section: recommended titles
   ///
   /// In en, this message translates to:
@@ -6561,6 +6633,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Birthplace'**
   String get detailSectionBirthplace;
+
+  /// Details screen section: buttons that open a person's IMDb, TMDB and social media pages
+  ///
+  /// In en, this message translates to:
+  /// **'Links'**
+  String get detailSectionPersonLinks;
+
+  /// Subtitle under the person links section switch
+  ///
+  /// In en, this message translates to:
+  /// **'IMDb, TMDB and social media'**
+  String get detailSectionPersonLinksSubtitle;
 
   /// Details screen section: a person's guest appearances
   ///
@@ -8518,6 +8602,18 @@ abstract class AppLocalizations {
   /// **'Choose between various media bar styles, or turn the media bar off'**
   String get mediaBarModeDescription;
 
+  /// Title of the media bar setting that lets the first home row show over the bottom of the media bar
+  ///
+  /// In en, this message translates to:
+  /// **'Peek Home Rows'**
+  String get peekHomeRows;
+
+  /// Description of the Peek Home Rows media bar setting
+  ///
+  /// In en, this message translates to:
+  /// **'Show the top half of the first row along the bottom of the media bar'**
+  String get peekHomeRowsDescription;
+
   /// Media bar style option: Moonfin
   ///
   /// In en, this message translates to:
@@ -8719,7 +8815,7 @@ abstract class AppLocalizations {
   /// Description for YouTube trailer captions
   ///
   /// In en, this message translates to:
-  /// **'Show captions on YouTube trailers in the media bar'**
+  /// **'Show captions on YouTube trailers'**
   String get trailerCaptionsDescription;
 
   /// Setting for episode preview
@@ -21610,6 +21706,102 @@ abstract class AppLocalizations {
   /// **'Sort Audio rows in ascending or descending order.'**
   String get audioRowsSortOrderDescription;
 
+  /// No description provided for @sorting.
+  ///
+  /// In en, this message translates to:
+  /// **'Sorting'**
+  String get sorting;
+
+  /// No description provided for @imdbRowsSorting.
+  ///
+  /// In en, this message translates to:
+  /// **'IMDb Row Sorting'**
+  String get imdbRowsSorting;
+
+  /// No description provided for @imdbRowsSortingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort IMDb rows by name, release date, rating, and more.'**
+  String get imdbRowsSortingDescription;
+
+  /// No description provided for @imdbRowsSortOrderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort IMDb rows in ascending or descending order.'**
+  String get imdbRowsSortOrderDescription;
+
+  /// No description provided for @tmdbRowsSorting.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB Row Sorting'**
+  String get tmdbRowsSorting;
+
+  /// No description provided for @tmdbRowsSortingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort TMDB rows by name, release date, rating, and more.'**
+  String get tmdbRowsSortingDescription;
+
+  /// No description provided for @tmdbRowsSortOrderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort TMDB rows in ascending or descending order.'**
+  String get tmdbRowsSortOrderDescription;
+
+  /// No description provided for @seerrRowsSorting.
+  ///
+  /// In en, this message translates to:
+  /// **'Seerr Row Sorting'**
+  String get seerrRowsSorting;
+
+  /// No description provided for @seerrRowsSortingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort Seerr rows by name, release date, rating, and more.'**
+  String get seerrRowsSortingDescription;
+
+  /// No description provided for @seerrRowsSortOrderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort Seerr rows in ascending or descending order.'**
+  String get seerrRowsSortOrderDescription;
+
+  /// No description provided for @externalRowSortDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default (List Order)'**
+  String get externalRowSortDefault;
+
+  /// No description provided for @externalRowSortName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get externalRowSortName;
+
+  /// No description provided for @externalRowSortReleaseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Date'**
+  String get externalRowSortReleaseDate;
+
+  /// No description provided for @externalRowSortRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get externalRowSortRating;
+
+  /// No description provided for @externalRowSortPopularity.
+  ///
+  /// In en, this message translates to:
+  /// **'Popularity'**
+  String get externalRowSortPopularity;
+
+  /// No description provided for @externalRowSortShuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle'**
+  String get externalRowSortShuffle;
+
   /// No description provided for @audioPlaylists.
   ///
   /// In en, this message translates to:
@@ -21771,6 +21963,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use FFmpeg (audio) and libgav1 (AV1) before hardware decoders. Disable if HDMI audio passthrough breaks.'**
   String get preferSoftwareDecodersSubtitle;
+
+  /// No description provided for @hevcSoftwareDirectPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Play HEVC (Software Decode)'**
+  String get hevcSoftwareDirectPlay;
+
+  /// No description provided for @hevcSoftwareDirectPlaySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Play HEVC up to 1080p from the original file instead of asking the server to transcode it. This Apple TV decodes it in software, so heavy 10-bit or high bitrate files may stutter.'**
+  String get hevcSoftwareDirectPlaySubtitle;
 
   /// No description provided for @useExternalPlayer.
   ///
@@ -24763,6 +24967,12 @@ abstract class AppLocalizations {
   /// **'Custom (Drag-and-Drop)'**
   String get sortCustomDragDrop;
 
+  /// Label beside a sort button showing the sort that is active
+  ///
+  /// In en, this message translates to:
+  /// **'Sort: {option}'**
+  String sortCurrent(String option);
+
   /// No description provided for @playlistSortOptions.
   ///
   /// In en, this message translates to:
@@ -26717,11 +26927,41 @@ abstract class AppLocalizations {
   /// **'Home Screen Backdrop'**
   String get homeScreenBackdrop;
 
+  /// Home Screen Backdrop option that fills the whole screen with the focused item's backdrop
+  ///
+  /// In en, this message translates to:
+  /// **'Full Screen'**
+  String get homeScreenBackdropFullScreen;
+
+  /// Home Screen Backdrop option that shows the focused item's backdrop in the top right corner, fading into the background like the Google TV home screen
+  ///
+  /// In en, this message translates to:
+  /// **'Corner'**
+  String get homeScreenBackdropCorner;
+
   /// Setting to show or hide the backdrop image behind the item details screen
   ///
   /// In en, this message translates to:
   /// **'Details Screen Backdrop'**
   String get detailsScreenBackdrop;
+
+  /// Setting on phones for how big the backdrop image behind the item details screen is drawn
+  ///
+  /// In en, this message translates to:
+  /// **'Backdrop Size'**
+  String get detailsBackdropSize;
+
+  /// Backdrop Size option that zooms the backdrop to fill the whole details screen
+  ///
+  /// In en, this message translates to:
+  /// **'Full Screen'**
+  String get detailsBackdropFullScreen;
+
+  /// Backdrop Size option that shows the whole backdrop across the top of the details screen, fading into the page below it
+  ///
+  /// In en, this message translates to:
+  /// **'Fit'**
+  String get detailsBackdropFit;
 
   /// Setting to show or hide backdrop images while browsing library pages
   ///
@@ -27098,6 +27338,384 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Docked'**
   String get playerTransportDocked;
+
+  /// Badge and detail label for a Live TV recording that was written for less than its scheduled length
+  ///
+  /// In en, this message translates to:
+  /// **'Incomplete'**
+  String get incompleteRecording;
+
+  /// How many minutes of an incomplete Live TV recording were written, out of its scheduled length with padding
+  ///
+  /// In en, this message translates to:
+  /// **'{recorded} of {expected} min'**
+  String incompleteRecordingMinutes(int recorded, int expected);
+
+  /// Detail line status: a later complete showing of the incomplete episode will be recorded
+  ///
+  /// In en, this message translates to:
+  /// **'Complete showing scheduled {dateTime}'**
+  String completeShowingScheduled(String dateTime);
+
+  /// Detail line status: a complete copy of the incomplete episode has since been recorded
+  ///
+  /// In en, this message translates to:
+  /// **'Complete copy recorded {dateTime}'**
+  String completeCopyRecorded(String dateTime);
+
+  /// Detail line status: no later complete showing of the incomplete episode was found in the guide
+  ///
+  /// In en, this message translates to:
+  /// **'No complete showing found'**
+  String get noCompleteShowingFound;
+
+  /// Action that clears the Incomplete mark on a Live TV recording for everyone on the server
+  ///
+  /// In en, this message translates to:
+  /// **'Keep as Complete'**
+  String get keepAsComplete;
+
+  /// Snackbar confirmation after Keep as Complete
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as complete'**
+  String get keptAsComplete;
+
+  /// Snackbar shown when Keep as Complete fails
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to mark as complete'**
+  String get unableToKeepAsComplete;
+
+  /// Title of the Record prompt for a program that is already airing
+  ///
+  /// In en, this message translates to:
+  /// **'Record {name}'**
+  String recordPromptTitle(String name);
+
+  /// First line of the Record prompt, saying how long ago the program started
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes, plural, =1{This showing started 1 minute ago, so the recording will miss the start.} other{This showing started {minutes} minutes ago, so the recording will miss the start.}}'**
+  String recordPromptStarted(int minutes);
+
+  /// Record prompt question when a future showing is shown below it
+  ///
+  /// In en, this message translates to:
+  /// **'Also record the future showing to get a complete recording?'**
+  String get recordPromptAlsoRecordLater;
+
+  /// Record prompt question when no future showing is known yet and Moonfin will look for one
+  ///
+  /// In en, this message translates to:
+  /// **'Also record a future showing automatically once one is found, to get a complete recording?'**
+  String get recordPromptSearchLater;
+
+  /// Label of the Record prompt card for the program that is airing now
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get recordPromptNow;
+
+  /// Label of the Record prompt card for the future showing that would also be recorded
+  ///
+  /// In en, this message translates to:
+  /// **'Future showing'**
+  String get recordPromptLater;
+
+  /// Beside the progress bar on the Record prompt's Now card
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes, plural, =1{1 min already aired} other{{minutes} min already aired}}'**
+  String recordPromptAired(int minutes);
+
+  /// Caution under the future showing when it has no season and episode numbers to confirm it is the same program
+  ///
+  /// In en, this message translates to:
+  /// **'Matched by title and description only. Check it\'s the same program.'**
+  String get recordPromptUncertainMatch;
+
+  /// Caution under the future showing when its description differs from the program airing now
+  ///
+  /// In en, this message translates to:
+  /// **'The descriptions differ, so this may be a different program.'**
+  String get recordPromptDescriptionsDiffer;
+
+  /// Note under the future showing when its season and episode match the program airing now
+  ///
+  /// In en, this message translates to:
+  /// **'Same episode (S{season}E{episode})'**
+  String recordPromptSameEpisode(int season, int episode);
+
+  /// Note in the future showing's card when a recording is already scheduled for it, by anyone
+  ///
+  /// In en, this message translates to:
+  /// **'Already set to record'**
+  String get recordPromptAlreadyScheduled;
+
+  /// When the future showing airs, used in the Record Now and ... button
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get recordPromptTomorrow;
+
+  /// Record prompt choice: only record the program that is airing now
+  ///
+  /// In en, this message translates to:
+  /// **'Record Now Only'**
+  String get recordNowOnly;
+
+  /// Record prompt choice: record now and the future showing. The placeholder is a time today, Tomorrow, a weekday or a short date
+  ///
+  /// In en, this message translates to:
+  /// **'Record Now and {when}'**
+  String recordNowAnd(String when);
+
+  /// Record prompt choice when no future showing is known yet: record now and let Moonfin find a future showing
+  ///
+  /// In en, this message translates to:
+  /// **'Record Now and Future Showing'**
+  String get recordNowAndLater;
+
+  /// Record prompt choice: skip the airing now and record only the future showing. The placeholder is a time today, Tomorrow, a weekday or a short date
+  ///
+  /// In en, this message translates to:
+  /// **'Record {when} Only'**
+  String recordOnlyLater(String when);
+
+  /// Record prompt choice when no future showing is known yet: skip the airing now and let Moonfin record a future showing
+  ///
+  /// In en, this message translates to:
+  /// **'Record Future Showing Only'**
+  String get recordLaterShowingOnly;
+
+  /// Snackbar after choosing to record only the future showing
+  ///
+  /// In en, this message translates to:
+  /// **'The future showing will be recorded.'**
+  String get laterShowingOnlyRequested;
+
+  /// Snackbar when only the future showing was chosen and asking for it failed
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t request the future showing, so nothing will be recorded.'**
+  String get unableToRequestLaterShowingOnly;
+
+  /// Snackbar after recording now and asking for a future showing
+  ///
+  /// In en, this message translates to:
+  /// **'Recording started. A future showing will be recorded too.'**
+  String get laterShowingRequested;
+
+  /// Snackbar when the recording started but asking for a future showing failed
+  ///
+  /// In en, this message translates to:
+  /// **'Recording started, but couldn\'t request a future showing.'**
+  String get unableToRequestLaterShowing;
+
+  /// How many trailers the trailer picker lists, shown in its header
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 trailer} other{{count} trailers}}'**
+  String trailerCount(int count);
+
+  /// Fallback name in the trailer picker for a trailer the server gave no name, numbered by its place in the list
+  ///
+  /// In en, this message translates to:
+  /// **'Trailer {number}'**
+  String trailerNumber(int number);
+
+  /// Chip in the trailer picker on a trailer that has subtitles burned into the video
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitled'**
+  String get subtitled;
+
+  /// Title of the screen, and the button on a game library, for linking the user's own RomM account
+  ///
+  /// In en, this message translates to:
+  /// **'RomM account'**
+  String get rommAccount;
+
+  /// Explains what linking a RomM account does, shown above the Link button
+  ///
+  /// In en, this message translates to:
+  /// **'Link your RomM account to play from your own RomM library and keep your saves in RomM.'**
+  String get rommAccountIntro;
+
+  /// Button that starts linking a RomM account
+  ///
+  /// In en, this message translates to:
+  /// **'Link RomM account'**
+  String get rommLinkAccount;
+
+  /// Instructions above the code while a RomM link waits for approval
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to RomM and enter this code to link your account.'**
+  String get rommLinkInstructions;
+
+  /// Shown on TV beside the QR code while a RomM link waits for approval
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR code with your phone, or go to {url}'**
+  String rommLinkScanOrVisit(String url);
+
+  /// Button that opens the RomM approval page in the browser with the code filled in
+  ///
+  /// In en, this message translates to:
+  /// **'Open RomM'**
+  String get rommOpen;
+
+  /// Status shown while the app waits for the RomM code to be approved
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for you to approve the code in RomM...'**
+  String get rommWaitingForApproval;
+
+  /// Shown when the user's RomM account is linked
+  ///
+  /// In en, this message translates to:
+  /// **'Linked as {username}'**
+  String rommLinkedAs(String username);
+
+  /// Shown when the user's RomM account is linked and the server sent no user name
+  ///
+  /// In en, this message translates to:
+  /// **'Your RomM account is linked.'**
+  String get rommLinked;
+
+  /// Explains what Unlink does on the RomM account screen
+  ///
+  /// In en, this message translates to:
+  /// **'Unlinking stops Moonfin from using your RomM key. The key stays in RomM until you remove it from your API tokens there.'**
+  String get rommUnlinkNote;
+
+  /// Button that unlinks the user's RomM account
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get rommUnlink;
+
+  /// Error when a RomM link code ran out of time
+  ///
+  /// In en, this message translates to:
+  /// **'The code expired before it was approved. Link again to get a new one.'**
+  String get rommLinkExpired;
+
+  /// Error when the user declined the RomM link request
+  ///
+  /// In en, this message translates to:
+  /// **'The link was turned down in RomM.'**
+  String get rommLinkDenied;
+
+  /// Error when the server couldn't reach RomM while linking
+  ///
+  /// In en, this message translates to:
+  /// **'Moonfin couldn\'t reach RomM. Try again in a moment.'**
+  String get rommUnreachable;
+
+  /// Shown on the RomM account screen when the server has no RomM library
+  ///
+  /// In en, this message translates to:
+  /// **'This server has no RomM library.'**
+  String get rommNotAvailable;
+
+  /// Error when the RomM account status couldn't be loaded from the server
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your RomM account.'**
+  String get rommAccountLoadFailed;
+
+  /// Title of the row, tab and card on the details screen that lists TMDB user reviews
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews'**
+  String get reviews;
+
+  /// Details screen section: user reviews from TMDB
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews'**
+  String get detailSectionReviews;
+
+  /// How many reviews a title has, under the Reviews card on the details screen
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 review} other{{count} reviews}}'**
+  String spotlightReviewsCount(int count);
+
+  /// Button in an opened review that opens the review on the TMDB website
+  ///
+  /// In en, this message translates to:
+  /// **'Read on TMDB'**
+  String get readOnTmdb;
+
+  /// Second line of the Add Server button on the server screen
+  ///
+  /// In en, this message translates to:
+  /// **'By address, or with a Plex or Emby Connect account'**
+  String get addServerButtonSubtitle;
+
+  /// Subtitle of the first step of the Add Server dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how you\'d like to connect.'**
+  String get addServerChooseHow;
+
+  /// Add Server dialog: what the Server Address option is for
+  ///
+  /// In en, this message translates to:
+  /// **'Jellyfin or Emby on your network or online'**
+  String get addServerAddressChoice;
+
+  /// Add Server dialog: what the Sign in with Plex option does
+  ///
+  /// In en, this message translates to:
+  /// **'Use your Plex account to find its servers'**
+  String get addServerPlexChoice;
+
+  /// Add Server dialog: help under the Connect to Server title
+  ///
+  /// In en, this message translates to:
+  /// **'The same address you\'d open in a browser, including the port.'**
+  String get addServerAddressHelp;
+
+  /// Add Server dialog: note under the address field
+  ///
+  /// In en, this message translates to:
+  /// **'Works with Jellyfin and Emby. A Plex address opens the Plex sign-in.'**
+  String get addServerDetectNote;
+
+  /// Add Server dialog: shown under the field while the typed address is being tried
+  ///
+  /// In en, this message translates to:
+  /// **'Checking {address}'**
+  String addServerChecking(String address);
+
+  /// Add Server dialog: detail under Unable to connect to server
+  ///
+  /// In en, this message translates to:
+  /// **'Check the address and port, and that the server is running.'**
+  String get addServerUnreachableDetail;
+
+  /// Add Server dialog: title once the address answered
+  ///
+  /// In en, this message translates to:
+  /// **'Server found'**
+  String get addServerFound;
+
+  /// Add Server dialog: under the server that was found
+  ///
+  /// In en, this message translates to:
+  /// **'Continue to choose who\'s signing in.'**
+  String get addServerFoundNote;
+
+  /// Add Server dialog: goes back to the address field instead of keeping the server that was found
+  ///
+  /// In en, this message translates to:
+  /// **'Use a different address'**
+  String get addServerUseDifferentAddress;
 }
 
 class _AppLocalizationsDelegate

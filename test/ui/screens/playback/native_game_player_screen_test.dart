@@ -115,6 +115,7 @@ class _FakeGamesApi extends GamesApi {
     String? gameName,
     bool includeSaveUrl = false,
     String? saveId,
+    bool includeSramUrl = false,
   }) => '';
 
   @override

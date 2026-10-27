@@ -2482,7 +2482,10 @@ class PlaybackManager implements AudioOwnable {
       }
     }
 
-    Future<StreamResolutionResult> resolve(int? cap) async {
+    Future<StreamResolutionResult> resolve(
+      int? cap, {
+      bool originalFile = false,
+    }) async {
       try {
         return await _resolver!.resolve(
           item,
@@ -2493,8 +2496,8 @@ class PlaybackManager implements AudioOwnable {
           startTimeTicks: startTicks,
           mediaSourceId: _mediaSourceId,
           enableDirectPlay: enableDirectPlay,
-          enableDirectStream: enableDirectStream,
-          enableTranscoding: enableTranscoding,
+          enableDirectStream: enableDirectStream && !originalFile,
+          enableTranscoding: enableTranscoding && !originalFile,
         );
       } catch (e) {
         // A server can turn a play down outright, and its reason is all the
@@ -2571,6 +2574,22 @@ class PlaybackManager implements AudioOwnable {
           _cleanupPreemptedSession(item, resolution);
           return;
         }
+      }
+    }
+
+    // A server that only meant to copy HEVC video into HLS would hand it to a
+    // player that can't decode it there, so the original file is asked for
+    // instead. One that has to re-encode the video keeps its transcode.
+    if (enableDirectPlay &&
+        resolution.playMethod == StreamPlayMethod.transcode &&
+        resolution.liveStreamId == null &&
+        _sourceVideoCodec(resolution) == 'hevc' &&
+        !resolution.transcodingReasons.any(_reencodesVideo) &&
+        _backend!.decodesHevcOnlyFromOriginalFile) {
+      resolution = await resolve(maxBitrate, originalFile: true);
+      if (sessionToken != _playbackSessionToken) {
+        _cleanupPreemptedSession(item, resolution);
+        return;
       }
     }
 
@@ -3551,6 +3570,21 @@ class PlaybackManager implements AudioOwnable {
               .any((c) => c.trim().toLowerCase() == lowered),
     );
     return lists('Audio') && !lists('Video');
+  }
+
+  static String? _sourceVideoCodec(StreamResolutionResult resolution) {
+    final codec = resolution.mediaStreams
+        .where((s) => s['Type'] == 'Video')
+        .firstOrNull?['Codec'];
+    return codec is String ? codec.toLowerCase() : null;
+  }
+
+  static bool _reencodesVideo(String reason) {
+    final lowered = reason.toLowerCase();
+    return lowered.contains('video') ||
+        lowered.contains('bitrate') ||
+        lowered.contains('resolution') ||
+        lowered == 'refframesnotsupported';
   }
 
   static const _bitmapSubCodecs = {
