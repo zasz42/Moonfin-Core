@@ -71,9 +71,9 @@ class BannerMediaBar extends StatefulWidget {
   }) {
     final gap = withUpcoming ? compactGap : 0.0;
     return ((screenWidth - compactHorizontalPadding - gap).clamp(
-            0.0,
-            double.infinity,
-          ) /
+          0.0,
+          double.infinity,
+        ) /
         2);
   }
 
@@ -93,6 +93,7 @@ class BannerMediaBar extends StatefulWidget {
 
 class _BannerMediaBarState extends State<BannerMediaBar> {
   static const _keyLongPressThreshold = Duration(milliseconds: 500);
+  static const _gestureDistanceThreshold = 40.0;
   static const _slideTransitionDuration = Duration(milliseconds: 420);
   static const _slideScaleBegin = 1.006;
   Timer? _autoAdvance;
@@ -163,6 +164,23 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     _startAutoAdvance();
   }
 
+  void _advanceFromGesture(double velocity, List<MediaBarSlideItem> items) {
+    final distance = _dragOffset ?? 0.0;
+    final velocityThreshold = PlatformDetection.isAppleTV ? 50.0 : 300.0;
+    final direction = distance.abs() >= _gestureDistanceThreshold
+        ? distance
+        : velocity.abs() >= velocityThreshold
+        ? velocity
+        : 0.0;
+    if (direction < 0) {
+      _setIndex(_index + 1);
+    } else if (direction > 0) {
+      _setIndex(_index == 0 ? items.length - 1 : _index - 1);
+    }
+    _dragOffset = null;
+    if (mounted) setState(() {});
+  }
+
   String? _trailerUrl(MediaBarSlideItem item) {
     for (final trailer in item.remoteTrailers) {
       final url = trailer['Url'];
@@ -211,7 +229,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       if (event is KeyUpEvent) {
         final downTime = _keyDownTime;
         _keyDownTime = null;
-        final longPress = downTime != null &&
+        final longPress =
+            downTime != null &&
             DateTime.now().difference(downTime) >= _keyLongPressThreshold;
         if (longPress) {
           _launchTrailer(item);
@@ -221,27 +240,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         return KeyEventResult.handled;
       }
       return KeyEventResult.handled;
-    }
-
-    // tvOS (Apple TV remote): a single press of the right DPAD button hands
-    // focus to the Upcoming Releases rail. This path only sees key events,
-    // which the remote's physical DPAD produces; clickpad swipes arrive as
-    // gestures (advance-only) and never reach this handler, so they never
-    // change focus.
-    if (PlatformDetection.isAppleTV &&
-        key == LogicalKeyboardKey.arrowRight &&
-        _compact &&
-        _showUpcoming) {
-      if (event is KeyDownEvent) {
-        _focusUpcomingReleases();
-        return KeyEventResult.handled;
-      }
-      if (event is KeyRepeatEvent) {
-        return KeyEventResult.handled;
-      }
-      if (event is KeyUpEvent) {
-        return KeyEventResult.handled;
-      }
     }
 
     // Long-pressing Right (or CTRL+Right on a keyboard) jumps focus to the
@@ -262,7 +260,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       return KeyEventResult.handled;
     }
 
-    if (key == LogicalKeyboardKey.arrowRight && _compact && _showUpcoming) {
+    if (!PlatformDetection.isAppleTV &&
+        key == LogicalKeyboardKey.arrowRight &&
+        _compact &&
+        _showUpcoming) {
       if (event is KeyDownEvent || event is KeyRepeatEvent) {
         if (event is KeyDownEvent) _arrowRightLongPressHandled = false;
         _arrowRightDownTime ??= DateTime.now();
@@ -387,9 +388,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColorScheme.onSurface,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColorScheme.onSurface),
                   ),
                 ),
                 TextButton(
@@ -460,23 +460,14 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     // Track horizontal drag for visual feedback (optional)
                     // This helps on tvOS where remote touchpad generates
                     // continuous drag updates rather than high-velocity flings
-                    _dragOffset = (details.primaryDelta ?? 0) + (_dragOffset ?? 0);
+                    _dragOffset =
+                        (details.primaryDelta ?? 0) + (_dragOffset ?? 0);
                     if (mounted) setState(() {});
                   }
                 : null,
             onHorizontalDragEnd: items.length > 1
                 ? (details) {
-                    final v = details.primaryVelocity ?? 0;
-                    // Use lower velocity threshold on tvOS where remote
-                    // touchpad generates lower-velocity swipes
-                    final threshold = PlatformDetection.isAppleTV ? 50.0 : 300.0;
-                    if (v < -threshold) {
-                      _setIndex(_index + 1);
-                    } else if (v > threshold) {
-                      _setIndex(_index == 0 ? items.length - 1 : _index - 1);
-                    }
-                    _dragOffset = null;
-                    if (mounted) setState(() {});
+                    _advanceFromGesture(details.primaryVelocity ?? 0, items);
                   }
                 : null,
             // tvOS remote touchpad may generate pan gestures instead of
@@ -490,16 +481,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                 : null,
             onPanEnd: items.length > 1 && PlatformDetection.isAppleTV
                 ? (details) {
-                    final v = details.velocity.pixelsPerSecond.dx;
-                    // Use even lower threshold for pan gestures on tvOS
-                    const threshold = 50.0;
-                    if (v < -threshold) {
-                      _setIndex(_index + 1);
-                    } else if (v > threshold) {
-                      _setIndex(_index == 0 ? items.length - 1 : _index - 1);
-                    }
-                    _dragOffset = null;
-                    if (mounted) setState(() {});
+                    _advanceFromGesture(
+                      details.velocity.pixelsPerSecond.dx,
+                      items,
+                    );
                   }
                 : null,
             child: Stack(
@@ -592,7 +577,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     Widget banner = Padding(
       padding: EdgeInsets.fromLTRB(16, topInset, 16, _compact ? 4 : 8),
       child: focusedBanner(
-        _compact ? Align(alignment: Alignment.center, child: bannerFrame) : bannerFrame,
+        _compact
+            ? Align(alignment: Alignment.center, child: bannerFrame)
+            : bannerFrame,
       ),
     );
 
@@ -731,7 +718,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       return const ColoredBox(color: Color(0xFFE8E8E8));
     }
     return AspectRatio(
-      aspectRatio: 16 / 9, // 16:9 logical pixels — matches the 21:9 banner width ratio
+      aspectRatio:
+          16 / 9, // 16:9 logical pixels — matches the 21:9 banner width ratio
       child: BoundedNetworkImage(
         imageUrl: url,
         minWidth: 640,
@@ -771,7 +759,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   }) {
     final theme = Theme.of(context);
     final shadows = <Shadow>[
-      Shadow(blurRadius: 10, color: AppColorScheme.scrim.withValues(alpha: 0.8)),
+      Shadow(
+        blurRadius: 10,
+        color: AppColorScheme.scrim.withValues(alpha: 0.8),
+      ),
     ];
     final meta = <String>[
       if (item.year != null) '${item.year}',
@@ -840,7 +831,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     );
   }
 
-
   String _formatRuntime(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
@@ -890,7 +880,10 @@ class _Dots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = count > 7 ? 7 : count;
-    final start = (active - shown ~/ 2).clamp(0, count - shown < 0 ? 0 : count - shown);
+    final start = (active - shown ~/ 2).clamp(
+      0,
+      count - shown < 0 ? 0 : count - shown,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

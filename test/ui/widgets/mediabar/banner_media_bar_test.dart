@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:moonfin/data/models/media_bar_slide_item.dart';
@@ -12,15 +13,13 @@ import 'package:moonfin/util/platform_detection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _ViewModel extends ChangeNotifier implements MediaBarViewModel {
-  _ViewModel(this.item);
-
-  final MediaBarSlideItem item;
+  _ViewModel(this.items);
 
   @override
-  List<MediaBarSlideItem> get items => [item];
+  final List<MediaBarSlideItem> items;
 
   @override
-  MediaBarState get state => MediaBarReady([item]);
+  MediaBarState get state => MediaBarReady(items);
 
   @override
   Map<String, double> ratingsFor(String itemId) => const {};
@@ -49,7 +48,11 @@ void main() {
     () => PlatformDetection.setInterfaceLayout(InterfaceLayout.automatic),
   );
 
-  Future<void> pumpBar(WidgetTester tester, MediaBarSlideItem item) async {
+  Future<void> pumpBar(
+    WidgetTester tester,
+    MediaBarSlideItem item, {
+    List<MediaBarSlideItem>? items,
+  }) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -59,7 +62,7 @@ void main() {
         supportedLocales: const [Locale('en')],
         home: Scaffold(
           body: BannerMediaBar(
-            viewModel: _ViewModel(item),
+            viewModel: _ViewModel(items ?? [item]),
             prefs: prefs,
             height: 240,
             onOpen: (_) {},
@@ -114,6 +117,29 @@ void main() {
 
     expect(imageUrls(tester), ['http://server/backdrop']);
     expect(find.text('The Film'), findsOneWidget);
+  });
+
+  testWidgets('TV remote left and right keys advance the banner', (
+    tester,
+  ) async {
+    PlatformDetection.setInterfaceLayout(InterfaceLayout.tv);
+    const second = MediaBarSlideItem(
+      itemId: 'second',
+      serverId: 'server',
+      title: 'Second Show',
+      backdropUrl: 'http://server/second-backdrop',
+    );
+    await pumpBar(tester, withBanner, items: [withBanner, second]);
+    await tester.pumpAndSettle();
+    expect(find.text('The Show'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(find.text('Second Show'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('The Show'), findsOneWidget);
   });
 
   testWidgets('a phone keeps the backdrop even when there is a banner', (
