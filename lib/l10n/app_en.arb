@@ -64,6 +64,10 @@
   "@signIn": {
     "description": "Sign in heading and button label"
   },
+  "signingIn": "Signing in...",
+  "@signingIn": {
+    "description": "Shown under the user list while a tapped user is being signed in"
+  },
   "empty": "Empty",
   "@empty": {
     "description": "Label indicating a section or category is empty"
@@ -187,6 +191,52 @@
   "whosWatching": "Who's watching?",
   "@whosWatching": {
     "description": "Server user selection heading"
+  },
+  "signedInOnThisDevice": "Signed in on this device",
+  "@signedInOnThisDevice": {
+    "description": "Status under a user on the Who's watching screen when this device already has their session"
+  },
+  "pinRequired": "PIN required",
+  "@pinRequired": {
+    "description": "Status under a user or account that asks for a PIN before signing in"
+  },
+  "passwordRequired": "Password required",
+  "@passwordRequired": {
+    "description": "Status under a user on the Who's watching screen who needs a password to sign in"
+  },
+  "continueAsUser": "Continue as {name}",
+  "@continueAsUser": {
+    "description": "Phone button that signs in as the selected user on the Who's watching screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "switchToUser": "Switch to {name}",
+  "@switchToUser": {
+    "description": "Phone button in the Switch User sheet that switches to the selected account",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "signedInAsOnServer": "Signed in as {user} on {server}",
+  "@signedInAsOnServer": {
+    "description": "Line at the top of the Switch User screen naming the current account and its server",
+    "placeholders": {
+      "user": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "accountActive": "Active",
+  "@accountActive": {
+    "description": "Marks the account that is signed in now in the Switch User screen"
   },
   "addUser": "Add User",
   "@addUser": {
@@ -1217,10 +1267,6 @@
   "@discoverySubjects": {
     "description": "Title for the book discovery subject picker panel"
   },
-  "pickDiscoverySubjects": "Pick which subject feeds to show in Discover.",
-  "@pickDiscoverySubjects": {
-    "description": "Instruction text in discovery subject picker"
-  },
   "apply": "Apply",
   "@apply": {
     "description": "Button label to apply selected options"
@@ -1236,27 +1282,6 @@
   "audiobookGenres": "Audiobook Genres",
   "@audiobookGenres": {
     "description": "Title for audiobook genre picker panel"
-  },
-  "pickAudiobookGenres": "Pick which genres to show in Audiobook Discover.",
-  "@pickAudiobookGenres": {
-    "description": "Instruction text in audiobook genre picker"
-  },
-  "discoverAudiobooks": "Discover Audiobooks",
-  "@discoverAudiobooks": {
-    "description": "Section title for audiobook discovery"
-  },
-  "librivoxDescription": "Popular public domain titles from LibriVox.",
-  "@librivoxDescription": {
-    "description": "Subtitle for audiobook discovery section"
-  },
-  "titlesCount": "{count} titles",
-  "@titlesCount": {
-    "description": "Label showing number of titles",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "scrollLeft": "Scroll left",
   "@scrollLeft": {
@@ -1437,10 +1462,6 @@
   "discover": "Discover",
   "@discover": {
     "description": "Section title for book discovery"
-  },
-  "trendingTitlesOpenLibrary": "Trending titles by subject from Open Library.",
-  "@trendingTitlesOpenLibrary": {
-    "description": "Subtitle for book discovery section"
   },
   "noBookmarkedItems": "No bookmarked items yet",
   "@noBookmarkedItems": {
@@ -1793,9 +1814,9 @@
   "@noBiographyAvailable": {
     "description": "Placeholder when no biography text is available"
   },
-  "noBooksFound": "No books found for this author.",
+  "noBooksFound": "No Books Found",
   "@noBooksFound": {
-    "description": "Placeholder when no books are found for an author"
+    "description": "Title shown when a books library has no items"
   },
   "unableToLoadAuthorDetails": "Unable to load author details right now.",
   "@unableToLoadAuthorDetails": {
@@ -4465,6 +4486,18 @@
   "@seasonalDensityHeavy": {
     "description": "Seasonal effect density: most particles"
   },
+  "seasonalFollower": "Focus Follower",
+  "@seasonalFollower": {
+    "description": "Setting title: shows the holiday piece, like Halloween's planchette, that follows the selected item on Home"
+  },
+  "seasonalFollowerDescription": "A holiday piece, like Halloween's planchette, follows what you select on Home",
+  "@seasonalFollowerDescription": {
+    "description": "Subtitle for the Focus Follower setting in the TV layout"
+  },
+  "seasonalFollowerPointerDescription": "A holiday piece, like Halloween's planchette, replaces the mouse pointer on Home",
+  "@seasonalFollowerPointerDescription": {
+    "description": "Subtitle for the Focus Follower setting in the desktop layout, where the piece takes the place of the mouse pointer"
+  },
   "seasonalRow": "Seasonal Row",
   "@seasonalRow": {
     "description": "Name of the Home row that shows holiday movies"
@@ -5598,6 +5631,10 @@
   "@preferredSecondarySubtitleLanguage": {
     "description": "Preferred language used to sort secondary subtitle tracks in the picker. It doesn't turn subtitles on."
   },
+  "secondarySubtitlesEnabledSubtitle": "Show a second subtitle track at the same time. The subtitle menu then asks for the primary or secondary track first",
+  "@secondarySubtitlesEnabledSubtitle": {
+    "description": "Subtitle of the setting that turns secondary subtitles on, explaining the extra step it adds to the subtitle menu"
+  },
   "defaultToNoSubtitles": "Default to No Subtitles",
   "@defaultToNoSubtitles": {
     "description": "Setting for defaulting to no subtitles"
@@ -5610,15 +5647,19 @@
   "@subtitleSize": {
     "description": "Setting for subtitle size"
   },
-  "primarySubtitleSlot": "Primary",
+  "primarySubtitleSlot": "Primary Track",
   "@primarySubtitleSlot": {
     "description": "Label for the primary subtitle selection slot"
   },
-  "secondarySubtitleSlot": "Secondary",
+  "secondarySubtitleSlot": "Secondary Track",
   "@secondarySubtitleSlot": {
     "description": "Label for the secondary subtitle selection slot"
   },
-  "secondarySubtitleTrack": "Secondary Subtitle Track",
+  "secondarySubtitleTrack": "Secondary Subtitles",
+  "secondaryDelayAdjustment": "Secondary Delay Adjustment",
+  "@secondaryDelayAdjustment": {
+    "description": "Title of the secondary subtitle delay menu. This adjustment is added to the primary subtitle delay."
+  },
   "@secondarySubtitleTrack": {
     "description": "Title of the picker for the secondary subtitle track"
   },
@@ -6049,6 +6090,14 @@
   "@showLibrariesInToolbar": {
     "description": "Setting for showing libraries in toolbar"
   },
+  "showLibrariesIndividually": "Show Libraries Individually",
+  "@showLibrariesIndividually": {
+    "description": "Setting that puts each library in the navigation bar as its own button instead of grouping them under the Libraries menu"
+  },
+  "showLibrariesIndividuallySubtitle": "Show each library as its own button in the navigation bar instead of in the Libraries menu",
+  "@showLibrariesIndividuallySubtitle": {
+    "description": "Subtitle for the Show Libraries Individually setting"
+  },
   "navbarAlwaysExpanded": "Always Expand Navbar Labels",
   "@navbarAlwaysExpanded": {
     "description": "Setting to keep every top navbar heading's text label visible at all times, tvOS-style"
@@ -6293,14 +6342,6 @@
   "libraryJumpToLetter": "Jump to letter",
   "@libraryJumpToLetter": {
     "description": "Label of the alphabet in a library, which scrolls to the first item starting with the chosen letter"
-  },
-  "enableFolderView": "Enable Folder View",
-  "@enableFolderView": {
-    "description": "Setting for enabling folder view"
-  },
-  "showFolderBrowsingOption": "Show folder browsing option",
-  "@showFolderBrowsingOption": {
-    "description": "Description for folder view"
   },
   "groupItemsIntoCollections": "Group Items into Collections",
   "@groupItemsIntoCollections": {
@@ -7032,6 +7073,10 @@
   "@pluginNotDetectedDescription": {
     "description": "Description when plugin is not detected"
   },
+  "moonbaseAddress": "Moonbase Address",
+  "@moonbaseAddress": {
+    "description": "Settings Sync screen on a Plex server: where the Moonbase companion service runs, since Plex can't run plugins. Left empty, the app looks next to the Plex server."
+  },
   "pluginConnected": "Connected",
   "@pluginConnected": {
     "description": "Status line on the Settings Sync screen when the server plugin answers"
@@ -7385,10 +7430,6 @@
   "featuredContentAppearance": "Featured content, appearance",
   "@featuredContentAppearance": {
     "description": "Media bar settings subtitle"
-  },
-  "posterSizeImageTypeFolderView": "Poster size, image type, folder view",
-  "@posterSizeImageTypeFolderView": {
-    "description": "Library display settings subtitle"
   },
   "gbValue": "{value} GB",
   "@gbValue": {
@@ -10102,7 +10143,7 @@
   "syncPlayServerUnsupportedMessage": "SyncPlay requires a Jellyfin server. The current server does not support it.",
   "syncPlayGroupFallbackName": "SyncPlay Group",
   "syncPlayGroupTooltip": "SyncPlay group",
-  "syncPlayParticipantCount": "{count, plural, one {# participant} other {# participants}}",
+  "syncPlayParticipantCount": "{count, plural, one {{count} participant} other {{count} participants}}",
   "@syncPlayParticipantCount": {
     "description": "Participant count label shown in SyncPlay UI",
     "placeholders": {
@@ -10951,6 +10992,14 @@
   "@mapDolbyVisionP7Subtitle": {
     "description": "Setting subtitle for forcing the DV P7 strip path"
   },
+  "stripDolbyVisionHdr10PlusTitle": "Play Dolby Vision with HDR10+ as HDR10+",
+  "@stripDolbyVisionHdr10PlusTitle": {
+    "description": "Setting title: drop the Dolby Vision layer from videos that carry both Dolby Vision and HDR10+"
+  },
+  "stripDolbyVisionHdr10PlusSubtitle": "Drop the Dolby Vision layer from videos that also have HDR10+. Turn this on if those videos play with sound but a black screen.",
+  "@stripDolbyVisionHdr10PlusSubtitle": {
+    "description": "Setting subtitle for dropping Dolby Vision from Dolby Vision plus HDR10+ videos"
+  },
 
   "subtitlesUseEmbeddedStyles": "Use Embedded Subtitle Styles",
   "@subtitlesUseEmbeddedStyles": {
@@ -10976,6 +11025,14 @@
   "showMediaDetailsOnLibraryPageDescription": "Show details of the selected item at the top of Library pages.",
   "@showMediaDetailsOnLibraryPageDescription": {
     "description": "Setting description to show/hide focused media details at the top of the library page"
+  },
+  "libraryCardTitles": "Titles Under Posters",
+  "@libraryCardTitles": {
+    "description": "Setting that shows or hides the title and details under each card in library grids"
+  },
+  "libraryCardTitlesDescription": "Show each item's title and details below its artwork in library grids.",
+  "@libraryCardTitlesDescription": {
+    "description": "Description of the Titles Under Posters setting"
   },
   "useDetailedSubHeadings": "Use Detailed Sub-Headings",
   "@useDetailedSubHeadings": {
@@ -11150,6 +11207,8 @@
   "preferSoftwareDecodersSubtitle": "Use FFmpeg (audio) and libgav1 (AV1) before hardware decoders. Disable if HDMI audio passthrough breaks.",
   "hevcSoftwareDirectPlay": "Direct Play HEVC (Software Decode)",
   "hevcSoftwareDirectPlaySubtitle": "Play HEVC up to 1080p from the original file instead of asking the server to transcode it. This Apple TV decodes it in software, so heavy 10-bit or high bitrate files may stutter.",
+  "av1SoftwareUhdDirectPlay": "Direct Play 4K AV1 (Software Decode)",
+  "av1SoftwareUhdDirectPlaySubtitle": "Play AV1 above 1080p, including HDR10, from the original file instead of asking the server to transcode it. This device decodes AV1 in software, so heavy 4K or high bitrate files may stutter.",
   "useExternalPlayer": "Always Use External Player",
   "useExternalPlayerSubtitle": "Open video playback in your selected external app on Android TV.",
   "externalPlayerLiveTvOnly": "Live TV Only",
@@ -11243,6 +11302,138 @@
     "description": "Tooltip for the button on a person page that opens their own website"
   },
   "watchWithGroup": "Watch with group",
+  "watchPartyGroupSubtitles": "Subtitles for everyone",
+  "@watchPartyGroupSubtitles": {
+    "description": "The Watch Party host's subtitle choice for the whole group"
+  },
+  "watchPartyOwnSubtitles": "Each person's choice",
+  "@watchPartyOwnSubtitles": {
+    "description": "Watch Party subtitle option that leaves subtitles to each member"
+  },
+  "watchPartyLobby": "In the lobby",
+  "@watchPartyLobby": {
+    "description": "Watch Party status while nothing plays"
+  },
+  "watchPartyUpNextLabel": "Up next",
+  "@watchPartyUpNextLabel": {
+    "description": "Label over the title a Watch Party host has staged"
+  },
+  "watchPartyRoomSettings": "Room settings",
+  "@watchPartyRoomSettings": {
+    "description": "Heading over a Watch Party host's room switches"
+  },
+  "watchPartyCodeOrLink": "Room code or invite link",
+  "@watchPartyCodeOrLink": {
+    "description": "Join box on the Watch Party screen"
+  },
+  "watchPartyCopyInvite": "Copy invite link",
+  "@watchPartyCopyInvite": {
+    "description": "Host button that copies a Watch Party invite link"
+  },
+  "watchPartyInviteCopied": "Invite link copied",
+  "@watchPartyInviteCopied": {
+    "description": "Snackbar after copying a Watch Party invite link"
+  },
+  "watchPartyLetEveryoneVote": "Let everyone vote on movies",
+  "@watchPartyLetEveryoneVote": {
+    "description": "Host switch that turns a Watch Party into a vote on movies"
+  },
+  "watchPartyVoteHelp": "Add movies for everyone to vote on, then play the one you want. TV episodes are still your pick.",
+  "@watchPartyVoteHelp": {
+    "description": "Under the host's vote list in a Watch Party"
+  },
+  "watchPartyGuestVoteHelp": "Vote for what you want to watch. The host plays one.",
+  "@watchPartyGuestVoteHelp": {
+    "description": "Under a guest's vote list in a Watch Party"
+  },
+  "watchPartySearchMovies": "Search movies",
+  "@watchPartySearchMovies": {
+    "description": "Hint in the host's movie search in a Watch Party vote"
+  },
+  "watchPartyNoSuggestions": "No movies to vote on yet.",
+  "@watchPartyNoSuggestions": {
+    "description": "Shown when a Watch Party vote has no movies"
+  },
+  "watchPartySuggested": "Added to the Watch Party vote",
+  "@watchPartySuggested": {
+    "description": "Snackbar after the host adds a movie to the Watch Party vote"
+  },
+  "watchPartyVoteCount": "{count, plural, one {{count} vote} other {{count} votes}}",
+  "@watchPartyVoteCount": {
+    "description": "How many votes a movie has in a Watch Party vote",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "watchParty": "Watch Party",
+  "@watchParty": {
+    "description": "Title of Silo's Watch Party screen"
+  },
+  "watchPartyUnavailable": "This server doesn't offer Watch Party.",
+  "@watchPartyUnavailable": {
+    "description": "Shown when the Silo server has no Watch Party rooms"
+  },
+  "watchPartyRoomCode": "Room code",
+  "@watchPartyRoomCode": {
+    "description": "Label for a Watch Party room's join code"
+  },
+  "watchPartyStart": "Start a Watch Party",
+  "@watchPartyStart": {
+    "description": "Button that opens a new Watch Party room"
+  },
+  "watchPartyPickTitle": "Open a title and choose Watch with group to pick what everyone watches.",
+  "@watchPartyPickTitle": {
+    "description": "How a Watch Party host picks what to watch"
+  },
+  "watchPartyWaitingForHost": "Waiting for the host to pick something.",
+  "@watchPartyWaitingForHost": {
+    "description": "Shown to Watch Party guests before anything is picked"
+  },
+  "watchPartyShareCode": "Others join with this code from their Watch Party screen.",
+  "@watchPartyShareCode": {
+    "description": "Under a Watch Party room's code"
+  },
+  "watchPartyReconnecting": "Reconnecting...",
+  "@watchPartyReconnecting": {
+    "description": "Watch Party connection status while the room socket reconnects"
+  },
+  "watchPartyOffline": "offline",
+  "@watchPartyOffline": {
+    "description": "After a Watch Party member's name when they are not connected"
+  },
+  "watchPartyStartForEveryone": "Start for everyone",
+  "@watchPartyStartForEveryone": {
+    "description": "Host button that starts the staged item for the whole Watch Party"
+  },
+  "watchPartyBackToLobby": "Back to the lobby",
+  "@watchPartyBackToLobby": {
+    "description": "Host button that stops Watch Party playback"
+  },
+  "watchPartyGuestsCanPause": "Guests can play and pause",
+  "@watchPartyGuestsCanPause": {
+    "description": "Host switch for guest transport control in a Watch Party"
+  },
+  "watchPartyEnd": "End Watch Party",
+  "@watchPartyEnd": {
+    "description": "Host button that closes the Watch Party room for everyone"
+  },
+  "watchPartyEnded": "The Watch Party has ended.",
+  "@watchPartyEnded": {
+    "description": "Shown when the Watch Party room was closed"
+  },
+  "watchPartyStaged": "Picked for the Watch Party",
+  "@watchPartyStaged": {
+    "description": "Snackbar after the host picks an item for the Watch Party"
+  },
+  "watchPartyUpNext": "Up next: {title}",
+  "@watchPartyUpNext": {
+    "description": "The item a Watch Party host has staged",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "disk": "Disk",
   "openInBrowser": "Open in Browser",
   "achievementBadges": "Achievement Badges",
@@ -12407,7 +12598,6 @@
   "failedToExtractCbrArchive": "Failed to extract .cbr archive.",
   "cb7ExtractionUnavailable": "CB7 extraction is not available on this platform.",
   "cb7ExtractionPluginUnavailable": "CB7 extraction plugin is not available on this platform.",
-  "closeGenrePanel": "Close genre panel",
   "loadingShuffle": "Loading shuffle...",
   "libraryShuffleLabel": "LIBRARY SHUFFLE",
   "randomShuffleLabel": "RANDOM SHUFFLE",
@@ -12981,6 +13171,10 @@
   "@showAlphabeticalFilters": {
     "description": "Checkbox label for toggling alphabetical picker visibility in Sort and Filter options"
   },
+  "libraryFolderView": "Folder View",
+  "@libraryFolderView": {
+    "description": "Checkbox in a library's Sort and Filter options that lists the library one folder at a time instead of all its items at once"
+  },
   "personalRatingStyle": "Personal Rating Style",
   "@personalRatingStyle": {
     "description": "Selects how personal ratings are displayed and entered on media details."
@@ -13163,6 +13357,22 @@
   "@hideHomeMediaDescriptionSubtitle": {
     "description": "Description for setting to hide media description on home screen"
   },
+  "hideHomeWatchProgress": "Hide Watch Progress",
+  "@hideHomeWatchProgress": {
+    "description": "Setting title to hide the playback progress bar on home screen posters"
+  },
+  "hideHomeWatchProgressSubtitle": "Hide the progress bar on posters you've started watching.",
+  "@hideHomeWatchProgressSubtitle": {
+    "description": "Description for setting to hide the playback progress bar on home screen posters"
+  },
+  "hideHomeUnwatchedCount": "Hide Unwatched Count",
+  "@hideHomeUnwatchedCount": {
+    "description": "Setting title to hide the unwatched episode count badge on home screen posters"
+  },
+  "hideHomeUnwatchedCountSubtitle": "Hide the badge showing how many episodes are left to watch.",
+  "@hideHomeUnwatchedCountSubtitle": {
+    "description": "Description for setting to hide the unwatched episode count badge on home screen posters"
+  },
   "continueWatchingAndNextUpHeader": "Continue Watching and Next Up",
   "@continueWatchingAndNextUpHeader": {
     "description": "Header for settings section containing Continue Watching and Next Up options"
@@ -13290,6 +13500,66 @@
   "setupTourBulletMore": "And plenty more",
   "@setupTourBulletMore": {
     "description": "Closing bullet on the setup screen settings list"
+  },
+  "setupStepOf": "Step {current} of {total}",
+  "@setupStepOf": {
+    "description": "Progress label at the top of each setup wizard step",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "setupCurrent": "Current",
+  "@setupCurrent": {
+    "description": "Tag beside the option that is chosen right now in a setup wizard list"
+  },
+  "setupTvHint": "Up and down to preview · OK to choose · Back twice to skip",
+  "@setupTvHint": {
+    "description": "Remote control hint at the bottom of the setup wizard on TVs"
+  },
+  "setupNavbarTopHint": "Tabs across the top of the screen.",
+  "@setupNavbarTopHint": {
+    "description": "What the Top Bar navigation position gives you"
+  },
+  "setupNavbarLeftHint": "A slim rail of icons down the left side.",
+  "@setupNavbarLeftHint": {
+    "description": "What the Left Sidebar navigation position gives you"
+  },
+  "setupNavbarBottomHint": "Tabs along the bottom edge, in easy reach of your thumb.",
+  "@setupNavbarBottomHint": {
+    "description": "What the Bottom Bar navigation position gives you on phones"
+  },
+  "setupMediaBarMoonfinHint": "Large artwork with the title, details and overview laid over it.",
+  "@setupMediaBarMoonfinHint": {
+    "description": "What the Moonfin media bar style looks like"
+  },
+  "setupMediaBarMakdHint": "Large artwork led by a big title logo.",
+  "@setupMediaBarMakdHint": {
+    "description": "What the MakD media bar style looks like"
+  },
+  "setupMediaBarBookshelfHint": "Titles shelved as book spines, with the featured one face out.",
+  "@setupMediaBarBookshelfHint": {
+    "description": "What the Bookshelf media bar style looks like"
+  },
+  "setupMediaBarGalleryHint": "The featured title opened up, with the next few lined up beside it.",
+  "@setupMediaBarGalleryHint": {
+    "description": "What the Gallery media bar style looks like"
+  },
+  "setupMediaBarBannerHint": "A shorter banner above your rows, so more of them fit on screen.",
+  "@setupMediaBarBannerHint": {
+    "description": "What the Banner media bar style looks like"
+  },
+  "setupMediaBarAyaHint": "Artwork first in a framed panel, with your rows right underneath.",
+  "@setupMediaBarAyaHint": {
+    "description": "What the Aya media bar style looks like"
+  },
+  "setupMediaBarOffHint": "No featured area. Home opens straight onto your rows.",
+  "@setupMediaBarOffHint": {
+    "description": "What turning the media bar off does to the Home screen"
   },
   "runSetupAgain": "Run setup again",
   "@runSetupAgain": {
@@ -14016,6 +14286,63 @@
   "@playerSettingsSubtitle": {
     "description": "Subtitle for the Player entry on the Playback settings screen"
   },
+  "siloPasswordChangeTitle": "Choose a new password",
+  "@siloPasswordChangeTitle": {
+    "description": "Title of the dialog shown after signing in to a Silo server with a temporary password"
+  },
+  "siloPasswordChangeMessage": "This account has a temporary password. Choose a new one to finish signing in.",
+  "@siloPasswordChangeMessage": {
+    "description": "Explanation in the Silo change-password dialog. The temporary password was set by the server's admin."
+  },
+  "siloPasswordChangeNew": "New password",
+  "@siloPasswordChangeNew": {
+    "description": "Field label in the Silo change-password dialog"
+  },
+  "siloPasswordChangeConfirm": "Confirm new password",
+  "@siloPasswordChangeConfirm": {
+    "description": "Field label in the Silo change-password dialog: the new password typed a second time"
+  },
+  "siloPasswordChangeSubmit": "Change password",
+  "@siloPasswordChangeSubmit": {
+    "description": "Button in the Silo change-password dialog that saves the new password and finishes signing in"
+  },
+  "siloPasswordChangeTooShort": "{count, plural, =1{Use at least 1 character} other{Use at least {count} characters}}",
+  "@siloPasswordChangeTooShort": {
+    "description": "Error in the Silo change-password dialog when the new password is shorter than the server allows",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "siloPasswordChangeTooLong": "That password is too long",
+  "@siloPasswordChangeTooLong": {
+    "description": "Error in the Silo change-password dialog when the new password is longer than the server allows"
+  },
+  "siloPasswordChangeMismatch": "The passwords don't match",
+  "@siloPasswordChangeMismatch": {
+    "description": "Error in the Silo change-password dialog when the two new password fields differ"
+  },
+  "siloPasswordChangeSameAsTemporary": "Choose a password different from the temporary one",
+  "@siloPasswordChangeSameAsTemporary": {
+    "description": "Error in the Silo change-password dialog when the new password equals the temporary one used to sign in"
+  },
+  "siloPasswordChangeFailed": "Couldn't change the password. Try again.",
+  "@siloPasswordChangeFailed": {
+    "description": "Error in the Silo change-password dialog when the request failed (network or server error)"
+  },
+  "siloPasswordChangeUnavailable": "This account has a temporary password, and this server doesn't allow changing it here. Change it in Silo's web app, then sign in again.",
+  "@siloPasswordChangeUnavailable": {
+    "description": "Sign-in error for a Silo account with a temporary password when the server has password changes switched off"
+  },
+  "siloPasswordChangedSignInAgain": "Your password was changed. Sign in with the new password.",
+  "@siloPasswordChangedSignInAgain": {
+    "description": "Shown on the sign-in screen when the Silo password was changed but the session could not continue"
+  },
+  "siloServerRowSubtitle": "From your server",
+  "@siloServerRowSubtitle": {
+    "description": "Subtitle of a Home row the media server curates itself (a Silo home section), on Home and in Home settings"
+  },
   "playlistSortReleaseDate": "Release Date",
   "@playlistSortReleaseDate": {
     "description": "Label for sorting playlist items by release date"
@@ -14112,6 +14439,10 @@
   "homeScreenBackdropCorner": "Corner",
   "@homeScreenBackdropCorner": {
     "description": "Home Screen Backdrop option that shows the focused item's backdrop in the top right corner, fading into the background like the Google TV home screen"
+  },
+  "homeScreenBackdropTop": "Top",
+  "@homeScreenBackdropTop": {
+    "description": "Home Screen Backdrop option that shows the focused item's backdrop across the top half of the screen, fading into the background toward the bottom"
   },
   "detailsScreenBackdrop": "Details Screen Backdrop",
   "@detailsScreenBackdrop": {
@@ -14463,9 +14794,9 @@
   },
   "settingsApplePlayerUi": "Video player",
   "@settingsApplePlayerUi": {
-    "description": "Settings label on iPhone and iPad for choosing which player plays video"
+    "description": "Settings label on iPhone, iPad and Apple TV for choosing which player plays video"
   },
-  "settingsApplePlayerUiDescription": "The native Apple style player has no casting, swipe gestures, orientation lock, audio delay or PiP button",
+  "settingsApplePlayerUiDescription": "The native Apple style player has no casting, audio delay or PiP button, and its rotation lock is only in Live TV",
   "@settingsApplePlayerUiDescription": {
     "description": "Settings description for the video player choice, listing what the native Apple style player lacks"
   },
@@ -14664,6 +14995,194 @@
   "@unableToRequestLaterShowing": {
     "description": "Snackbar when the recording started but asking for a future showing failed"
   },
+  "siloCodeSignIn": "Sign in with a code",
+  "@siloCodeSignIn": {
+    "description": "Silo login screen: the toggle for signing in by approving a code from another device (Silo's name for what Jellyfin calls Quick Connect)"
+  },
+  "siloCodeSignInInstruction": "Scan the QR code with your phone, or go to {address} on any signed-in device and enter this code:",
+  "@siloCodeSignInInstruction": {
+    "description": "Silo login screen, sign in with a code: how to approve the code shown below",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "silo.example.com/activate"
+      }
+    }
+  },
+  "siloCodeSignInInstructionNoLink": "Enter this code in Silo on a device where you're signed in:",
+  "@siloCodeSignInInstructionNoLink": {
+    "description": "Silo login screen, sign in with a code, when the server gave no page address"
+  },
+  "siloCodeSignInOpened": "Code found. Approve the sign-in on your other device.",
+  "@siloCodeSignInOpened": {
+    "description": "Silo login screen, sign in with a code: someone has looked the code up and is about to approve it"
+  },
+  "siloCodeSignInDenied": "This sign-in was declined.",
+  "@siloCodeSignInDenied": {
+    "description": "Silo login screen, sign in with a code: the person approving refused the request"
+  },
+  "siloCodeSignInNewCode": "Get a new code",
+  "@siloCodeSignInNewCode": {
+    "description": "Silo login screen, sign in with a code: button that shows a new code after the last one ended"
+  },
+  "siloCodeSignInOff": "Signing in with a code is turned off on this server.",
+  "@siloCodeSignInOff": {
+    "description": "Silo login screen: the server doesn't offer sign-in with a code"
+  },
+  "siloCodeSignInPasswordChangeRequired": "This account has a temporary password. Sign in with the password once to replace it.",
+  "@siloCodeSignInPasswordChangeRequired": {
+    "description": "Silo login screen: a code was approved for an account that must first replace its temporary password, which needs a password sign-in"
+  },
+  "siloApproveSignIn": "Approve a sign-in",
+  "@siloApproveSignIn": {
+    "description": "Title of the dialog where a signed-in Silo user types the code another device shows, to sign that device in (Silo's counterpart of authorizing a Quick Connect code)"
+  },
+  "siloApproveSignInHint": "Code shown on the other device",
+  "@siloApproveSignInHint": {
+    "description": "Hint in the Silo approve-a-sign-in dialog's code field"
+  },
+  "siloApproveSignInApprove": "Approve",
+  "@siloApproveSignInApprove": {
+    "description": "Button in the Silo approve-a-sign-in dialog that approves the typed code"
+  },
+  "siloApproveSignInDone": "Approved. The other device is signing in.",
+  "@siloApproveSignInDone": {
+    "description": "Shown after a Silo sign-in code was approved"
+  },
+  "siloApproveSignInNoRequest": "No sign-in is waiting with that code. Check it, or get a new code on the other device.",
+  "@siloApproveSignInNoRequest": {
+    "description": "Shown when Silo has no pending sign-in for the typed code (unknown, expired, already used or declined)"
+  },
+  "siloNativeOfferTitle": "Connect to Silo directly?",
+  "@siloNativeOfferTitle": {
+    "description": "Title of the dialog shown when the address being added is Silo's Jellyfin-compatible service and Silo's own API answers on another port of the same host"
+  },
+  "siloNativeOfferMessage": "This address is the Jellyfin-compatible service of {serverName}. Moonfin can connect to Silo directly at {address}, with Silo's own features.",
+  "@siloNativeOfferMessage": {
+    "description": "Body of the dialog offering to add a Silo server natively instead of through its Jellyfin-compatible service",
+    "placeholders": {
+      "serverName": {
+        "type": "String"
+      },
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "siloNativeOfferUse": "Use Silo",
+  "@siloNativeOfferUse": {
+    "description": "Button: add the Silo server through its native API"
+  },
+  "siloNativeOfferKeep": "Keep Jellyfin",
+  "@siloNativeOfferKeep": {
+    "description": "Button: add the address as a Jellyfin server, as entered"
+  },
+  "siloAppUpdateRequired": "This Silo server needs a newer version of Moonfin. Update Moonfin to use it.",
+  "@siloAppUpdateRequired": {
+    "description": "Shown when a Silo server no longer speaks the API this version of Moonfin uses (its API is newer)"
+  },
+  "siloServerUpdateRequired": "This Silo server is too old for this version of Moonfin. Update Silo to use it.",
+  "@siloServerUpdateRequired": {
+    "description": "Shown when a Silo server's API is older than the one this version of Moonfin uses"
+  },
+  "siloTooManyAttempts": "Too many attempts. Try again later.",
+  "@siloTooManyAttempts": {
+    "description": "Shown when Silo refuses a request because of too many attempts (HTTP 429) without saying how long to wait"
+  },
+  "siloTooManyAttemptsWait": "Too many attempts. Try again in {wait}.",
+  "@siloTooManyAttemptsWait": {
+    "description": "Shown when Silo refuses a request because of too many attempts (HTTP 429); wait is siloWaitSeconds or siloWaitMinutes",
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "siloServerBusy": "The server is busy or still starting. Try again later.",
+  "@siloServerBusy": {
+    "description": "Shown when Silo answers that it is temporarily unavailable (HTTP 503) without saying how long to wait"
+  },
+  "siloServerBusyWait": "The server is busy or still starting. Try again in {wait}.",
+  "@siloServerBusyWait": {
+    "description": "Shown when Silo answers that it is temporarily unavailable (HTTP 503); wait is siloWaitSeconds or siloWaitMinutes",
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "siloWaitSeconds": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@siloWaitSeconds": {
+    "description": "How long to wait before trying again, in seconds; fills {wait} in siloTooManyAttemptsWait and siloServerBusyWait",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "siloWaitMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@siloWaitMinutes": {
+    "description": "How long to wait before trying again, in minutes; fills {wait} in siloTooManyAttemptsWait and siloServerBusyWait",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "siloPlaybackUnavailable": "Playback isn't available on this Silo server.",
+  "@siloPlaybackUnavailable": {
+    "description": "Player message: the Silo server has playback switched off for this account"
+  },
+  "siloPlaybackUpdateRequired": "This Silo server needs a newer version of Moonfin to play.",
+  "@siloPlaybackUpdateRequired": {
+    "description": "Player message: the Silo server no longer speaks the playback protocol this version of Moonfin uses"
+  },
+  "siloPlaybackEndedOnServer": "Playback was ended on the Silo server.",
+  "@siloPlaybackEndedOnServer": {
+    "description": "Player message: an administrator ended this playback session on the Silo server"
+  },
+  "siloPinTitle": "PIN for {name}",
+  "@siloPinTitle": {
+    "description": "Title of the dialog asking for a Silo household profile's PIN; name is the profile's name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "siloPinHint": "PIN",
+  "@siloPinHint": {
+    "description": "Field label in the Silo profile PIN dialog"
+  },
+  "siloPinUnlock": "Unlock",
+  "@siloPinUnlock": {
+    "description": "Button in the Silo profile PIN dialog that checks the PIN"
+  },
+  "siloPinWrong": "That PIN isn't right.",
+  "@siloPinWrong": {
+    "description": "Shown in the Silo profile PIN dialog when the PIN doesn't match"
+  },
+  "siloPinLocked": "Too many wrong PINs. Try again later.",
+  "@siloPinLocked": {
+    "description": "Shown when Silo has locked the profile after too many wrong PINs, without saying for how long"
+  },
+  "siloPinLockedWait": "Too many wrong PINs. Try again in {wait}.",
+  "@siloPinLockedWait": {
+    "description": "Shown when Silo has locked the profile after too many wrong PINs; wait is siloWaitSeconds or siloWaitMinutes",
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "siloPinFailed": "The PIN couldn't be checked. Try again.",
+  "@siloPinFailed": {
+    "description": "Shown in the Silo profile PIN dialog when the check failed (no network, server error)"
+  },
+  "siloSignOutAccount": "Sign out of the Silo account",
+  "@siloSignOutAccount": {
+    "description": "Account menu button shown for a Silo household profile when other profiles of the same Silo account are stored on this device: signs all of them out and ends the login (Sign out alone removes only the current profile)"
+  },
   "trailerCount": "{count, plural, =1{1 trailer} other{{count} trailers}}",
   "@trailerCount": {
     "description": "How many trailers the trailer picker lists, shown in its header",
@@ -14789,7 +15308,7 @@
   "@addServerChooseHow": {
     "description": "Subtitle of the first step of the Add Server dialog"
   },
-  "addServerAddressChoice": "Jellyfin or Emby on your network or online",
+  "addServerAddressChoice": "Jellyfin, Emby or Silo on your network or online",
   "@addServerAddressChoice": {
     "description": "Add Server dialog: what the Server Address option is for"
   },
@@ -14801,7 +15320,7 @@
   "@addServerAddressHelp": {
     "description": "Add Server dialog: help under the Connect to Server title"
   },
-  "addServerDetectNote": "Works with Jellyfin and Emby. A Plex address opens the Plex sign-in.",
+  "addServerDetectNote": "Works with Jellyfin, Emby and Silo. A Plex address opens the Plex sign-in.",
   "@addServerDetectNote": {
     "description": "Add Server dialog: note under the address field"
   },
@@ -14829,5 +15348,200 @@
   "addServerUseDifferentAddress": "Use a different address",
   "@addServerUseDifferentAddress": {
     "description": "Add Server dialog: goes back to the address field instead of keeping the server that was found"
+  },
+  "musicArtistCount": "{count, plural, =1{1 artist} other{{count} artists}}",
+  "@musicArtistCount": {
+    "description": "Count next to the title of a music library's Artists screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "musicSongCount": "{count, plural, =1{1 song} other{{count} songs}}",
+  "@musicSongCount": {
+    "description": "Count of songs, next to the Songs screen title and under a playlist",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "musicPlaylistCount": "{count, plural, =1{1 playlist} other{{count} playlists}}",
+  "@musicPlaylistCount": {
+    "description": "Count next to the title of a music library's Playlists screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "musicPlayCount": "{count, plural, =1{1 play} other{{count} plays}}",
+  "@musicPlayCount": {
+    "description": "How many times a song was played, at the end of a Most Played row",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allArtists": "All Artists",
+  "@allArtists": {
+    "description": "Artists screen switch: every artist, not only those credited on albums"
+  },
+  "libraryZToA": "Z to A",
+  "@libraryZToA": {
+    "description": "Sort order from Z to A"
+  },
+  "musicSortYear": "Year",
+  "@musicSortYear": {
+    "description": "Albums screen sort: by release year, newest first"
+  },
+  "musicFilter": "Filter",
+  "@musicFilter": {
+    "description": "Albums screen button that opens the genre filter"
+  },
+  "musicGenreFilterTitle": "Filter by Genre",
+  "@musicGenreFilterTitle": {
+    "description": "Title of the genre list the Albums screen's Filter button opens"
+  },
+  "openAlbum": "Open Album",
+  "@openAlbum": {
+    "description": "Button that opens an album's details screen"
+  },
+  "openPlaylist": "Open Playlist",
+  "@openPlaylist": {
+    "description": "Button that opens a playlist's details screen, where its order can be changed"
+  },
+  "allSongsAToZ": "All Songs A to Z",
+  "@allSongsAToZ": {
+    "description": "Songs screen button that opens the full list of songs by name"
+  },
+  "musicMix": "Mix",
+  "@musicMix": {
+    "description": "Small label over a music mix card, as in a playlist the app put together"
+  },
+  "musicMixEverything": "Everything",
+  "@musicMixEverything": {
+    "description": "Songs screen mix card that shuffles the whole library"
+  },
+  "musicMixEverythingSubtitle": "300 songs at random",
+  "@musicMixEverythingSubtitle": {
+    "description": "Line under the Everything mix card"
+  },
+  "mostPlayed": "Most Played",
+  "@mostPlayed": {
+    "description": "Songs screen mix card and list of the songs played most"
+  },
+  "musicMixMostPlayedSubtitle": "Your top 100",
+  "@musicMixMostPlayedSubtitle": {
+    "description": "Line under the Most Played mix card"
+  },
+  "musicMixFreshArrivals": "Fresh Arrivals",
+  "@musicMixFreshArrivals": {
+    "description": "Songs screen mix card of the newest songs in the library"
+  },
+  "musicMixFreshArrivalsSubtitle": "The newest 100 songs",
+  "@musicMixFreshArrivalsSubtitle": {
+    "description": "Line under the Fresh Arrivals mix card"
+  },
+  "musicMixRediscover": "Rediscover",
+  "@musicMixRediscover": {
+    "description": "Songs screen mix card of favorite songs that haven't been played in a while"
+  },
+  "musicMixRediscoverSubtitle": "Favorites you haven't played lately",
+  "@musicMixRediscoverSubtitle": {
+    "description": "Line under the Rediscover mix card"
+  },
+  "musicSortMostAlbums": "Most Albums",
+  "@musicSortMostAlbums": {
+    "description": "Genres screen order: the genres with the most albums first"
+  },
+  "bookSeriesPosition": "Book {index} of {total}",
+  "@bookSeriesPosition": {
+    "description": "Series screen: where the reader is in a series, the next unread book's number and how many books it has",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "bookFavoriteCount": "{count, plural, =1{1 favorite} other{{count} favorites}}",
+  "@bookFavoriteCount": {
+    "description": "Book library Favorites screen header count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookSortZToA": "Z to A",
+  "@bookSortZToA": {
+    "description": "Authors screen order, from Z back to A"
+  },
+  "bookSortMostTitles": "Most Titles",
+  "@bookSortMostTitles": {
+    "description": "Book genres screen order: the genres with the most titles first"
+  },
+  "bookSurpriseMe": "Surprise Me",
+  "@bookSurpriseMe": {
+    "description": "Button on a book genre that opens a random unread title from it"
+  },
+  "bookShuffleAudiobooks": "Shuffle Audiobooks",
+  "@bookShuffleAudiobooks": {
+    "description": "Button on an author that plays one of their audiobooks at random"
+  },
+  "bookStartReading": "Start Reading",
+  "@bookStartReading": {
+    "description": "Button on an author that opens their first unread book"
+  },
+  "bookOtherBooks": "Other Books",
+  "@bookOtherBooks": {
+    "description": "Heading over an author's books that aren't part of a series"
+  },
+  "bookDiscoverSearchBooks": "Search Open Library",
+  "@bookDiscoverSearchBooks": {
+    "description": "Placeholder in the Discover search field for books"
+  },
+  "bookDiscoverSearchAudiobooks": "Search LibriVox",
+  "@bookDiscoverSearchAudiobooks": {
+    "description": "Placeholder in the Discover search field for audiobooks"
+  },
+  "bookDiscoverFeatured": "Featured",
+  "@bookDiscoverFeatured": {
+    "description": "Label over the highlighted title at the top of Discover"
+  },
+  "bookReaderControlsAutoHide": "Controls hide automatically",
+  "@bookReaderControlsAutoHide": {
+    "description": "Comic reader toggle while its bars fade out on their own"
+  },
+  "bookReaderControlsStayVisible": "Controls stay visible",
+  "@bookReaderControlsStayVisible": {
+    "description": "Comic reader toggle while its bars stay on screen"
+  },
+  "settingsLivePreview": "Live preview",
+  "@settingsLivePreview": {
+    "description": "Label over the preview in Settings that redraws a screen of the app as settings change"
+  },
+  "settingsPreviewShowsOn": "Shows on the {screen} preview",
+  "@settingsPreviewShowsOn": {
+    "description": "Under the Settings live preview, says the focused setting changes the named preview screen",
+    "placeholders": {
+      "screen": {
+        "type": "String",
+        "example": "Home"
+      }
+    }
+  },
+  "settingsPreviewNotShown": "Not shown in the preview",
+  "@settingsPreviewNotShown": {
+    "description": "Under the Settings live preview, says the focused setting has no visible effect in the preview"
+  },
+  "settingsPreviewSaved": "Saved",
+  "@settingsPreviewSaved": {
+    "description": "Tag on the option that is saved while another option is being tried in the Settings live preview"
   }
 }

@@ -134,6 +134,7 @@ class UserPreferences extends ChangeNotifier {
   static const homeBackdropOff = 'off';
   static const homeBackdropFullScreen = 'fullScreen';
   static const homeBackdropCorner = 'corner';
+  static const homeBackdropTop = 'top';
 
   // How a phone sizes the details backdrop: zoomed to fill the screen, or the
   // whole picture across the top.
@@ -538,6 +539,8 @@ class UserPreferences extends ChangeNotifier {
     'pref_hide_details_media_description',
     'pref_detail_use_series_thumbnails',
     'pref_hide_home_media_description',
+    'pref_hide_home_watch_progress',
+    'pref_hide_home_unwatched_count',
     'pref_display_audio_rows',
     'pref_display_since_you_watched_rows',
     'pref_since_you_watched_source',
@@ -579,6 +582,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_show_friends_button',
     'pref_show_book_discover_tab',
     'pref_show_media_details_on_library_page',
+    'pref_library_card_titles',
     'pref_use_detailed_sub_headings',
     'pref_hide_backdrops_in_libraries',
     'pref_show_clock',
@@ -600,8 +604,8 @@ class UserPreferences extends ChangeNotifier {
     'subtitles_text_stroke_color',
     'subtitles_text_size',
     'subtitles_offset_position',
-    'secondary_subtitle_text_size',
-    'secondary_subtitle_offset_position',
+    'secondary_subtitle_size_adjustment',
+    'secondary_subtitle_offset_adjustment',
     'secondary_subtitle_text_color',
     'subtitles_default_to_none',
     'subtitles_hdr_separate',
@@ -655,15 +659,16 @@ class UserPreferences extends ChangeNotifier {
     'pref_show_syncplay_button',
     'pref_show_downloads_button',
     'pref_show_libraries_in_toolbar',
+    'pref_show_libraries_individually',
     'pref_navbar_always_expanded',
     'pref_shuffle_content_type',
     'pref_merge_continue_watching_next_up',
     'pref_next_up_max_days',
     'enable_multi_server_libraries',
     'pref_merge_recent_rows_by_type',
-    'enable_folder_view',
     'seasonal_surprise',
     'seasonal_density',
+    'seasonal_follower',
     'seasonal_row_enabled',
     'seasonal_row_country',
     'seasonal_row_hidden_holidays',
@@ -717,6 +722,15 @@ class UserPreferences extends ChangeNotifier {
     'seerrBlockNsfw',
     'seerrShowMissingCollectionItems',
     'enabledRatings',
+    'homeRowsEnableAdditionalRatings',
+    'homeRowsEnabledRatings',
+    'homeRowsEnableEpisodeRatings',
+    'homeRowsShowRatingLabels',
+    'homeRowsShowRatingBadges',
+    'mediaBarEnableAdditionalRatings',
+    'mediaBarEnabledRatings',
+    'mediaBarShowRatingLabels',
+    'mediaBarShowRatingBadges',
     'home_sections_config',
     'pref_audio_display_latest',
     'pref_audio_display_last_played',
@@ -885,13 +899,15 @@ class UserPreferences extends ChangeNotifier {
     return _store.containsKey(pref.key);
   }
 
-  bool isRatingSourceEnabled(String source) =>
-      get(enabledRatings).split(',').map((s) => s.trim()).contains(source);
+  bool get canFetchEpisodeRatings => canFetchEpisodeRatingsFor(detailsRatings);
 
-  bool get canFetchEpisodeRatings =>
-      get(enableAdditionalRatings) &&
-      get(enableEpisodeRatings) &&
-      isRatingSourceEnabled('tmdb');
+  bool canFetchEpisodeRatingsFor(RatingSettings settings) {
+    final episodes = settings.episodeRatings;
+    return episodes != null &&
+        get(settings.additionalRatings) &&
+        get(episodes) &&
+        get(settings.sources).split(',').map((s) => s.trim()).contains('tmdb');
+  }
 
   /// What this device can afford, taking the user's choice over the probe.
   DevicePerformanceTier resolveDevicePerformanceTier() =>
@@ -1307,9 +1323,11 @@ class UserPreferences extends ChangeNotifier {
   /// How the home screen draws the backdrop, off when the switch is off.
   String resolveHomeBackdropStyle() {
     if (!get(homeBackdropEnabled)) return homeBackdropOff;
-    return get(homeBackdropStyle) == homeBackdropCorner
-        ? homeBackdropCorner
-        : homeBackdropFullScreen;
+    return switch (get(homeBackdropStyle)) {
+      homeBackdropCorner => homeBackdropCorner,
+      homeBackdropTop => homeBackdropTop,
+      _ => homeBackdropFullScreen,
+    };
   }
 
   /// Brings the stored style in line with the switch, so the picker shows what
@@ -1840,6 +1858,16 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: false,
   );
 
+  static final hideHomeWatchProgress = Preference(
+    key: 'pref_hide_home_watch_progress',
+    defaultValue: false,
+  );
+
+  static final hideHomeUnwatchedCount = Preference(
+    key: 'pref_hide_home_unwatched_count',
+    defaultValue: false,
+  );
+
   /// Algorithm source for the similar items recommendation system. Stored per server and
   /// user, because it syncs to that server's profile.
   static final recommendationSystemSource = EnumPreference(
@@ -1978,6 +2006,11 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: true,
   );
 
+  static final showLibrariesIndividually = Preference(
+    key: 'pref_show_libraries_individually',
+    defaultValue: false,
+  );
+
   static final navbarAlwaysExpanded = Preference(
     key: 'pref_navbar_always_expanded',
     defaultValue: false,
@@ -2078,11 +2111,6 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: true,
   );
 
-  static final enableFolderView = Preference(
-    key: 'enable_folder_view',
-    defaultValue: false,
-  );
-
   static final groupItemsIntoCollections = Preference(
     key: 'pref_group_items_into_collections',
     defaultValue: false,
@@ -2117,6 +2145,11 @@ class UserPreferences extends ChangeNotifier {
 
   static final showMediaDetailsOnLibraryPage = Preference(
     key: 'pref_show_media_details_on_library_page',
+    defaultValue: true,
+  );
+
+  static final libraryCardTitles = Preference(
+    key: 'pref_library_card_titles',
     defaultValue: true,
   );
 
@@ -2324,6 +2357,11 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: false,
   );
 
+  static final av1SoftwareUhdDirectPlay = Preference(
+    key: 'av1_software_uhd_direct_play',
+    defaultValue: false,
+  );
+
   static final media3SkipSilence = Preference(
     key: 'media3_skip_silence',
     defaultValue: false,
@@ -2336,6 +2374,11 @@ class UserPreferences extends ChangeNotifier {
 
   static final media3MapDolbyVisionProfile7ToHevc = Preference(
     key: 'media3_map_dolby_vision_profile7_to_hevc',
+    defaultValue: false,
+  );
+
+  static final media3StripDolbyVisionWithHdr10Plus = Preference(
+    key: 'media3_strip_dolby_vision_with_hdr10_plus',
     defaultValue: false,
   );
 
@@ -2574,11 +2617,14 @@ class UserPreferences extends ChangeNotifier {
     values: PlaybackEnginePreference.values,
   );
 
-  /// Which player iOS video plays through. Belongs to the device rather than
-  /// the account, so it isn't synced.
+  /// Which player video plays through on iOS and Apple TV. Belongs to the
+  /// device rather than the account, so it isn't synced. Apple TV keeps the
+  /// native player it always had unless the viewer switches.
   static final applePlayerUi = EnumPreference(
     key: 'pref_apple_player_ui',
-    defaultValue: ApplePlayerUi.flutter,
+    defaultValue: PlatformDetection.isAppleTV
+        ? ApplePlayerUi.native
+        : ApplePlayerUi.flutter,
     values: ApplePlayerUi.values,
   );
 
@@ -2626,6 +2672,12 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_subtitle_language',
     defaultValue: '',
   );
+  /// Off keeps the single subtitle list, without the step that picks a
+  /// primary or secondary track.
+  static final secondarySubtitlesEnabled = Preference<bool>(
+    key: 'pref_secondary_subtitles_enabled',
+    defaultValue: false,
+  );
   static final preferredSecondarySubtitleLanguage = Preference<String>(
     key: 'pref_secondary_subtitle_language',
     defaultValue: '',
@@ -2661,14 +2713,14 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: 0.04,
   );
 
-  static final secondarySubtitleTextSize = Preference<double>(
-    key: 'secondary_subtitle_text_size',
+  static final secondarySubtitleSizeAdjustment = Preference<double>(
+    key: 'secondary_subtitle_size_adjustment',
     defaultValue: 0.0,
   );
 
   static final secondarySubtitleOffsetPosition = Preference<double>(
-    key: 'secondary_subtitle_offset_position',
-    defaultValue: 0.08,
+    key: 'secondary_subtitle_offset_adjustment',
+    defaultValue: 0.0,
   );
 
   /// -1 means the secondary track uses the primary subtitle color.
@@ -3182,6 +3234,85 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: 'stars,imdb,tmdb,tomatoes,metacritic',
   );
 
+  static final homeRowsEnableAdditionalRatings = Preference(
+    key: 'homeRowsEnableAdditionalRatings',
+    defaultValue: false,
+  );
+
+  static final homeRowsEnabledRatings = Preference(
+    key: 'homeRowsEnabledRatings',
+    defaultValue: 'stars,imdb,tmdb,tomatoes,metacritic',
+  );
+
+  static final homeRowsEnableEpisodeRatings = Preference(
+    key: 'homeRowsEnableEpisodeRatings',
+    defaultValue: true,
+  );
+
+  // Off unlike the Details Page one, so the home info area stays compact.
+  static final homeRowsShowRatingLabels = Preference(
+    key: 'homeRowsShowRatingLabels',
+    defaultValue: false,
+  );
+
+  static final homeRowsShowRatingBadges = Preference(
+    key: 'homeRowsShowRatingBadges',
+    defaultValue: true,
+  );
+
+  static final mediaBarEnableAdditionalRatings = Preference(
+    key: 'mediaBarEnableAdditionalRatings',
+    defaultValue: false,
+  );
+
+  static final mediaBarEnabledRatings = Preference(
+    key: 'mediaBarEnabledRatings',
+    defaultValue: 'stars,imdb,tmdb,tomatoes,metacritic',
+  );
+
+  static final mediaBarShowRatingLabels = Preference(
+    key: 'mediaBarShowRatingLabels',
+    defaultValue: true,
+  );
+
+  static final mediaBarShowRatingBadges = Preference(
+    key: 'mediaBarShowRatingBadges',
+    defaultValue: true,
+  );
+
+  /// The Details Page set, which every surface without its own set follows.
+  static final detailsRatings = RatingSettings(
+    additionalRatings: enableAdditionalRatings,
+    sources: enabledRatings,
+    episodeRatings: enableEpisodeRatings,
+    labels: showRatingLabels,
+    badges: showRatingBadges,
+  );
+
+  static final homeRowsRatings = RatingSettings(
+    additionalRatings: homeRowsEnableAdditionalRatings,
+    sources: homeRowsEnabledRatings,
+    episodeRatings: homeRowsEnableEpisodeRatings,
+    labels: homeRowsShowRatingLabels,
+    badges: homeRowsShowRatingBadges,
+  );
+
+  // The media bar only shows movies and series, so it has no episode switch.
+  static final mediaBarRatings = RatingSettings(
+    additionalRatings: mediaBarEnableAdditionalRatings,
+    sources: mediaBarEnabledRatings,
+    labels: mediaBarShowRatingLabels,
+    badges: mediaBarShowRatingBadges,
+  );
+
+  static bool mediaBarModeDrawsRatings(String? mode) =>
+      const {
+        mediaBarModeMoonfin,
+        mediaBarModeMakd,
+        mediaBarModeGallery,
+        mediaBarModeBanner,
+      }.contains(normalizeMediaBarMode(mode));
+
   /// Content ratings the viewer has blocked, as an upper cased CSV. Blocked
   /// means hidden from every list and refused on open and on play, not just
   /// filtered out of the home rows. Scoped but deliberately not synced: a
@@ -3578,6 +3709,11 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: '',
   );
 
+  /// Where Moonbase runs for a Plex server, as the user typed it. Empty means
+  /// next to the Plex server (`plexMoonbaseDefault`).
+  static Preference<String> moonbaseUrlForServer(String serverId) =>
+      Preference(key: 'pref_moonbase_url_$serverId', defaultValue: '');
+
   static Preference<bool> pluginSyncInitializedForServer(String serverKey) =>
       Preference(
         key: 'pref_plugin_sync_initialized_$serverKey',
@@ -3616,6 +3752,11 @@ class UserPreferences extends ChangeNotifier {
   static final seasonalDensity = Preference(
     key: 'seasonal_density',
     defaultValue: seasonalDensityNormal,
+  );
+
+  static final seasonalFollower = Preference(
+    key: 'seasonal_follower',
+    defaultValue: true,
   );
 
   static final seasonalRowEnabled = Preference(
@@ -3825,6 +3966,11 @@ class UserPreferences extends ChangeNotifier {
         defaultValue: LibraryGroupBy.none,
         values: LibraryGroupBy.values,
       );
+
+  /// Only written once someone picks it, since the default depends on the
+  /// library's type.
+  static Preference<bool> libraryFolderView(String libraryId) =>
+      Preference(key: 'library_folder_view_$libraryId', defaultValue: false);
 
   static final allGenresImageType = EnumPreference(
     key: 'all_genres_image_type',
@@ -4428,4 +4574,29 @@ class UserPreferences extends ChangeNotifier {
 
     return result;
   }
+}
+
+/// The ratings settings one surface reads.
+class RatingSettings {
+  const RatingSettings({
+    required this.additionalRatings,
+    required this.sources,
+    this.episodeRatings,
+    required this.labels,
+    required this.badges,
+  });
+
+  final Preference<bool> additionalRatings;
+  final Preference<String> sources;
+  final Preference<bool>? episodeRatings;
+  final Preference<bool> labels;
+  final Preference<bool> badges;
+
+  List<Preference<dynamic>> get all => [
+    sources,
+    additionalRatings,
+    ?episodeRatings,
+    labels,
+    badges,
+  ];
 }

@@ -122,7 +122,10 @@ import '../../widgets/overlay_sheet.dart';
 import '../../../playback/external_player_policy.dart';
 import '../../../playback/hdr_stream_capability.dart';
 import '../../../playback/known_defects.dart';
+import '../../../playback/server_shuffle_queue.dart';
 import '../../../syncplay/syncplay_manager.dart';
+import '../../../watch_party/silo_watch_party_manager.dart';
+import '../watch_party/silo_watch_party_screen.dart';
 import '../../../util/audio_labels.dart';
 import '../../../util/detail_trailer.dart';
 import '../../../util/download_utils.dart';
@@ -136,6 +139,7 @@ import '../../../util/subtitle_track_logic.dart';
 import '../../../util/audio_track_logic.dart';
 import '../../../util/artwork_request_size.dart';
 import '../../../util/platform_detection.dart';
+import '../../../util/signed_in_server_features.dart';
 import 'detail_layout_metrics.dart';
 import 'play_item_on_screen.dart';
 
@@ -928,6 +932,21 @@ Widget classicDetailContentForTesting({
   onSelectedMediaSourceChanged: (_) {},
   initialFocusNode: initialFocusNode,
 );
+
+/// Silo's requests have no people, so there the person's name is searched
+/// instead.
+void _openRequestsForPerson(BuildContext context, AggregatedItem item) {
+  final client =
+      GetIt.instance<MediaServerClientFactory>().getClientIfExists(
+        item.serverId,
+      ) ??
+      GetIt.instance<MediaServerClient>();
+  context.push(
+    client.serverType == ServerType.silo
+        ? Destinations.searchRequestsWith(item.name)
+        : Destinations.seerrPerson(item.tmdbId!),
+  );
+}
 
 class _DetailContent extends StatefulWidget {
   final ItemDetailViewModel viewModel;
@@ -2888,7 +2907,7 @@ class _DetailContentState extends State<_DetailContent> {
         _SectionSpec(
           focusNode: seerrCrewCreditsFocusNode,
           build: (links) => HorizontalScrollSection(
-            title: l10n.crewContributionsSeerr,
+            title: seerrBrand(l10n.crewContributionsSeerr),
             builder: (_, ctrl) => SeerrCrewCreditsRow(
               items: seerrCrewCredits,
               prefs: prefs,
@@ -2909,7 +2928,7 @@ class _DetailContentState extends State<_DetailContent> {
         _SectionSpec(
           focusNode: seerrAppearancesFocusNode,
           build: (links) => HorizontalScrollSection(
-            title: l10n.appearancesSeerr,
+            title: seerrBrand(l10n.appearancesSeerr),
             builder: (_, ctrl) => SeerrAppearancesRow(
               items: seerrAppearances,
               prefs: prefs,
@@ -3024,7 +3043,7 @@ class _DetailContentState extends State<_DetailContent> {
                 iconBuilder: (size, color) =>
                     SeerrIcon(size: size, color: color),
                 onPressed: () {
-                  context.push(Destinations.seerrPerson(item.tmdbId!));
+                  _openRequestsForPerson(context, item);
                 },
                 isActive: false,
                 focusNode: seerrFocusNode,
@@ -3644,10 +3663,12 @@ class _DetailContentState extends State<_DetailContent> {
           if (!mounted) return;
           setState(() {});
         },
-        collectionRemoval: CollectionRemovalContext(
-          collectionName: viewModel.item?.name ?? '',
-          remove: viewModel.removeFromCollection,
-        ),
+        collectionRemoval: viewModel.canRemoveFromCollection
+            ? CollectionRemovalContext(
+                collectionName: viewModel.item?.name ?? '',
+                remove: viewModel.removeFromCollection,
+              )
+            : null,
       ),
     );
   }
@@ -4662,8 +4683,7 @@ class DetailActionButtons extends StatefulWidget {
   final bool nouveauStyle;
 
   /// In modern style, render the primary Play as a full-width pill (portrait).
-  /// When false the pill is content-width and sits inline with the secondary
-  /// circular buttons (landscape).
+  /// When false Play sits inline with the other buttons (landscape).
   final bool fullWidthPrimary;
 
   /// Spotlight mode: the overflow button is an ellipsis that opens a popup
@@ -4692,6 +4712,9 @@ class DetailActionButtons extends StatefulWidget {
   /// button is included in the actions row.
   final VoidCallback? onExtrasPressed;
 
+  /// Adds a Collections button to the row when set.
+  final VoidCallback? onCollectionsPressed;
+
   const DetailActionButtons({
     super.key,
     required this.viewModel,
@@ -4717,6 +4740,7 @@ class DetailActionButtons extends StatefulWidget {
     this.onActionsExpandedChanged,
     this.playlistTracksOverride,
     this.onExtrasPressed,
+    this.onCollectionsPressed,
   });
 
   @override
@@ -6827,7 +6851,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             iconBuilder: (size, color) => SeerrIcon(size: size, color: color),
             focusNode: _primaryFocusNode(2),
             onPressed: () {
-              context.push(Destinations.seerrPerson(item.tmdbId!));
+              _openRequestsForPerson(context, item);
             },
             onArrowUp:
                 NavigationLayout.focusNavbarNotifier.value != null ||
@@ -7127,12 +7151,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         ),
       if (!isBook &&
           !isPhoto &&
-          _isInSyncPlayGroup() &&
+          (_isInSyncPlayGroup() || _canPickForWatchParty()) &&
           shows(DetailButton.watchWithGroup))
         DetailButton.watchWithGroup: _DetailActionButton(
           label: l10n.watchWithGroup,
           icon: Icons.groups_rounded,
-          onPressed: () => _watchWithGroup(context, item),
+          onPressed: () => _isInSyncPlayGroup()
+              ? _watchWithGroup(context, item)
+              : _pickForWatchParty(context, item),
           isActive: true,
           activeColor: AppColorScheme.accent,
         ),
@@ -7182,7 +7208,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           isActive: _displayRatingLikes(item) != null,
           activeColor: Colors.amber,
         ),
-      if (!isBook && shows(DetailButton.playlist))
+      if (!isBook &&
+          shows(DetailButton.playlist) &&
+          itemServerSupports(item.serverId, (f) => f.supportsPlaylists))
         DetailButton.playlist: _DetailActionButton(
           label: l10n.addToPlaylist,
           icon: Icons.playlist_add,
@@ -7263,8 +7291,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           onPressed: () =>
               showSeerrManageRequestsSheet(context: context, vm: seerr),
         ),
-      if (canManageLiveTv() &&
-          incompleteRecordingFor(item.id) != null &&
+      if (incompleteRecordingFor(item.id) != null &&
           shows(DetailButton.keepAsComplete))
         DetailButton.keepAsComplete: _DetailActionButton(
           label: l10n.keepAsComplete,
@@ -7361,10 +7388,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             onPressed: widget.onExtrasPressed!,
           )
         : null;
+    final collectionsButton = widget.onCollectionsPressed != null
+        ? _DetailActionButton(
+            label: l10n.detailSectionCollections,
+            icon: Icons.collections_bookmark_outlined,
+            onPressed: widget.onCollectionsPressed!,
+          )
+        : null;
 
     var allButtons = <Widget>[
       ?primaryAction,
       ?extrasButton,
+      ?collectionsButton,
       for (final button in _orderedButtons(prefs)) ...[
         ?byButton[button],
         ?cancelByButton[button],
@@ -8051,6 +8086,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         adminPanel: adminServerSupported(),
       );
 
+  void _afterIdentify(String? identified, AggregatedItem item) {
+    if (identified == null || !mounted) return;
+    if (identified == item.id) {
+      viewModel.load();
+    } else {
+      // The match gave the item a new id, and the old one is gone.
+      context.pushReplacement(
+        Destinations.item(identified, serverId: item.serverId),
+      );
+    }
+  }
+
   void _showAdminDialog(BuildContext context, AggregatedItem item) {
     final l10n = AppLocalizations.of(context);
     final actions = _adminActionsFor(item);
@@ -8080,11 +8127,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                         itemType: item.type,
                         itemName: item.name,
                         itemYear: item.productionYear,
-                      ).then((applied) {
-                        if (applied == true) {
-                          viewModel.load();
-                        }
-                      });
+                      ).then((identified) => _afterIdentify(identified, item));
                       return KeyEventResult.handled;
                     }
                     return KeyEventResult.ignored;
@@ -8095,16 +8138,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                       return InkWell(
                         onTap: () async {
                           Navigator.of(dialogCtx).pop();
-                          final applied = await IdentifyDialog.show(
+                          final identified = await IdentifyDialog.show(
                             context,
                             itemId: item.id,
                             itemType: item.type,
                             itemName: item.name,
                             itemYear: item.productionYear,
                           );
-                          if (applied == true) {
-                            viewModel.load();
-                          }
+                          _afterIdentify(identified, item);
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -8427,6 +8468,96 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       queue,
       mediaSourceId: mediaSourceId ?? widget.selectedMediaSourceId,
     );
+  }
+
+  /// On Silo the host picks what a Watch Party watches; anyone else can open
+  /// a party by picking.
+  bool _canPickForWatchParty() {
+    try {
+      final party = GetIt.instance<SiloWatchPartyManager>();
+      if (party.activeSiloClient == null) return false;
+      return party.room?.isHost ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _pickForWatchParty(
+    BuildContext context,
+    AggregatedItem item,
+  ) async {
+    final party = GetIt.instance<SiloWatchPartyManager>();
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final suggested = party.room?.isVoting == true && item.type == 'Movie';
+    // A room plays files, so a series or season stands for its next episode.
+    final episode = await _watchPartyEpisodeFor(item);
+    if (!mounted) return;
+    if (episode == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.noEpisodesLoaded)));
+      return;
+    }
+    final picked = await party.pick(episode);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          !picked
+              ? party.error ?? ''
+              : suggested
+              ? l10n.watchPartySuggested
+              : l10n.watchPartyStaged,
+        ),
+      ),
+    );
+    if (picked) {
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const SiloWatchPartyScreen()),
+        ),
+      );
+    }
+  }
+
+  /// Next Up for a series, else its first unwatched episode (specials left
+  /// out); a season's first unwatched episode. Other items are themselves.
+  Future<AggregatedItem?> _watchPartyEpisodeFor(AggregatedItem item) async {
+    Future<List<AggregatedItem>?> load(
+      String seriesId, {
+      String? seasonId,
+    }) async {
+      try {
+        final data = await _clientForItem(
+          item,
+        ).itemsApi.getEpisodes(seriesId, seasonId: seasonId);
+        return _mapRawItemsForServer(data['Items'], item.serverId);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final List<AggregatedItem>? episodes;
+    switch (item.type) {
+      case 'Series':
+        if (viewModel.nextUp != null) return viewModel.nextUp;
+        // Episodes with no season number aren't specials.
+        episodes = (await load(
+          item.id,
+        ))?.where((e) => e.parentIndexNumber != 0).toList();
+      case 'Season':
+        // The page's own list may not have loaded yet.
+        final seriesId = item.seriesId;
+        episodes = viewModel.episodes.isNotEmpty || seriesId == null
+            ? viewModel.episodes
+            : await load(seriesId, seasonId: item.id);
+      default:
+        return item;
+    }
+    if (episodes == null) return null;
+    final playable = episodes.where(isEligibleNextEpisodeCandidate);
+    return playable.where((e) => !e.isPlayed).firstOrNull ??
+        playable.firstOrNull;
   }
 
   void _watchWithGroup(BuildContext context, AggregatedItem item) {
@@ -10038,6 +10169,19 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     );
   }
 
+  /// The first items of the server's own shuffle of [item], or null when
+  /// its server doesn't shuffle it (or starting one failed).
+  Future<List<AggregatedItem>?> _serverShuffleQueue(AggregatedItem item) async {
+    try {
+      return await ServerShuffleQueue.instance.start(
+        _clientForItem(item),
+        item,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _shuffleInternal(
     BuildContext context,
     AggregatedItem item,
@@ -10050,13 +10194,21 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       // the start is still wanted. Without one the context is all there is.
       bool launchGone() =>
           session == null ? !context.mounted : !session.isActive;
-      final queue = await _shuffleQueueForItem(item);
-      final playableQueue = queue
-          .where((e) => isEligibleNextEpisodeCandidate(e) || e.id == item.id)
-          .toList();
-      if (playableQueue.isEmpty || launchGone()) return null;
-
-      final shuffled = List<AggregatedItem>.from(playableQueue)..shuffle();
+      // A server that shuffles itself (Silo) hands out the order. Otherwise
+      // every item is loaded and shuffled here.
+      final serverShuffled = await _serverShuffleQueue(item);
+      if (launchGone()) return null;
+      final List<AggregatedItem> shuffled;
+      if (serverShuffled != null && serverShuffled.isNotEmpty) {
+        shuffled = List<AggregatedItem>.from(serverShuffled);
+      } else {
+        final queue = await _shuffleQueueForItem(item);
+        final playableQueue = queue
+            .where((e) => isEligibleNextEpisodeCandidate(e) || e.id == item.id)
+            .toList();
+        if (playableQueue.isEmpty || launchGone()) return null;
+        shuffled = List<AggregatedItem>.from(playableQueue)..shuffle();
+      }
       shuffled[0] = await _ensureHydrated(shuffled.first);
       if (launchGone()) return null;
       final isAudio = shuffled.every((queuedItem) {
@@ -11824,9 +11976,13 @@ class _DownloadButtonState extends State<_DownloadButton> {
       );
       return;
     }
+    final qualities = await GetIt.instance<DownloadService>()
+        .offeredQualities();
+    if (!context.mounted) return;
     final quality = await _pickQuality(
       context,
       item,
+      qualities: qualities,
       title: l10n.autoDownloadQualityTitle,
       note: l10n.autoDownloadTranscodedForegroundNote,
     );
@@ -12001,7 +12157,9 @@ class _DownloadButtonState extends State<_DownloadButton> {
     int? audioStreamIndex,
   }) async {
     final isMulti = _isBatchType(item.type);
-    if (!service.canDownloadTranscoded ||
+    final qualities = await service.offeredQualities();
+    if (!context.mounted) return;
+    if (qualities.length < 2 ||
         (!isMulti && !_supportsTranscoding(item.type))) {
       _startDownload(
         context,
@@ -12019,6 +12177,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
     final quality = await _pickQuality(
       context,
       item,
+      qualities: qualities,
       title: isMulti
           ? AppLocalizations.of(context).downloadAllQuality
           : AppLocalizations.of(context).downloadQuality,
@@ -12042,13 +12201,15 @@ class _DownloadButtonState extends State<_DownloadButton> {
       type == 'MusicVideo' ||
       type == 'Video';
 
-  /// Lets the user pick a quality for [widget.item]; size estimates cover
-  /// [items] for batches. Null when the sheet is dismissed.
+  /// Lets the user pick a quality for [widget.item] among the server's
+  /// [qualities]. Size estimates cover [items] for batches. Null when the
+  /// sheet is dismissed.
   /// [note] is shown once under the title, for callers where the choice has
   /// a consequence worth stating.
   static Future<DownloadQuality?> _pickQuality(
     BuildContext context,
     AggregatedItem item, {
+    required List<DownloadQuality> qualities,
     required String title,
     List<AggregatedItem> items = const [],
     String? note,
@@ -12071,7 +12232,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
             return maxWidth;
           })()
         : item.sourceVideoWidth;
-    final availableQualities = DownloadQuality.values.where((q) {
+    final availableQualities = qualities.where((q) {
       if (q.maxWidth == null) return true;
       if (sourceWidth == null) return true;
       return q.maxWidth! <= sourceWidth;
@@ -12550,9 +12711,9 @@ class _DetailActionButtonState extends State<_DetailActionButton>
     super.dispose();
   }
 
-  /// Modern detail style: primary Play renders as a high-contrast light pill,
-  /// secondary actions as circular outline icon buttons (icon only in landscape,
-  /// icon + label in portrait).
+  /// Modern detail style. Phones show every button as a circle with its label
+  /// underneath, except portrait Play, which spans the width as a pill. Larger
+  /// screens show circles that grow their label while focused or hovered.
   Widget _buildModernChild(
     BuildContext context, {
     required bool isMobile,
@@ -12625,74 +12786,6 @@ class _DetailActionButtonState extends State<_DetailActionButton>
       return SizedBox(width: double.infinity, child: pillInner);
     }
 
-    if (isMobile && !widget.isPrimary) {
-      // Vertical tile: circular icon with its label always shown underneath.
-      final iconWidget = widget.iconBuilder != null
-          ? widget.iconBuilder!(36, iconColor)
-          : AdaptiveIcon(
-              widget.icon!,
-              color: (widget.icon == Icons.favorite && widget.isActive)
-                  ? const Color(0xFFE50914)
-                  : iconColor,
-              size: 24,
-            );
-      return SizedBox(
-        width: 66,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: height,
-              height: height,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: showHighlight
-                    ? AppColorScheme.buttonFocused
-                    : (widget.isActive
-                          ? (widget.activeColor ?? AppColorScheme.accent)
-                                .withValues(alpha: 0.18)
-                          : Colors.white.withValues(alpha: 0.06)),
-                border: Border.all(
-                  color: showHighlight
-                      ? focusColor
-                      : AppColorScheme.onSurface.withValues(alpha: 0.35),
-                  width: showHighlight ? 2.5 : 1.5,
-                ),
-              ),
-              child: Center(child: iconWidget),
-            ),
-            const SizedBox(height: 6),
-            // Shrink long labels (e.g. "Unwatched") to fit the tile on one line
-            // instead of wrapping a lone letter into the row below.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                widget.label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: labelColor,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                softWrap: false,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final double minWidth = height;
-    final double maxWidth = isExpanded ? 200.0 * scale : height;
-    final double maxLabelWidth =
-        (maxWidth -
-                (isExpanded ? 22.0 * scale : 0.0) -
-                (showHighlight ? 5.0 : 3.0) -
-                (height - 4) -
-                6.0 * scale)
-            .clamp(0.0, maxWidth);
-
     // Only a compact layout keeps Play filled with the accent. Everywhere else
     // it looks like the buttons beside it until it has focus.
     final accentPrimary = widget.isPrimary && isMobile;
@@ -12733,9 +12826,57 @@ class _DetailActionButtonState extends State<_DetailActionButton>
                   size: 24 * scale,
                 ));
 
-    final effectiveLabelColor = accentPrimary && !showHighlight
-        ? AppColorScheme.onAccent
-        : labelColor;
+    if (isMobile) {
+      // Vertical tile: circular icon with its label always shown underneath.
+      return SizedBox(
+        width: 66,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: height,
+              height: height,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: containerColor,
+                border: Border.all(
+                  color: borderColor,
+                  width: showHighlight ? 2.5 : 1.5,
+                ),
+              ),
+              child: Center(child: iconWidget),
+            ),
+            const SizedBox(height: 6),
+            // Shrink long labels (e.g. "Unwatched") to fit the tile on one line
+            // instead of wrapping a lone letter into the row below.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                widget.label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: labelColor,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final double minWidth = height;
+    final double maxWidth = isExpanded ? 200.0 * scale : height;
+    final double maxLabelWidth =
+        (maxWidth -
+                (isExpanded ? 22.0 * scale : 0.0) -
+                (showHighlight ? 5.0 : 3.0) -
+                (height - 4) -
+                6.0 * scale)
+            .clamp(0.0, maxWidth);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
@@ -12776,13 +12917,13 @@ class _DetailActionButtonState extends State<_DetailActionButton>
                     text: widget.label,
                     style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: effectiveLabelColor,
+                          color: labelColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
                         ) ??
                         TextStyle(
-                          color: effectiveLabelColor,
+                          color: labelColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
@@ -12896,7 +13037,7 @@ class _DetailActionButtonState extends State<_DetailActionButton>
               ? (widget.activeColor ??
                     (isNeon ? neonAccent : AppColorScheme.onButtonNormal))
               : (isNeon ? neonAccent : AppColorScheme.onButtonNormal));
-    final showLabelInside = modern && (widget.isPrimary || !isMobile);
+    final showLabelInside = modern && !isMobile;
     final labelColor = (showHighlight && showLabelInside)
         ? AppColorScheme.onButtonFocused
         : (isNeon ? neonAccent : AppColorScheme.onButtonNormal);

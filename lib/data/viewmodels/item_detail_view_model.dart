@@ -15,6 +15,7 @@ import '../models/lyrics.dart';
 import '../models/tmdb_item_ref.dart';
 import '../services/blocked_content_gate.dart';
 import '../services/row_data_source.dart';
+import '../services/series_track_sync.dart';
 import '../repositories/item_mutation_repository.dart';
 import '../repositories/mdblist_repository.dart';
 import '../repositories/multi_server_repository.dart';
@@ -213,6 +214,28 @@ List<AggregatedItem> seerrMissingCollectionItems({
     );
   }
   return missing;
+}
+
+/// Which engine fills a detail page's "More like this" row.
+///
+/// The setting's default, Moonfin Recommends, matches genres across the
+/// library on the device. On Silo the server's own engine
+/// (`/recommendations/similar`, embeddings blended with co-watching) is what
+/// Silo's apps show and what the profile's access already shapes, so Moonfin
+/// Recommends means Silo's engine there. TMDb Similarity stays TMDb, and kids
+/// mode keeps the local algorithm and its parental-rating cap.
+@visibleForTesting
+RecommendationSystemSource similarItemsSource({
+  required RecommendationSystemSource setting,
+  required bool kidsMode,
+  required ServerType serverType,
+}) {
+  if (kidsMode) return RecommendationSystemSource.local;
+  if (serverType == ServerType.silo &&
+      setting == RecommendationSystemSource.local) {
+    return RecommendationSystemSource.server;
+  }
+  return setting;
 }
 
 class ItemDetailViewModel extends ChangeNotifier {
@@ -496,12 +519,26 @@ class ItemDetailViewModel extends ChangeNotifier {
   /// Plex has no likes, and its own rating already stands in for favorites.
   bool get supportsPersonalRating => _client.serverType != ServerType.plex;
 
-  /// Plex can only favorite media, never people.
-  bool get supportsPersonFavorites => _client.serverType != ServerType.plex;
+  /// Plex can only favorite media, never people, and Silo keeps no person
+  /// favorites.
+  bool get supportsPersonFavorites =>
+      _client.serverType != ServerType.plex &&
+      _client.serverType != ServerType.silo;
 
   /// Plex keeps no YouTube links, so a trailer it doesn't have is searched
   /// for on YouTube instead.
   bool get searchesYouTubeForTrailer => _client.serverType == ServerType.plex;
+
+  /// Whether this collection's cards offer "Remove from collection". A
+  /// server can limit editing to some collections (Silo: the profile's own
+  /// manual ones). Otherwise any collection page offers it.
+  bool get canRemoveFromCollection {
+    final collection = _item;
+    if (collection == null || collection.type != 'BoxSet') return false;
+    final api = _client.itemsApi;
+    return api is! EditableCollectionsApi ||
+        (api as EditableCollectionsApi).canEditCollection(collection.rawData);
+  }
 
   bool _isRatingMutationInProgress = false;
   bool get isRatingMutationInProgress => _isRatingMutationInProgress;
@@ -1082,6 +1119,21 @@ class ItemDetailViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Copies the series' audio and subtitle choice that Silo keeps into this
+  /// device's settings before anything plays.
+  Future<void> _syncSeriesTrackChoices() async {
+    final item = _item;
+    if (item == null) return;
+    final seriesId = item.type == 'Series' ? item.id : item.seriesId;
+    if (seriesId == null || seriesId.isEmpty) return;
+    final changed = await syncSeriesTrackChoices(
+      _client,
+      seriesId,
+      GetIt.instance<UserPreferences>(),
+    );
+    if (changed && !_isDisposed) notifyListeners();
+  }
+
   Future<void> _loadSecondary() async {
     final type = _item?.type;
     final futures = <Future>[];
@@ -1094,6 +1146,7 @@ class ItemDetailViewModel extends ChangeNotifier {
       futures.add(_loadPersonAccounts());
     } else if (type == 'Series') {
       unawaited(_loadReviews());
+      unawaited(_syncSeriesTrackChoices());
       futures.add(_loadRatings());
       futures.add(_loadSeasons());
       futures.add(_loadNextUp());
@@ -1102,10 +1155,12 @@ class ItemDetailViewModel extends ChangeNotifier {
       futures.add(_loadParentCollection());
       unawaited(_loadUpcomingEpisode());
     } else if (type == 'Season') {
+      unawaited(_syncSeriesTrackChoices());
       futures.add(_loadRatings());
       futures.add(_loadEpisodes());
       futures.add(_loadFeatures());
     } else if (type == 'Episode') {
+      unawaited(_syncSeriesTrackChoices());
       futures.add(_loadRatings());
       futures.add(_loadEpisodes());
       futures.add(_loadSimilar());
@@ -1539,7 +1594,7 @@ class ItemDetailViewModel extends ChangeNotifier {
     try {
       final syncService = GetIt.instance<PluginSyncService>();
       final order = _customOrderIds;
-      if (syncService.pluginAvailable && order != null) {
+      if (syncService.collectionOrderSupported(_client) && order != null) {
         // The whole order goes up, otherwise the server forgets where the items
         // that haven't been paged in yet belong.
         await syncService.saveCustomCollectionOrder(_client, itemId, order);
@@ -1618,7 +1673,7 @@ class ItemDetailViewModel extends ChangeNotifier {
       await _client.itemsApi.removeFromCollection(itemId, [item.id]);
       final syncService = GetIt.instance<PluginSyncService>();
       final order = _customOrderIds;
-      if (syncService.pluginAvailable && order != null) {
+      if (syncService.collectionOrderSupported(_client) && order != null) {
         await syncService.saveCustomCollectionOrder(_client, itemId, order);
       }
     } catch (_) {
@@ -1833,7 +1888,7 @@ class ItemDetailViewModel extends ChangeNotifier {
       // A saved order still needs the scan to find members added since it was
       // saved. They go on the end in release order so they aren't lost.
       final syncService = GetIt.instance<PluginSyncService>();
-      if (syncService.pluginAvailable) {
+      if (syncService.collectionOrderSupported(_client)) {
         try {
           final customOrder = await syncService.fetchCustomCollectionOrder(
             _client,
@@ -2453,7 +2508,11 @@ class ItemDetailViewModel extends ChangeNotifier {
       if (item != null && (item.type == 'Movie' || item.type == 'Series')) {
         try {
           final prefs = GetIt.instance<UserPreferences>();
-          final sourceSetting = prefs.effectiveRecommendationSystemSource;
+          final sourceSetting = similarItemsSource(
+            setting: prefs.get(UserPreferences.recommendationSystemSource),
+            kidsMode: prefs.get(UserPreferences.kidsModeEnabled),
+            serverType: _client.serverType,
+          );
 
           if (sourceSetting == RecommendationSystemSource.server) {
             final data = await _client.itemsApi.getSimilarItems(

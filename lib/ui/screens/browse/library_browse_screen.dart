@@ -299,6 +299,8 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         (item) => (_cardSubtitle(item)?.isNotEmpty ?? false),
       );
 
+  bool get _showCardTitles => _prefs.get(UserPreferences.libraryCardTitles);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -521,7 +523,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
   void _onItemTap(AggregatedItem item) {
     if (_vm.isNavigableFolder(item)) {
-      context.push(Destinations.folder(item.id));
+      context.push(Destinations.folder(item.id, serverId: item.serverId));
       return;
     }
 
@@ -1023,7 +1025,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       sortAscending: _vm.sortDirection == SortDirection.ascending,
       onSort: () => _showFilterSortDialog(context),
       groupLabel: _groupByLabel(_vm.groupBy, l10n),
-      onGroupBy: _vm.isMovieOrSeriesLibrary ? _showGroupByDialog : null,
+      onGroupBy: _vm.canGroup ? _showGroupByDialog : null,
       showLabel: _playedStatusLabel(_vm, _vm.playedFilter, l10n),
       onShow: _vm.isMusicBrowse
           ? null
@@ -1163,7 +1165,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
             onBack: _onBack,
             onSort: () => _showFilterSortDialog(context),
             onGroupBy: () => _showGroupByDialog(),
-            isMovieOrSeriesLibrary: _vm.isMovieOrSeriesLibrary,
+            canGroup: _vm.canGroup,
             onSettings: () => _showSettingsDialog(context),
             onShuffle: _isSongsBrowse ? () => _shuffleSongsLibrary() : null,
             onLetterChanged: (l) => _jumpToLetter(l),
@@ -1547,7 +1549,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
             crossAxisCount;
         final ar = _gridBaseAspectRatio();
         final desktopTextScale = MediaQuery.textScalerOf(context).scale(1.0);
-        final textHeight = (_hasSubtitles ? 50.0 : 26.0) * desktopTextScale;
+        final textHeight = _showCardTitles
+            ? (_hasSubtitles ? 50.0 : 26.0) * desktopTextScale
+            : 0.0;
         final imageHeight = cellWidth / ar;
         final cellHeight = imageHeight + textHeight;
         final childAspectRatio = cellWidth / cellHeight;
@@ -1829,6 +1833,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         recordingItemId: item.id,
         title: item.name,
         subtitle: _cardSubtitle(item),
+        showLabel: _showCardTitles,
         imageUrl: posterUrls.$1,
         fallbackImageUrl: posterUrls.$2,
         cacheManager:
@@ -1948,7 +1953,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     final ar = _gridBaseAspectRatio();
     final watchedBehavior = _prefs.get(UserPreferences.watchedIndicatorBehavior);
     final desktopTextScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final textHeight = (_hasSubtitles ? 42.0 : 24.0) * desktopTextScale;
+    final textHeight = _showCardTitles
+        ? (_hasSubtitles ? 42.0 : 24.0) * desktopTextScale
+        : 0.0;
     final rowCardHeight = cardWidth / ar + textHeight;
     final rowContainerHeight = rowCardHeight + _kGroupedRowFocusPadding;
 
@@ -2027,7 +2034,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         final bottomPadding = _gridBottomPadding(vertPadding);
         final ar = _gridBaseAspectRatio();
         final desktopTextScale = MediaQuery.textScalerOf(context).scale(1.0);
-        final textHeight = (_hasSubtitles ? 46.0 : 30.0) * desktopTextScale;
+        final textHeight = _showCardTitles
+            ? (_hasSubtitles ? 46.0 : 30.0) * desktopTextScale
+            : 0.0;
 
         final cellWidth = _cardWidth();
         final spacing = cardFocusExpansion && !isMobile
@@ -2106,6 +2115,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                         recordingItemId: item.id,
                         title: item.name,
                         subtitle: _cardSubtitle(item),
+                        showLabel: _showCardTitles,
                         imageUrl: posterUrls.$1,
                         fallbackImageUrl: posterUrls.$2,
                         cacheManager:
@@ -2289,7 +2299,7 @@ class _LibraryHeader extends StatelessWidget {
   final FocusNode? allLetterFocusNode;
   final bool isMusicBrowse;
   final VoidCallback? onGroupBy;
-  final bool isMovieOrSeriesLibrary;
+  final bool canGroup;
   final VoidCallback onBack;
   final VoidCallback onSort;
   final VoidCallback onSettings;
@@ -2318,7 +2328,7 @@ class _LibraryHeader extends StatelessWidget {
     this.onTvSearchKey,
     this.isMusicBrowse = false,
     this.onGroupBy,
-    this.isMovieOrSeriesLibrary = false,
+    this.canGroup = false,
     required this.onBack,
     required this.onSort,
     required this.onSettings,
@@ -2394,7 +2404,7 @@ class _LibraryHeader extends StatelessWidget {
                 onTap: onSort,
                 onUpKey: _focusSearch,
               ),
-              if (isMovieOrSeriesLibrary && onGroupBy != null) ...[
+              if (canGroup && onGroupBy != null) ...[
                 SizedBox(width: 2 * desktopScale),
                 FocusableToolbarButton(
                   icon: Icons.category_outlined,
@@ -2465,7 +2475,7 @@ class _LibraryHeader extends StatelessWidget {
         if (totalCount > 0) ...[
           SizedBox(width: 12 * desktopScale),
           Text(
-            '$totalCount Items',
+            AppLocalizations.of(context).itemCountLabel(totalCount),
             style: TextStyle(
               fontSize: 12 * desktopScale,
               color: Colors.white.withAlpha(102),
@@ -2692,10 +2702,9 @@ class _FilterSortDialog extends StatefulWidget {
 }
 
 class _FilterSortDialogState extends State<_FilterSortDialog> {
-  /// Only one group stays open at a time and the panel opens on the sort
-  /// group. A library can hold hundreds of tags or years, so the rest sit
-  /// closed as a heading until they are asked for.
-  late String? _expandedSection = widget.initialSection ?? 'sort';
+  /// Only one group stays open at a time, and every group starts closed as a
+  /// heading unless the panel was opened for one.
+  late String? _expandedSection = widget.initialSection;
 
   /// Shorter lists are quicker to scroll through than to search.
   static const _searchableMinimum = 10;
@@ -2929,6 +2938,14 @@ class _FilterSortDialogState extends State<_FilterSortDialog> {
               accent: accent,
               onSurface: onSurface,
             ),
+            if (vm.canFolderView)
+              _DialogCheckboxTile(
+                label: l10n.libraryFolderView,
+                checked: vm.folderView,
+                onTap: () => vm.setFolderView(!vm.folderView),
+                accent: accent,
+                onSurface: onSurface,
+              ),
             ...section(
               key: 'sort',
               title: l10n.sortBy,
@@ -3737,8 +3754,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final selected = vm.imageType == type;
     final accent = _jellyfinBlue;
     final onSurface = AppColorScheme.onSurface;
+    final l10n = AppLocalizations.of(context);
     return _DialogRadioTile(
-      label: type.name[0].toUpperCase() + type.name.substring(1),
+      label: switch (type) {
+        ImageType.poster => l10n.imageTypePoster,
+        ImageType.thumb => l10n.imageTypeThumbnail,
+        ImageType.banner => l10n.imageTypeBanner,
+      },
       selected: selected,
       onTap: () => vm.setImageType(type),
       accent: accent,

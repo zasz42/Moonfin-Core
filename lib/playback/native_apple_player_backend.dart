@@ -11,6 +11,7 @@ import '../preference/user_preferences.dart';
 import '../util/loggable_url.dart';
 import '../util/platform_detection.dart';
 
+import 'apple_secondary_subtitle_controls.dart';
 import 'device_profile_builder.dart';
 import 'dolby_vision_av1.dart';
 import 'engine_trust.dart';
@@ -19,7 +20,9 @@ import 'letterbox_croppers.dart';
 import 'lossless_audio_bridge.dart';
 import 'server_transcode_capabilities.dart';
 
-class NativeApplePlayerBackend implements PlayerBackend {
+class NativeApplePlayerBackend
+    with SubtitleDelayState, AppleSecondarySubtitleControls
+    implements PlayerBackend, SecondarySubtitleBackend {
   NativeApplePlayerBackend(this._prefs) {
     _eventSub = _events.receiveBroadcastStream().listen(
       _handleEvent,
@@ -44,7 +47,6 @@ class NativeApplePlayerBackend implements PlayerBackend {
   double _playbackSpeed = 1.0;
   double _volume = 100.0;
   double _audioDelaySeconds = 0.0;
-  double _subtitleDelaySeconds = 0.0;
   bool _completed = false;
   SubtitleRendererMode _requestedSubtitleRendererMode =
       SubtitleRendererMode.native;
@@ -98,6 +100,13 @@ class NativeApplePlayerBackend implements PlayerBackend {
     }
   }
 
+  @override
+  Future<T?> invokeAppleSecondaryControl<T>(
+    String method, [
+    dynamic arguments,
+  ]) =>
+      _invoke<T>(method, arguments);
+
   void _log(String message, {LogLevel level = LogLevel.debug, Object? error}) {
     if (!GetIt.instance.isRegistered<LogService>()) return;
     GetIt.instance<LogService>().playback(message, level: level, error: error);
@@ -117,6 +126,30 @@ class NativeApplePlayerBackend implements PlayerBackend {
   }
 
   Future<void> dismissPlayer() => _dismissPlayer();
+
+  /// Takes the player off screen without stopping it, so Flutter can draw
+  /// over the live picture. Answers with a texture showing that picture, or
+  /// null when the engine has no frames to share.
+  Future<int?> suspendPlayer() => _invoke<int>('suspend');
+
+  /// Puts a suspended player back on screen, still on the same stream.
+  Future<void> resumePlayer() => _invoke<void>('resume');
+
+  /// The live recovery's "Reconnecting" line, or null to take it down.
+  Future<void> setReconnecting(String? label) =>
+      _invoke<void>('setReconnecting', {'label': label});
+
+  /// An alert over the player. [actionLabel] adds a button that answers with
+  /// a `messageAction` event.
+  Future<void> showMessage(
+    String message, {
+    String? actionLabel,
+    required String closeLabel,
+  }) => _invoke<void>('showMessage', {
+    'message': message,
+    'actionLabel': ?actionLabel,
+    'closeLabel': closeLabel,
+  });
 
   bool get isPlayerPresented => _playerPresented && !_audioOnly;
 
@@ -165,10 +198,18 @@ class NativeApplePlayerBackend implements PlayerBackend {
       case 'previous':
       case 'selectAudio':
       case 'selectSubtitle':
+      case 'setSubtitleSize':
+      case 'setSubtitlePosition':
+      case 'selectSecondarySubtitle':
+      case 'setSecondarySubtitleDelay':
+      case 'configureSecondarySubtitleStyle':
       case 'setSpeed':
       case 'setBitrate':
       case 'selectChannel':
       case 'openGuide':
+      case 'record':
+      case 'messageAction':
+      case 'toggleOrientation':
       case 'toggleFavorite':
       case 'stillWatchingContinue':
       case 'stillWatchingStop':
@@ -207,7 +248,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
         _completedStream.add(_completed);
       case 'syncDelays':
         _audioDelaySeconds = _toInt(map['audioDelayMs']) / 1000.0;
-        _subtitleDelaySeconds = _toInt(map['subtitleDelayMs']) / 1000.0;
+        subtitleDelaySeconds = _toInt(map['subtitleDelayMs']) / 1000.0;
       case 'engineLog':
         _logEngineLine(map['line']);
       case 'playerError':
@@ -297,6 +338,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
         ? mediaItem
         : payload['url']?.toString() ?? '';
     if (_disposed || url.isEmpty) return;
+    updateSubtitleDelaySession(payload['subtitleDelaySessionId'] as int?);
 
     final autoPlay = payload['autoPlay'] != false;
 
@@ -343,6 +385,15 @@ class NativeApplePlayerBackend implements PlayerBackend {
       'videoDvProfile': payload['videoDvProfile'],
       'dolbyVisionBaseLayerOnly': needsBaseLayerOnlyForDolbyVisionAv1(payload),
       'externalSubtitles': payload['externalSubtitles'] ?? const [],
+      'secondarySubtitleTrackId': payload['secondarySubtitleTrackId'],
+      'secondarySubtitleUrl': payload['secondarySubtitleUrl'],
+      'secondarySubtitleDelayMs': payload['secondarySubtitleDelayMs'] ?? 0,
+      'secondarySubtitleOffset': PlaybackManager.clampSecondarySubtitleOffset(
+        (payload['secondarySubtitleOffset'] as num?)?.toDouble() ??
+            PlaybackManager.defaultSecondarySubtitleOffset,
+      ),
+      'secondarySubtitleFontSize': payload['secondarySubtitleFontSize'],
+      'secondarySubtitleTextColor': payload['secondarySubtitleTextColor'],
       'videoFrameRate': payload['videoFrameRate'],
       'videoWidth': payload['videoWidth'],
       'videoHeight': payload['videoHeight'],
@@ -371,7 +422,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
       'speed': _playbackSpeed,
       'volume': _volume,
       'audioDelayMs': (_audioDelaySeconds * 1000).round(),
-      'subtitleDelayMs': (_subtitleDelaySeconds * 1000).round(),
+      'subtitleDelayMs': (subtitleDelaySeconds * 1000).round(),
       'subtitleRendererMode': _modeToWire(_requestedSubtitleRendererMode),
       'forceSubtitlesDisabledOnStart':
           !audioOnly && _prefs.get(UserPreferences.subtitleMode) == SubtitleMode.none,
@@ -468,6 +519,9 @@ class NativeApplePlayerBackend implements PlayerBackend {
     final maxResolution = _prefs.get(UserPreferences.maxVideoResolution);
     final audioCapabilityProfile = _prefs.detectedAudioCapabilities;
     final softwareHevc = decodesHevcOnlyFromOriginalFile;
+    final softwareAv1Uhd =
+        PlatformDetection.offersAv1SoftwareUhd &&
+        _prefs.get(UserPreferences.av1SoftwareUhdDirectPlay);
 
     return DeviceProfileBuilder.build(
       maxBitrateMbps: maxBitrate,
@@ -509,7 +563,9 @@ class NativeApplePlayerBackend implements PlayerBackend {
       supportsAv1: PlatformDetection.supportsAv1,
       supportsAv1Main10: PlatformDetection.supportsAv1Main10,
       supportsAv1DolbyVision: PlatformDetection.supportsAv1DolbyVision,
-      supportsAv1Hdr10: PlatformDetection.supportsAv1Hdr10,
+      supportsAv1Hdr10:
+          PlatformDetection.supportsAv1Hdr10 ||
+          (softwareAv1Uhd && PlatformDetection.supportsHevcHdr10),
       supportsAv1Hdr10Plus: PlatformDetection.supportsAv1Hdr10Plus,
       rendersAv1DoviViaHdr10BaseLayer: true,
       supportsVc1: PlatformDetection.supportsVc1,
@@ -517,8 +573,12 @@ class NativeApplePlayerBackend implements PlayerBackend {
       maxResolutionAvcHeight: PlatformDetection.maxResolutionAvcHeight,
       maxResolutionHevcWidth: PlatformDetection.maxResolutionHevcWidth,
       maxResolutionHevcHeight: PlatformDetection.maxResolutionHevcHeight,
-      maxResolutionAv1Width: PlatformDetection.maxResolutionAv1Width,
-      maxResolutionAv1Height: PlatformDetection.maxResolutionAv1Height,
+      maxResolutionAv1Width: softwareAv1Uhd
+          ? 3840
+          : PlatformDetection.maxResolutionAv1Width,
+      maxResolutionAv1Height: softwareAv1Uhd
+          ? 2160
+          : PlatformDetection.maxResolutionAv1Height,
       maxResolutionVc1Width: PlatformDetection.maxResolutionVc1Width,
       maxResolutionVc1Height: PlatformDetection.maxResolutionVc1Height,
       supportsDvProfile5: PlatformDetection.supportsDoViProfile5,
@@ -555,6 +615,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
     required int skipBackMs,
     required List<Map<String, dynamic>> audioTracks,
     required List<Map<String, dynamic>> subtitleTracks,
+    Map<String, dynamic>? subtitleControls,
     String logoUrl = '',
     List<Map<String, dynamic>> streamInfoSections = const [],
     String streamInfoTitle = '',
@@ -570,6 +631,8 @@ class NativeApplePlayerBackend implements PlayerBackend {
     Map<String, dynamic>? syncPlay,
     bool isLive = false,
     Map<String, dynamic>? liveProgram,
+    Map<String, dynamic>? liveRecord,
+    bool? orientationLocked,
     String liveChannelNumber = '',
     List<Map<String, dynamic>> channelList = const [],
     List<Map<String, dynamic>> streamStats = const [],
@@ -588,6 +651,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
       'skipBackMs': skipBackMs,
       'audioTracks': audioTracks,
       'subtitleTracks': subtitleTracks,
+      'subtitleControls': ?subtitleControls,
       'logoUrl': logoUrl,
       'streamInfoSections': streamInfoSections,
       'streamInfoTitle': streamInfoTitle,
@@ -603,6 +667,9 @@ class NativeApplePlayerBackend implements PlayerBackend {
       'syncPlay': ?syncPlay,
       'isLive': isLive,
       'liveProgram': ?liveProgram,
+      'liveRecord': ?liveRecord,
+      // Left out where the player carries no rotation lock.
+      'orientationLocked': ?orientationLocked,
       'liveChannelNumber': liveChannelNumber,
       'channelList': channelList,
       'streamStats': streamStats,
@@ -613,6 +680,11 @@ class NativeApplePlayerBackend implements PlayerBackend {
       'canBrowseEpisodes': canBrowseEpisodes,
       // Only iOS reads it. The television always docks the transport.
       'transportDocked': ?transportDocked,
+      // Only iOS reads these, the touch screen's volume and brightness swipes.
+      'swipeGestures': _prefs.get(UserPreferences.playerSwipeGestures),
+      'gestureIndicatorsInverted':
+          _prefs.get(UserPreferences.gestureIndicatorPlacement) ==
+          GestureIndicatorPlacement.inverted,
     });
   }
 
@@ -786,19 +858,6 @@ class NativeApplePlayerBackend implements PlayerBackend {
   }
 
   @override
-  Future<void> setSecondarySubtitle({String? url, String? codec}) async {}
-
-  @override
-  Future<void> setSecondarySubtitleDelay(double seconds) async {}
-
-  @override
-  Future<void> configureSecondarySubtitleStyle({
-    double? fontSize,
-    double? verticalOffset,
-    int? textColor,
-  }) async {}
-
-  @override
   int? get activeSubtitleTrackIndex => _activeSubtitleTrackIndex;
 
   @override
@@ -862,7 +921,7 @@ class NativeApplePlayerBackend implements PlayerBackend {
 
   @override
   Future<void> setSubtitleDelay(double seconds) async {
-    _subtitleDelaySeconds = seconds;
+    subtitleDelaySeconds = seconds;
     await _invoke<void>('setSubtitleDelay', {
       'delayMs': (seconds * 1000).round(),
     });

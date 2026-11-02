@@ -8,7 +8,6 @@ import '../../auth/repositories/server_repository.dart';
 import '../../auth/repositories/session_repository.dart';
 import '../../auth/repositories/user_repository.dart';
 import '../../data/services/connectivity_service.dart';
-import '../../data/services/media_server_client_factory.dart';
 import '../../data/services/remote_search_session.dart';
 import '../../data/services/retro_artwork/retro_artwork_activity_gate.dart';
 import '../../di/injection.dart';
@@ -20,6 +19,7 @@ import '../../util/game_cores.dart';
 import '../../util/platform_detection.dart';
 import '../screens/admin/admin_nav.dart';
 import '../screens/admin/admin_routes.dart';
+import '../../util/signed_in_server_features.dart';
 import '../screens/auth/emby_connect_screen.dart';
 import '../screens/auth/plex_sign_in_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -35,8 +35,12 @@ import '../screens/browse/library_browse_screen.dart';
 import '../screens/browse/library_genres_screen.dart';
 import '../screens/browse/library_letters_screen.dart';
 import '../screens/browse/library_suggestions_screen.dart';
+import '../screens/browse/book_category_screen.dart';
 import '../screens/browse/book_library_screen.dart';
+import '../screens/browse/music_category_screen.dart';
 import '../screens/browse/music_library_screen.dart';
+import '../widgets/book/book_navigation.dart';
+import '../widgets/music/music_navigation.dart';
 import '../../data/models/tmdb_item_ref.dart';
 import '../screens/detail/item_detail_screen.dart';
 import '../screens/games/game_library_screen.dart';
@@ -55,6 +59,7 @@ import '../screens/seerr/seerr_requests_screen.dart';
 import '../screens/livetv/live_tv_channel_player_loader.dart';
 import '../screens/livetv/live_tv_guide_screen.dart';
 import '../screens/livetv/live_tv_player_screen.dart';
+import '../../data/viewmodels/book_browse_view_model.dart' show BookScope;
 import '../../data/viewmodels/live_tv_guide_view_model.dart';
 import '../screens/livetv/live_tv_recordings_screen.dart';
 import '../screens/livetv/live_tv_schedule_screen.dart';
@@ -95,7 +100,8 @@ const _authRoutes = {
 /// through to Home costs nothing next to stranding them outside it.
 bool _shouldRunSetupWizard() {
   try {
-    final client = GetIt.instance<MediaServerClientFactory>().getActiveClient();
+    final client = SetupWizardGate.activeClient();
+    if (client == null) return false;
     return GetIt.instance<SetupWizardGate>().shouldRun(client);
   } catch (_) {
     return false;
@@ -163,6 +169,8 @@ final appRouter = GoRouter(
   redirect: (context, state) {
     final path = state.uri.path;
     if (_authRoutes.contains(path)) return null;
+    // The old Folders screen, for a bookmark or a link from an older app.
+    if (path == '/folders') return Destinations.home;
 
     final session = GetIt.instance<SessionRepository>();
     if (session.activeUserId == null) {
@@ -179,7 +187,12 @@ final appRouter = GoRouter(
 
     if (path.startsWith('/admin')) {
       final user = getIt<UserRepository>().currentUser;
-      if (user == null || !user.isAdministrator || !_adminAvailable()) {
+      // Silo is administered from its own web app, so a deep link to
+      // Moonfin's admin screens (Jellyfin/Emby admin APIs) would only fail.
+      if (user == null ||
+          !user.isAdministrator ||
+          !_adminAvailable() ||
+          !activeServerSupports((f) => f.supportsAdmin)) {
         return Destinations.home;
       }
     }
@@ -289,6 +302,7 @@ final appRouter = GoRouter(
             : null,
         initialQuery: state.uri.queryParameters['query'],
         scopedLibraryId: state.uri.queryParameters['libraryId'],
+        preferRequests: state.uri.queryParameters['tab'] == 'requests',
       ),
     ),
 
@@ -342,10 +356,6 @@ final appRouter = GoRouter(
       builder: (context, state) => const FavoritesScreen(),
     ),
     GoRoute(
-      path: Destinations.folderView,
-      builder: (context, state) => const FolderBrowseScreen(folderId: 'root'),
-    ),
-    GoRoute(
       path: Destinations.folderBrowse,
       builder: (context, state) {
         final folderId = state.pathParameters['folderId']!;
@@ -366,6 +376,30 @@ final appRouter = GoRouter(
         final libraryId = state.pathParameters['libraryId']!;
         return MusicLibraryScreen(libraryId: libraryId);
       },
+    ),
+    GoRoute(
+      path: Destinations.musicCategoryBrowse,
+      redirect: (context, state) =>
+          MusicCategoryKind.parse(state.pathParameters['category']) == null
+          ? Destinations.musicLibrary(state.pathParameters['libraryId']!)
+          : null,
+      builder: (context, state) => MusicCategoryScreen(
+        libraryId: state.pathParameters['libraryId']!,
+        kind: MusicCategoryKind.parse(state.pathParameters['category'])!,
+        show: state.uri.queryParameters['show'],
+      ),
+    ),
+    GoRoute(
+      path: Destinations.bookCategoryBrowse,
+      redirect: (context, state) =>
+          BookCategoryKind.parse(state.pathParameters['category']) == null
+          ? Destinations.bookLibrary(state.pathParameters['libraryId']!)
+          : null,
+      builder: (context, state) => BookCategoryScreen(
+        libraryId: state.pathParameters['libraryId']!,
+        kind: BookCategoryKind.parse(state.pathParameters['category'])!,
+        scope: BookScope.values.asNameMap()[state.uri.queryParameters['scope']],
+      ),
     ),
     GoRoute(
       path: Destinations.bookBrowse,
@@ -551,9 +585,7 @@ final appRouter = GoRouter(
             final startIndex = extra['startIndex'] as int? ?? 0;
             // Decided before branching so the channel loader below reads the
             // same answer this route latched.
-            final useNativePlayer =
-                PlatformDetection.isAppleTV ||
-                useNativeApplePlayerForRoute(state.pageKey);
+            final useNativePlayer = useNativeApplePlayerForRoute(state.pageKey);
             final Widget child;
             if (channels != null) {
               child = useNativePlayer
@@ -583,9 +615,7 @@ final appRouter = GoRouter(
       path: Destinations.videoPlayer,
       pageBuilder: (context, state) => _opaqueFullScreenPage<void>(
         state: state,
-        child:
-            PlatformDetection.isAppleTV ||
-                useNativeApplePlayerForRoute(state.pageKey)
+        child: useNativeApplePlayerForRoute(state.pageKey)
             ? const AppleTvPlayerHostScreen()
             : const VideoPlayerScreen(),
       ),

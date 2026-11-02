@@ -41,17 +41,11 @@ import '../../widgets/live_tv/channel_carousel_overlay.dart';
 import '../../widgets/live_tv/incomplete_recording.dart';
 import '../../widgets/live_tv/live_tv_recording_dialog.dart';
 import '../../widgets/live_tv/live_tv_recording_icon.dart';
-import '../../widgets/live_tv/series_recording_dialog.dart';
-import '../../widgets/emby_premiere_dialog.dart';
-import '../../util/error_message.dart';
 import 'channel_tune_observer.dart';
 import 'live_tv_guide_screen.dart';
 import '../../screensaver/screensaver_controller.dart';
 
 const _kGuideResizeDuration = Duration(milliseconds: 250);
-// PlaybackManager permits a 15-second ready wait and can retry once through a
-// server transcode. Leave enough room for both attempts plus their handoff.
-const _kChannelTuneTimeout = Duration(seconds: 35);
 
 class LiveTvPlayerScreen extends StatefulWidget {
   final List<GuideChannel> channels;
@@ -693,6 +687,10 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     }
   }
 
+  bool get _indicatorsInverted =>
+      _prefs.get(UserPreferences.gestureIndicatorPlacement) ==
+      GestureIndicatorPlacement.inverted;
+
   Widget _buildVolumeOverlay() {
     final displayVolume = _systemVolume;
     final usingMedia3Boost = _activeMedia3Backend != null;
@@ -712,7 +710,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
         duration: const Duration(milliseconds: 200),
         child: IgnorePointer(
           child: Align(
-            alignment: const Alignment(0.85, 0.0),
+            alignment: Alignment(_indicatorsInverted ? -0.85 : 0.85, 0.0),
             child: _buildGestureIndicator(
               icon: displayVolume <= 0
                   ? Icons.volume_off_rounded
@@ -735,7 +733,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
         duration: const Duration(milliseconds: 200),
         child: IgnorePointer(
           child: Align(
-            alignment: const Alignment(-0.85, 0.0),
+            alignment: Alignment(_indicatorsInverted ? 0.85 : -0.85, 0.0),
             child: _buildGestureIndicator(
               icon: _brightnessValue <= 0.25
                   ? Icons.brightness_low_rounded
@@ -832,7 +830,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     final terminalState = await observeChannelTune(
       channelId: channel.id,
       states: _manager.bringupStateStream,
-      timeout: _kChannelTuneTimeout,
+      timeout: channelTuneTimeout,
       start: () => _manager.playItems(
         [item],
         enableDirectPlay: allowDirect,
@@ -1096,14 +1094,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     }
   }
 
-  bool get _canRecordCurrentProgram {
-    final program = _currentProgram;
-    final now = DateTime.now();
-    return program != null &&
-        program.id.isNotEmpty &&
-        !now.isBefore(program.startDate) &&
-        now.isBefore(program.endDate);
-  }
+  bool get _canRecordCurrentProgram => canRecordAiring(_currentProgram);
 
   Future<void> _showRecordingDialog() async {
     if (_recordingActionInProgress || _isSwitching || _isStopping) return;
@@ -1120,98 +1111,22 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
       }
       final program = _currentProgram!;
       final recording = _recordingState!;
-      final action = await showLiveTvRecordingDialog(
+      message = await runLiveTvRecordingFlow(
         context: context,
-        programName: program.name,
+        liveTvApi: _client.liveTvApi,
+        program: program,
+        recording: recording,
         programTime:
             '${_formatTime(program.startDate)} – ${_formatTime(program.endDate)}',
-        episodeLine: program.episodeLine,
-        isSeries: program.isSeries,
-        recording: recording,
+        channel: recordPromptChannel(
+          _currentChannel.number,
+          _currentChannel.name,
+        ),
         use24HourClock: _prefs.get(UserPreferences.use24HourClock),
+        stillOnProgram: () =>
+            mounted && !_isStopping && _currentProgram?.id == program.id,
       );
-      if (action == null ||
-          !mounted ||
-          _isStopping ||
-          _currentProgram?.id != program.id) {
-        return;
-      }
-      if (!_canRecordCurrentProgram &&
-          (action == LiveTvRecordingAction.recordProgram ||
-              action == LiveTvRecordingAction.recordSeries)) {
-        return;
-      }
-
-      try {
-        switch (action) {
-          case LiveTvRecordingAction.recordProgram:
-            final outcome = await recordAiring(
-              context: context,
-              programId: program.id,
-              programName: program.name,
-              programStart: program.startDate,
-              rawProgram: program.rawData,
-              createTimer: () => _client.liveTvApi.createTimer(program.id),
-              stillValid: () =>
-                  mounted && !_isStopping && _currentProgram?.id == program.id,
-              channel: recordPromptChannel(
-                _currentChannel.number,
-                _currentChannel.name,
-              ),
-            );
-            if (outcome == RecordAiringOutcome.cancelled) return;
-            message = recordAiringMessage(l10n, outcome);
-          case LiveTvRecordingAction.recordSeries:
-            final episodes = await showSeriesRecordingEpisodesDialog(
-              context: context,
-            );
-            if (episodes == null ||
-                !mounted ||
-                _isStopping ||
-                _currentProgram?.id != program.id ||
-                !_canRecordCurrentProgram) {
-              return;
-            }
-            await _client.liveTvApi.createSeriesTimer(
-              program.id,
-              settings: episodes.settings,
-            );
-            message = l10n.seriesSetToRecord;
-          case LiveTvRecordingAction.changeSeries:
-            final changed = await changeSeriesRecordingEpisodes(
-              context: context,
-              liveTvApi: _client.liveTvApi,
-              seriesTimerId: recording.seriesTimerId!,
-            );
-            if (!changed) return;
-            message = l10n.seriesRecordingUpdated;
-          case LiveTvRecordingAction.cancelProgram:
-            await _client.liveTvApi.cancelTimer(recording.timerId!);
-            message = l10n.recordingCancelled;
-          case LiveTvRecordingAction.cancelSeries:
-            await _client.liveTvApi.cancelSeriesTimer(recording.seriesTimerId!);
-            message = l10n.seriesRecordingCancelled;
-        }
-        // Changing a series rule already announced itself.
-        if (action != LiveTvRecordingAction.changeSeries) {
-          notifyLiveTvRecordingsChanged();
-        }
-      } catch (e) {
-        if (isPremiereError(e) && mounted) {
-          await showPremiereRequiredDialog(context);
-          return;
-        }
-        message = switch (action) {
-          LiveTvRecordingAction.recordProgram => l10n.unableToCreateRecording,
-          LiveTvRecordingAction.recordSeries =>
-            l10n.unableToCreateSeriesRecording,
-          LiveTvRecordingAction.changeSeries =>
-            l10n.failedToUpdateSeriesRecording,
-          LiveTvRecordingAction.cancelProgram => l10n.failedToCancelRecording,
-          LiveTvRecordingAction.cancelSeries =>
-            l10n.failedToCancelSeriesRecording,
-        };
-      }
+      if (!mounted || _isStopping) return;
       await _fetchCurrentProgram();
     } finally {
       _recordingActionInProgress = false;
@@ -2023,7 +1938,10 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    final gesturesEnabled = PlatformDetection.isMobile && !_isGuidePickerOpen;
+    final gesturesEnabled =
+        PlatformDetection.isMobile &&
+        !_isGuidePickerOpen &&
+        _prefs.get(UserPreferences.playerSwipeGestures);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -2137,7 +2055,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
   }
 
   Widget _buildVideoChild() {
-    if (PlatformDetection.isIOS || PlatformDetection.isMacOS) {
+    if (PlatformDetection.isApple || PlatformDetection.isAppleTV) {
       return const AetherVideoView();
     }
 

@@ -1114,9 +1114,9 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
           if (series.isNotEmpty)
             _ModernTab('series', l10n.series, (context, item) => _seriesTab(context, series)),
           if (sortedSeerrAppearances.isNotEmpty)
-            _ModernTab('seerrAppearances', l10n.appearancesSeerr, (context, item) => _seerrAppearancesTab(context, sortedSeerrAppearances)),
+            _ModernTab('seerrAppearances', seerrBrand(l10n.appearancesSeerr), (context, item) => _seerrAppearancesTab(context, sortedSeerrAppearances)),
           if (sortedSeerrCrewCredits.isNotEmpty)
-            _ModernTab('seerrCrewContributions', l10n.crewContributionsSeerr, (context, item) => _seerrCrewCreditsTab(context, sortedSeerrCrewCredits)),
+            _ModernTab('seerrCrewContributions', seerrBrand(l10n.crewContributionsSeerr), (context, item) => _seerrCrewCreditsTab(context, sortedSeerrCrewCredits)),
           if (movies.isEmpty && series.isEmpty && sortedSeerrAppearances.isEmpty && sortedSeerrCrewCredits.isEmpty && _vm.filmography.isNotEmpty)
             _ModernTab('appearances', l10n.appearances, (_, _) => _itemGrid(_sortJellyfinItems(_vm.filmography))),
         ];
@@ -3566,10 +3566,12 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
       showContextMenu(
         context,
         entry,
-        collectionRemoval: CollectionRemovalContext(
-          collectionName: _vm.item?.name ?? '',
-          remove: _vm.removeFromCollection,
-        ),
+        collectionRemoval: _vm.canRemoveFromCollection
+            ? CollectionRemovalContext(
+                collectionName: _vm.item?.name ?? '',
+                remove: _vm.removeFromCollection,
+              )
+            : null,
         onChanged: () {
           if (mounted) setState(() {});
         },

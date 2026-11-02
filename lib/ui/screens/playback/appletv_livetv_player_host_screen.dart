@@ -10,18 +10,23 @@ import 'package:server_core/server_core.dart';
 
 import '../../../playback/subtitle_style.dart';
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/models/live_tv_recording_state.dart';
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
 import '../../../playback/apple_player_ui.dart';
 import '../../../playback/native_apple_player_backend.dart';
-import '../../../playback/appletv_preview_player.dart';
+import '../../../playback/appletv_subtitles.dart';
 import '../../../playback/playback_info_sections.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../util/clock_format.dart';
 import '../../../util/platform_detection.dart';
+import '../livetv/channel_tune_observer.dart';
 import '../livetv/live_tv_guide_screen.dart';
 import '../../screensaver/screensaver_controller.dart';
 import '../../theme/app_theme_controller.dart';
 import '../../widgets/live_tv/channel_carousel_overlay.dart';
+import '../../widgets/live_tv/incomplete_recording.dart';
+import '../../widgets/live_tv/live_tv_recording_dialog.dart';
 import 'osd_buttons.dart';
 
 class AppleTvLiveTvPlayerHostScreen extends StatefulWidget {
@@ -52,13 +57,25 @@ class _AppleTvLiveTvPlayerHostScreenState
   StreamSubscription<PlaybackBringupState>? _bringupSub;
   StreamSubscription<bool>? _screensaverPlayingSub;
 
-  SubtitleStyle? _lastSubtitleStyle;
+  (SubtitleStyle, double, double, int)? _lastSubtitleStyle;
 
   late int _currentIndex;
   bool _exiting = false;
   bool _switching = false;
   bool _inGuide = false;
-  AppleTvPreviewPlayer? _pipPlayer;
+  bool _recordingFlow = false;
+  bool _channelIsUp = false;
+
+  /// Holds landscape until the viewer unlocks rotation, like the Flutter player.
+  bool _orientationLocked = true;
+  StreamSubscription<LiveRecoveryStatus?>? _liveRecoverySub;
+  Timer? _schedulePushDebounce;
+
+  /// The live picture while the player is suspended for the guide, which
+  /// shows it in its mini player.
+  final _guideTexture = ValueNotifier<int?>(null);
+
+  int? _recordingTexture;
 
   // Captions the player found inside the video, which the server never lists
   // as subtitle streams. The native subtitle menu round-trips a plain index
@@ -98,13 +115,8 @@ class _AppleTvLiveTvPlayerHostScreenState
     } catch (_) {}
     _screensaverController?.setNativePlayerPresented(true);
     _currentIndex = widget.startIndex;
-    // The native player on iOS sits over this route, and iOS asks the Flutter
-    // view which way it may turn, so the lock has to be set here as well.
     if (PlatformDetection.isIOS) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      unawaited(_applyOrientationLock());
       // A phone only keeps its screen on while playback is marked active. The
       // television follows the playing stream itself and lets its screensaver
       // run while paused, so this stays on iOS.
@@ -122,8 +134,29 @@ class _AppleTvLiveTvPlayerHostScreenState
       if (state.phase == PlaybackBringupPhase.ready) {
         _pushSubtitleStyle(force: true);
       }
+      // A failure once the channel is playing means the manager's recovery
+      // couldn't save the stream. The tune never sees it.
+      if (state.phase == PlaybackBringupPhase.failed &&
+          _channelIsUp &&
+          !_exiting) {
+        _channelIsUp = false;
+        _showChannelFailed(_currentChannel.name);
+      }
     });
-    _prefs.addListener(_pushSubtitleStyle);
+    _liveRecoverySub = _manager.liveRecoveryStatusStream.listen((status) {
+      if (!mounted) return;
+      unawaited(
+        _backend?.setReconnecting(
+              status == null
+                  ? null
+                  : AppLocalizations.of(
+                      context,
+                    ).liveReconnecting(status.attempt, status.maxAttempts),
+            ) ??
+            Future<void>.value(),
+      );
+    });
+    _prefs.addListener(_onPrefsChanged);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _pushSubtitleStyle();
@@ -180,12 +213,14 @@ class _AppleTvLiveTvPlayerHostScreenState
     _bringupSub?.cancel();
     _tracksChangedSub?.cancel();
     _screensaverPlayingSub?.cancel();
+    _liveRecoverySub?.cancel();
+    _schedulePushDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _carouselPrewarm?.dispose();
     _screensaverController?.setNativePlayerPresented(false);
     _themeController?.removeListener(_onThemeChanged);
-    _prefs.removeListener(_pushSubtitleStyle);
-    unawaited(_pipPlayer?.dispose());
+    _prefs.removeListener(_onPrefsChanged);
+    _guideTexture.dispose();
     if (PlatformDetection.isIOS) {
       _screensaverController?.setPlaybackActive(false);
       unawaited(SystemChrome.setPreferredOrientations([]));
@@ -197,6 +232,12 @@ class _AppleTvLiveTvPlayerHostScreenState
     super.dispose();
   }
 
+  void _onPrefsChanged() {
+    final previous = _lastSubtitleStyle;
+    _pushSubtitleStyle();
+    if (previous != _lastSubtitleStyle) _pushMetadata();
+  }
+
   /// [force] pushes even when nothing changed, for a new stream or backend.
   void _pushSubtitleStyle({bool force = false}) {
     final backend = _backend;
@@ -206,8 +247,16 @@ class _AppleTvLiveTvPlayerHostScreenState
         _prefs,
         _manager.currentResolution,
       );
-      if (!force && style == _lastSubtitleStyle) return;
-      _lastSubtitleStyle = style;
+      final appearance = (
+        style,
+        _prefs.get(UserPreferences.secondarySubtitleSizeAdjustment),
+        _prefs.get(UserPreferences.secondarySubtitleOffsetPosition),
+        _prefs.get(UserPreferences.secondarySubtitleTextColor),
+      );
+      final previous = _lastSubtitleStyle;
+      if (!force && appearance == previous) return;
+      _lastSubtitleStyle = appearance;
+      if (!force && style == previous?.$1) return;
       backend.configureSubtitleStyle(
         textColor: style.textColor,
         backgroundColor: style.backgroundColor,
@@ -223,6 +272,8 @@ class _AppleTvLiveTvPlayerHostScreenState
     // A channel change starts a new stream, so whatever caption choice is
     // remembered has to be put back once this one reports its own captions.
     _captionTrackApplied = false;
+    // Until the new channel is up, a failure belongs to the tune below.
+    _channelIsUp = false;
     final channel = _currentChannel;
     unawaited(_prefs.set(UserPreferences.liveTvLastChannelId, channel.id));
     final item = AggregatedItem(
@@ -231,29 +282,69 @@ class _AppleTvLiveTvPlayerHostScreenState
       rawData: channel.rawData,
     );
     final allowDirect = _prefs.get(UserPreferences.liveTvDirectPlayEnabled);
-    try {
-      await _manager.playItems(
+    final terminalState = await observeChannelTune(
+      channelId: channel.id,
+      states: _manager.bringupStateStream,
+      timeout: channelTuneTimeout,
+      start: () => _manager.playItems(
         [item],
         enableDirectPlay: allowDirect,
-        enableDirectStream: allowDirect,
+        // Always allowed, the same as the Flutter player. The remux keeps the
+        // original codecs and arrives as HLS, which has the live window a raw
+        // transport stream lacks.
+        enableDirectStream: true,
         // Keep transcoding available as a fallback so a failed direct-play of
         // the upstream URL recovers to the server transcode instead of erroring.
         enableTranscoding: true,
-      );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context).failedToPlayChannel(channel.name),
-            ),
-          ),
-        );
-      }
+      ),
+    );
+    if (!mounted || _exiting || _currentChannel.id != channel.id) return;
+    _channelIsUp = terminalState?.phase == PlaybackBringupPhase.ready;
+    if (!_channelIsUp) {
+      _showChannelFailed(channel.name);
       return;
     }
     _pushMetadata();
     _warmSchedule();
+  }
+
+  /// The Flutter player's failure card, as an alert over the native player
+  /// with the same Retry. Before the player is up, there's only Flutter to
+  /// show it on.
+  void _showChannelFailed(String channelName) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final message = l10n.failedToPlayChannel(channelName);
+    final backend = _backend;
+    if (backend != null && backend.isPlayerPresented && !_inGuide) {
+      unawaited(
+        backend.showMessage(
+          message,
+          actionLabel: l10n.retry,
+          closeLabel: l10n.close,
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: l10n.retry,
+          onPressed: () => unawaited(_retryCurrentChannel()),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _retryCurrentChannel() async {
+    if (_switching || _exiting) return;
+    _switching = true;
+    try {
+      await _playCurrentChannel();
+    } finally {
+      _switching = false;
+    }
   }
 
   Future<void> _switchChannel(String channelId) async {
@@ -271,39 +362,16 @@ class _AppleTvLiveTvPlayerHostScreenState
     }
   }
 
+  /// Opens the guide with the channel still playing in its mini player, the
+  /// way the Flutter player shrinks its video into that box. The player steps
+  /// off screen and hands its picture over, so nothing is tuned again and
+  /// closing the guide puts the same stream back.
   Future<void> _enterGuideMode() async {
-    if (_inGuide || _switching || _exiting) return;
+    final backend = _backend;
+    if (backend == null || _inGuide || _switching || _exiting) return;
     _inGuide = true;
-
-    // The guide PiP is an AVPlayer texture, which can only ingest HLS. A raw
-    // TS/upstream direct-play URL would fail to open, so skip the PiP for
-    // those and let the guide show the channel image instead.
-    final resolvedUrl = _manager.currentResolution?.streamUrl;
-    final streamUrl =
-        (resolvedUrl != null && resolvedUrl.toLowerCase().contains('.m3u8'))
-        ? resolvedUrl
-        : null;
-
-    final pip = AppleTvPreviewPlayer();
-    _pipPlayer = pip;
-
-    // Dismiss the native player first for instant feedback, then open the PIP
-    // in the background: the guide appears immediately with the channel image
-    // and the live video swaps in reactively once the texture is ready, so a
-    // slow or session-conflicting live stream never blocks the transition.
-    await _backend?.dismissPlayer();
-    if (streamUrl != null && streamUrl.isNotEmpty) {
-      unawaited(() async {
-        try {
-          await pip.open(streamUrl, live: true, volume: 100);
-          await pip.resume();
-        } catch (_) {}
-      }());
-    }
-
+    _guideTexture.value = await backend.suspendPlayer();
     if (!mounted) {
-      await pip.dispose();
-      _pipPlayer = null;
       _inGuide = false;
       return;
     }
@@ -315,27 +383,90 @@ class _AppleTvLiveTvPlayerHostScreenState
           builder: (_) => LiveTvGuideScreen(
             miniPlayerMode: true,
             currentChannel: _currentChannel,
-            appleTvTextureId: pip.textureIdListenable,
+            appleTvTextureId: _guideTexture,
           ),
         ),
       );
     } finally {
-      await pip.stop();
-      await pip.dispose();
-      _pipPlayer = null;
+      _guideTexture.value = null;
       _inGuide = false;
     }
 
-    if (!mounted) return;
-    if (selectedId != null && selectedId != _currentChannel.id) {
-      final idx = widget.channels.indexWhere((c) => c.id == selectedId);
-      if (idx >= 0) {
-        _currentIndex = idx;
-        _readSchedule();
+    if (!mounted || _exiting) return;
+    await backend.resumePlayer();
+    if (selectedId != null) await _switchChannel(selectedId);
+  }
+
+  /// The recording dialogs are the Flutter player's own, so the native player
+  /// steps aside for them with the channel still playing behind.
+  Future<void> _showRecordingDialog() async {
+    final backend = _backend;
+    final program = _currentProgram;
+    if (backend == null ||
+        program == null ||
+        !canRecordAiring(program) ||
+        _recordingFlow ||
+        _inGuide ||
+        _switching ||
+        _exiting) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context);
+    _recordingFlow = true;
+    final texture = await backend.suspendPlayer();
+    String? message;
+    try {
+      if (!mounted) return;
+      setState(() => _recordingTexture = texture);
+      final timers = await _client.liveTvApi.getTimers();
+      if (!mounted) return;
+      message = await runLiveTvRecordingFlow(
+        context: context,
+        liveTvApi: _client.liveTvApi,
+        program: program,
+        recording: LiveTvRecordingState.fromProgram(
+          program.rawData,
+          (timers['Items'] as List?) ?? const [],
+        ),
+        programTime:
+            '${_clock(program.startDate)} – ${_clock(program.endDate)}',
+        channel: recordPromptChannel(
+          _currentChannel.number,
+          _currentChannel.name,
+        ),
+        use24HourClock: _prefs.get(UserPreferences.use24HourClock),
+        stillOnProgram: () =>
+            mounted && !_exiting && _currentProgram?.id == program.id,
+      );
+    } catch (_) {
+      message = l10n.failedToLoadRecordings;
+    } finally {
+      _recordingFlow = false;
+      if (mounted && !_exiting) {
+        setState(() => _recordingTexture = null);
+        await backend.resumePlayer();
+        if (message != null) {
+          unawaited(backend.showMessage(message, closeLabel: l10n.close));
+        }
       }
     }
-    await _playCurrentChannel();
   }
+
+  String _clock(DateTime time) => formatClockTime(
+    time,
+    use24Hour: _prefs.get(UserPreferences.use24HourClock),
+  );
+
+  // The native player on iOS sits over this route, and iOS asks the Flutter
+  // view which way it may turn, so the lock has to be set here as well.
+  Future<void> _applyOrientationLock() => SystemChrome.setPreferredOrientations(
+    _orientationLocked
+        ? const [
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]
+        : const [],
+  );
 
   void _warmSchedule() {
     if (widget.channels.isEmpty) return;
@@ -348,10 +479,15 @@ class _AppleTvLiveTvPlayerHostScreenState
     prewarm.tuned(widget.channels, _currentChannel.id);
   }
 
+  /// The schedule notifies several times a second while artwork loads, and
+  /// each push sends the whole lineup, so a burst becomes one push.
   void _onScheduleChanged() {
-    if (!mounted) return;
-    _readSchedule();
-    _pushMetadata();
+    _schedulePushDebounce?.cancel();
+    _schedulePushDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      _readSchedule();
+      _pushMetadata();
+    });
   }
 
   /// Reads what is airing now out of the loaded schedule. Nothing is fetched
@@ -495,7 +631,16 @@ class _AppleTvLiveTvPlayerHostScreenState
       'endMs': program.endDate.millisecondsSinceEpoch,
       'hasTimer': program.hasTimer,
       'hasSeriesTimer': program.hasSeriesTimer,
+      'episodeLine': program.episodeLine,
     };
+  }
+
+  /// What the record button shows, present while the airing on now can be
+  /// recorded. Since it's on now, a timer of its own means it's recording.
+  Map<String, dynamic>? _liveRecordPayload() {
+    final program = _currentProgram;
+    if (program == null || !canRecordAiring(program)) return null;
+    return {'series': program.hasSeriesTimer, 'timer': program.hasTimer};
   }
 
   List<Map<String, dynamic>> _streamStatsPayload() {
@@ -624,13 +769,23 @@ class _AppleTvLiveTvPlayerHostScreenState
         ),
         ..._captionTrackOptions(),
       ],
+      subtitleControls: appleTvSubtitleMetadata(
+        manager: _manager,
+        prefs: _prefs,
+        l10n: AppLocalizations.of(context),
+        // Live TV uses a single subtitle menu, so skip the Primary/Secondary chooser.
+        tracks: const [],
+      ),
       streamInfoSections: _liveStreamInfoSections(),
       streamInfoTitle: AppLocalizations.of(context).playbackInformation,
       streamInfoDroppedFramesLabel: AppLocalizations.of(
         context,
       ).playbackInfoDroppedFrames,
+      selectedBitrateMbps: _manager.maxBitrateOverrideMbps ?? -1,
       isLive: true,
       liveProgram: _liveProgramPayload(),
+      liveRecord: _liveRecordPayload(),
+      orientationLocked: PlatformDetection.isIOS ? _orientationLocked : null,
       liveChannelNumber: channel.number ?? '',
       channelList: _channelListPayload(),
       streamStats: _streamStatsPayload(),
@@ -699,6 +854,17 @@ class _AppleTvLiveTvPlayerHostScreenState
   }
 
   void _handleUiAction(Map<String, dynamic> action) {
+    final subtitleAction = handleAppleTvSubtitleAction(
+      action,
+      _manager,
+      _prefs,
+    );
+    if (subtitleAction != null) {
+      unawaited(subtitleAction.then((_) {
+        if (mounted) _pushMetadata();
+      }));
+      return;
+    }
     switch (action['event']?.toString()) {
       case 'play':
         unawaited(_manager.resume());
@@ -707,6 +873,20 @@ class _AppleTvLiveTvPlayerHostScreenState
       case 'openGuide':
         unawaited(_enterGuideMode());
         return;
+      case 'record':
+        unawaited(_showRecordingDialog());
+        return;
+      case 'messageAction':
+        unawaited(_retryCurrentChannel());
+        return;
+      case 'toggleOrientation':
+        _orientationLocked = !_orientationLocked;
+        unawaited(_applyOrientationLock());
+      case 'setBitrate':
+        final mbps = (action['mbps'] as num?)?.toInt();
+        unawaited(
+          _manager.changeBitrate(mbps == null || mbps < 0 ? null : mbps),
+        );
       case 'selectChannel':
         final id = action['channelId']?.toString();
         if (id != null && id.isNotEmpty) {
@@ -749,9 +929,18 @@ class _AppleTvLiveTvPlayerHostScreenState
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final texture = _recordingTexture;
+    return Scaffold(
       backgroundColor: Colors.black,
-      body: SizedBox.expand(),
+      body: texture == null
+          ? const SizedBox.expand()
+          : FittedBox(
+              child: SizedBox(
+                width: 1920,
+                height: 1080,
+                child: Texture(textureId: texture),
+              ),
+            ),
     );
   }
 }

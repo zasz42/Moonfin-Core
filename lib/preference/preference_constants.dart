@@ -858,7 +858,8 @@ enum FavoriteTypeFilter {
   musicAlbum,
   musicArtist,
   audio,
-  collection;
+  collection,
+  watchlist;
 
   String get displayName => switch (this) {
     all => 'All',
@@ -871,6 +872,7 @@ enum FavoriteTypeFilter {
     musicArtist => 'Artists',
     audio => 'Songs',
     collection => 'Collections',
+    watchlist => 'Watchlist',
   };
 
   List<String>? get itemTypes => switch (this) {
@@ -884,6 +886,7 @@ enum FavoriteTypeFilter {
     musicArtist => ['MusicArtist'],
     audio => ['Audio'],
     collection => ['BoxSet'],
+    watchlist => null,
   };
 
   static FavoriteTypeFilter fromRowId(String id) {

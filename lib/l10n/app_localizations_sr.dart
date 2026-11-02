@@ -34,13 +34,13 @@ class AppLocalizationsSr extends AppLocalizations {
   String get animeMarkerSubbedAndDubbed => 'С титловима/синхронизовано';
 
   @override
-  String get animeMarkerSubbedShort => 'Sub';
+  String get animeMarkerSubbedShort => 'Саб';
 
   @override
-  String get animeMarkerDubbedShort => 'Dub';
+  String get animeMarkerDubbedShort => 'Даб';
 
   @override
-  String get animeMarkerSubbedAndDubbedShort => 'Sub/Dub';
+  String get animeMarkerSubbedAndDubbedShort => 'Саб/Даб';
 
   @override
   String get animeMarkerPending => 'На чекању';
@@ -56,6 +56,9 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get signIn => 'Пријава';
+
+  @override
+  String get signingIn => 'Signing in...';
 
   @override
   String get empty => 'Празно';
@@ -83,31 +86,31 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get quickConnectScanHint =>
-      'Or scan this with a phone that\'s signed in to your server';
+      'Или скенирајте ово телефоном који је пријављен на ваш сервер';
 
   @override
   String get quickConnectTapOrScanHint =>
-      'Tap to approve in your browser, or scan this with another device';
+      'Додирните да бисте одобрили у прегледачу или скенирајте ово другим уређајем';
 
   @override
-  String get timesUpTitle => 'Time\'s up';
+  String get timesUpTitle => 'Време је истекло';
 
   @override
-  String get timesUpMessage => 'This account isn\'t available right now.';
+  String get timesUpMessage => 'Овај налог тренутно није доступан.';
 
   @override
   String timesUpResumesToday(String time) {
-    return 'You can use it again today at $time.';
+    return 'Биће вам поново доступан за коришћење данас у $time.';
   }
 
   @override
   String timesUpResumesTomorrow(String time) {
-    return 'You can use it again tomorrow at $time.';
+    return 'Биће вам поново доступан за коришћење сутра у $time.';
   }
 
   @override
   String timesUpResumesOn(String day, String time) {
-    return 'You can use it again on $day at $time.';
+    return 'Биће вам поново доступно за коришћење $day у $time.';
   }
 
   @override
@@ -124,7 +127,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get loginForbidden =>
-      'This account can\'t sign in right now. It may be outside its allowed hours, locked or disabled. Try again later or ask an administrator.';
+      'Овим налогом тренутно не можете да се пријавите. Могуће је да пријављивање није дозвољено у ово време, да је налог закључан или да је онемогућен. Покушајте поново касније или затражите помоћ од администратора.';
 
   @override
   String quickConnectUnavailable(String detail) {
@@ -138,6 +141,33 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get whosWatching => 'Ко гледа?';
+
+  @override
+  String get signedInOnThisDevice => 'Signed in on this device';
+
+  @override
+  String get pinRequired => 'PIN required';
+
+  @override
+  String get passwordRequired => 'Password required';
+
+  @override
+  String continueAsUser(String name) {
+    return 'Continue as $name';
+  }
+
+  @override
+  String switchToUser(String name) {
+    return 'Switch to $name';
+  }
+
+  @override
+  String signedInAsOnServer(String user, String server) {
+    return 'Signed in as $user on $server';
+  }
+
+  @override
+  String get accountActive => 'Active';
 
   @override
   String get addUser => 'Додај корисника';
@@ -567,17 +597,17 @@ class AppLocalizationsSr extends AppLocalizations {
   String get performanceModeReduced => 'Смањено';
 
   @override
-  String get rendererMode => 'Renderer';
+  String get rendererMode => 'Рендерер';
 
   @override
   String get rendererModeSubtitle =>
-      'Auto uses Impeller on boxes whose graphics run it smoothly and Skia everywhere else. Pick Skia if animations or video look wrong. Takes effect on the next launch.';
+      'Аутоматски режим користи Импелер на боксовима чија графика омогућава да ради глатко, а Скију свуда другде. Изаберите Скију ако анимације или видео не изгледају исправно. Промена ступа на снагу при следећем покретању.';
 
   @override
-  String get rendererModeAuto => 'Auto';
+  String get rendererModeAuto => 'Аутоматски';
 
   @override
-  String get rendererModeSkia => 'Skia';
+  String get rendererModeSkia => 'Скиа';
 
   @override
   String get trailerPreviewHeldBack =>
@@ -595,32 +625,32 @@ class AppLocalizationsSr extends AppLocalizations {
       'Прилагођене теме мењају изглед елемената широм апликације Мунфин (Moonfin). Изаберите једну од понуђених опција према свом укусу.';
 
   @override
-  String get keyboardStyle => 'Keyboard Style';
+  String get keyboardStyle => 'Стил тастатуре';
 
   @override
   String get keyboardStyleDescription =>
-      'Native uses your TV\'s own keyboard. Classic is the original Moonfin keyboard. Glass is a frosted panel with larger keys. Docked fills the bottom of the screen and shows what you type above the keys.';
+      'Нативна користи тастатуру вашег телевизора. Класична је оригинална Мунфин тастатура. Стаклена је панел од мат стакла са већим тастерима. Усидрена испуњава доњи део екрана и приказује оно што куцате изнад тастера.';
 
   @override
-  String get keyboardStyleNative => 'Native';
+  String get keyboardStyleNative => 'Нативна';
 
   @override
-  String get keyboardStyleClassic => 'Classic';
+  String get keyboardStyleClassic => 'Класична';
 
   @override
-  String get keyboardStyleGlass => 'Glass';
+  String get keyboardStyleGlass => 'Стаклена';
 
   @override
-  String get keyboardStyleDocked => 'Docked';
+  String get keyboardStyleDocked => 'Усидрена';
 
   @override
-  String get keyboardSpace => 'space';
+  String get keyboardSpace => 'размак';
 
   @override
-  String get keyboardHoldForAccents => 'hold for accents';
+  String get keyboardHoldForAccents => 'држи за акценте';
 
   @override
-  String get keyboardClose => 'close';
+  String get keyboardClose => 'затвори';
 
   @override
   String get controller => 'Контролер';
@@ -694,26 +724,26 @@ class AppLocalizationsSr extends AppLocalizations {
       'Мрежна грешка при повезивању са Емби конектом или изабраним сервером';
 
   @override
-  String get signInWithPlex => 'Sign in with Plex';
+  String get signInWithPlex => 'Пријави се на Плекс';
 
   @override
   String get plexLinkInstructions =>
-      'Go to plex.tv/link on any device and enter this code';
+      'На било ком уређају отворите plex.tv/link и унесите овај код';
 
   @override
-  String get plexOpenLink => 'Open plex.tv/link';
+  String get plexOpenLink => 'Отвори plex.tv/link';
 
   @override
-  String get plexWaitingForApproval => 'Waiting for you to approve the code...';
+  String get plexWaitingForApproval => 'Чекам да одобриш код...';
 
   @override
-  String get plexSignInWithPassword => 'Sign in with a password';
+  String get plexSignInWithPassword => 'Пријавите се лозинком';
 
   @override
-  String get plexVerificationCode => 'Verification code';
+  String get plexVerificationCode => 'Верификациони код';
 
   @override
-  String get plexNoServers => 'No Plex servers found on this account';
+  String get plexNoServers => 'На овом налогу нису пронађени Плекс сервери';
 
   @override
   String get loadingLinkedServers => 'Учитавање повезаних сервера...';
@@ -761,17 +791,17 @@ class AppLocalizationsSr extends AppLocalizations {
   String get gameFastForward => 'Премотавање унапред';
 
   @override
-  String get gameOrientation => 'Game orientation';
+  String get gameOrientation => 'Оријентација игре';
 
   @override
   String get gameOrientationSubtitle =>
-      'Screen orientation while playing games';
+      'Оријентација екрана током играња игара';
 
   @override
-  String get landscape => 'Landscape';
+  String get landscape => 'Водоравно';
 
   @override
-  String get portrait => 'Portrait';
+  String get portrait => 'Вертикално';
 
   @override
   String get gameEmulatorSettings => 'Подешавања емулатора';
@@ -783,20 +813,20 @@ class AppLocalizationsSr extends AppLocalizations {
   String get gameHoldToOpenMenu => 'Држите притиснуто да бисте отворили мени';
 
   @override
-  String get gameKeepPlaying => 'Keep playing';
+  String get gameKeepPlaying => 'Настави са игром';
 
   @override
-  String get gameSaveAndExit => 'Save & exit';
+  String get gameSaveAndExit => 'Сачувај и изађи';
 
   @override
-  String get gameExitGame => 'Exit game';
+  String get gameExitGame => 'Изађи из игре';
 
   @override
-  String get gameSavingBeforeExit => 'Saving…';
+  String get gameSavingBeforeExit => 'Чувам…';
 
   @override
   String get gameSaveFailedStillPlaying =>
-      'Could not save state. Still playing.';
+      'Стање није могло да се сачува. Игра и даље траје.';
 
   @override
   String get gamePlaybackUnsupported =>
@@ -1012,10 +1042,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get discoverySubjects => 'Теме за откривање';
 
   @override
-  String get pickDiscoverySubjects =>
-      'Изаберите које ће се тематске категорије приказивати у одељку „Откриј“.';
-
-  @override
   String get apply => 'Примени';
 
   @override
@@ -1026,22 +1052,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get audiobookGenres => 'Жанрови аудио-књига';
-
-  @override
-  String get pickAudiobookGenres =>
-      'Изаберите жанрове који ће се приказивати у одељку „Откриј аудио-књиге“.';
-
-  @override
-  String get discoverAudiobooks => 'Откриј аудио-књиге';
-
-  @override
-  String get librivoxDescription =>
-      'Популарни наслови из јавног домена са Либривокса (LibriVox).';
-
-  @override
-  String titlesCount(int count) {
-    return '$count наслова';
-  }
 
   @override
   String get scrollLeft => 'Помери улево';
@@ -1176,10 +1186,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get discover => 'Откријте';
-
-  @override
-  String get trendingTitlesOpenLibrary =>
-      'Популарни наслови по темама са Отворене библиотеке (Open Library).';
 
   @override
   String get noBookmarkedItems => 'Још нема обележених ставки';
@@ -1481,7 +1487,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get extras => 'Додаци';
 
   @override
-  String get additionalParts => 'Additional Parts';
+  String get additionalParts => 'Додатни делови';
 
   @override
   String get behindTheScenes => 'Иза кулиса';
@@ -1702,7 +1708,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get searchOpenSubtitlesPlugin =>
-      'Претражи помоћу додатка Опенсабтајтлс (OpenSubtitles)';
+      'Претражи помоћу Опенсабтајтлс (OpenSubtitles)';
 
   @override
   String get downloadSubtitles => 'Преузми титлове';
@@ -1711,7 +1717,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get searchingSubtitles => 'Претрага титлова у току…';
 
   @override
-  String get fetchingSubtitles => 'Fetching subtitles';
+  String get fetchingSubtitles => 'Преузимање титлова';
 
   @override
   String get downloadingSubtitle => 'Преузимање титла у току…';
@@ -2168,7 +2174,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get keyNameBackspace => 'Бекспејс';
 
   @override
-  String get keyNameDelete => 'Delete';
+  String get keyNameDelete => 'Обриши';
 
   @override
   String get keyNamePageUp => 'Страница нагоре';
@@ -2257,7 +2263,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Изађи из приказа преко целог екрана или заустави репродукцију ако тај приказ није активан';
 
   @override
-  String get shortcutHideControls => 'Hide controls';
+  String get shortcutHideControls => 'Сакриј контроле';
 
   @override
   String get shortcutStopPlayback => 'Заустави репродукцију';
@@ -2269,7 +2275,8 @@ class AppLocalizationsSr extends AppLocalizations {
   String get shortcutPreviousItem => 'Претходна ставка';
 
   @override
-  String get shortcutSkipSegment => 'Skip intro or credits when offered';
+  String get shortcutSkipSegment =>
+      'Прескочите уводну или одјавну шпицу када вам се понуди та могућност';
 
   @override
   String get shortcutShowShortcuts => 'Прикажи овај списак';
@@ -2332,20 +2339,20 @@ class AppLocalizationsSr extends AppLocalizations {
   String get hdr => 'ХДР (HDR)';
 
   @override
-  String get videoRenderer => 'Video Renderer';
+  String get videoRenderer => 'Видео рендерер';
 
   @override
   String get videoRendererDescription =>
-      'Native window gives the smoothest motion and sends HDR to the display untouched. Try another option if video misbehaves.';
+      'Изворни прозор омогућава најглаткији приказ покрета и прослеђује ХДР екрану без измена. Ако се видео не приказује исправно, покушајте са другом опцијом.';
 
   @override
-  String get videoRendererNativeWindow => 'Native window (recommended)';
+  String get videoRendererNativeWindow => 'Нативни прозор (препоручено)';
 
   @override
-  String get videoRendererNativeHdrOnly => 'Native window for HDR only';
+  String get videoRendererNativeHdrOnly => 'Нативни прозор само за ХДР';
 
   @override
-  String get videoRendererInApp => 'In-app (legacy)';
+  String get videoRendererInApp => 'У апликацији (застарело)';
 
   @override
   String get track => 'Нумера';
@@ -2377,7 +2384,8 @@ class AppLocalizationsSr extends AppLocalizations {
       'Приказивање ЕПУБ (EPUB) књига у апликацији још није доступно на овој платформи.';
 
   @override
-  String get bookReadingUnavailableTitle => 'Books can\'t be read on Apple TV';
+  String get bookReadingUnavailableTitle =>
+      'Књиге не могу да се читају на Епл ТВ-у';
 
   @override
   String get bookReadingUnavailableMessage =>
@@ -3343,6 +3351,17 @@ class AppLocalizationsSr extends AppLocalizations {
   String get seasonalDensityHeavy => 'Велика';
 
   @override
+  String get seasonalFollower => 'Focus Follower';
+
+  @override
+  String get seasonalFollowerDescription =>
+      'A holiday piece, like Halloween\'s planchette, follows what you select on Home';
+
+  @override
+  String get seasonalFollowerPointerDescription =>
+      'A holiday piece, like Halloween\'s planchette, replaces the mouse pointer on Home';
+
+  @override
   String get seasonalRow => 'Сезонски ред';
 
   @override
@@ -4281,6 +4300,10 @@ class AppLocalizationsSr extends AppLocalizations {
       'Preferred Secondary Subtitle Language';
 
   @override
+  String get secondarySubtitlesEnabledSubtitle =>
+      'Show a second subtitle track at the same time. The subtitle menu then asks for the primary or secondary track first';
+
+  @override
   String get defaultToNoSubtitles => 'Подразумевано без титлова';
 
   @override
@@ -4290,13 +4313,16 @@ class AppLocalizationsSr extends AppLocalizations {
   String get subtitleSize => 'Величина титлова';
 
   @override
-  String get primarySubtitleSlot => 'Primary';
+  String get primarySubtitleSlot => 'Primary Track';
 
   @override
-  String get secondarySubtitleSlot => 'Secondary';
+  String get secondarySubtitleSlot => 'Secondary Track';
 
   @override
-  String get secondarySubtitleTrack => 'Secondary Subtitle Track';
+  String get secondarySubtitleTrack => 'Secondary Subtitles';
+
+  @override
+  String get secondaryDelayAdjustment => 'Secondary Delay Adjustment';
 
   @override
   String decreaseValue(String setting) {
@@ -4631,6 +4657,13 @@ class AppLocalizationsSr extends AppLocalizations {
       'Прикажи библиотеке на траци са алаткама';
 
   @override
+  String get showLibrariesIndividually => 'Show Libraries Individually';
+
+  @override
+  String get showLibrariesIndividuallySubtitle =>
+      'Show each library as its own button in the navigation bar instead of in the Libraries menu';
+
+  @override
   String get navbarAlwaysExpanded => 'Увек прикажи ознаке навигационе траке';
 
   @override
@@ -4837,12 +4870,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get libraryJumpToLetter => 'Jump to letter';
-
-  @override
-  String get enableFolderView => 'Омогући приказ фасцикли';
-
-  @override
-  String get showFolderBrowsingOption => 'Прикажи опцију прегледања фасцикли';
 
   @override
   String get groupItemsIntoCollections => 'Групиши ставке у колекције';
@@ -5427,6 +5454,9 @@ class AppLocalizationsSr extends AppLocalizations {
       'Додатак на серверу тренутно није откривен. Локална подешавања и даље користе сачуване вредности или уграђене подразумеване вредности.';
 
   @override
+  String get moonbaseAddress => 'Moonbase Address';
+
+  @override
   String get pluginConnected => 'Connected';
 
   @override
@@ -5703,10 +5733,6 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get featuredContentAppearance => 'Истакнути садржај, изглед';
-
-  @override
-  String get posterSizeImageTypeFolderView =>
-      'Величина постера, тип слике, приказ фасцикли';
 
   @override
   String gbValue(String value) {
@@ -12128,6 +12154,14 @@ class AppLocalizationsSr extends AppLocalizations {
       'Прескочи конверзију у профил 8 и из токова Долби Вижн (Dolby Vision) профила 7 уклони податке Долби Вижна, тако да остане ХЕВЦ (HEVC) компатибилан са ХДР10 (HDR10). Користи ову опцију ако конвертовани токови изгледају неисправно.';
 
   @override
+  String get stripDolbyVisionHdr10PlusTitle =>
+      'Play Dolby Vision with HDR10+ as HDR10+';
+
+  @override
+  String get stripDolbyVisionHdr10PlusSubtitle =>
+      'Drop the Dolby Vision layer from videos that also have HDR10+. Turn this on if those videos play with sound but a black screen.';
+
+  @override
   String get subtitlesUseEmbeddedStyles => 'Користи уграђене стилове титлова';
 
   @override
@@ -12149,6 +12183,13 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get showMediaDetailsOnLibraryPageDescription =>
       'Прикажи детаље о изабраној ставци на врху страница библиотеке.';
+
+  @override
+  String get libraryCardTitles => 'Titles Under Posters';
+
+  @override
+  String get libraryCardTitlesDescription =>
+      'Show each item\'s title and details below its artwork in library grids.';
 
   @override
   String get useDetailedSubHeadings => 'Користи детаљније поднаслове';
@@ -12584,6 +12625,13 @@ class AppLocalizationsSr extends AppLocalizations {
       'Play HEVC up to 1080p from the original file instead of asking the server to transcode it. This Apple TV decodes it in software, so heavy 10-bit or high bitrate files may stutter.';
 
   @override
+  String get av1SoftwareUhdDirectPlay => 'Direct Play 4K AV1 (Software Decode)';
+
+  @override
+  String get av1SoftwareUhdDirectPlaySubtitle =>
+      'Play AV1 above 1080p, including HDR10, from the original file instead of asking the server to transcode it. This device decodes AV1 in software, so heavy 4K or high bitrate files may stutter.';
+
+  @override
   String get useExternalPlayer => 'Увек користи спољни плејер';
 
   @override
@@ -12818,6 +12866,114 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get watchWithGroup => 'Гледај са групом';
+
+  @override
+  String get watchPartyGroupSubtitles => 'Subtitles for everyone';
+
+  @override
+  String get watchPartyOwnSubtitles => 'Each person\'s choice';
+
+  @override
+  String get watchPartyLobby => 'In the lobby';
+
+  @override
+  String get watchPartyUpNextLabel => 'Up next';
+
+  @override
+  String get watchPartyRoomSettings => 'Room settings';
+
+  @override
+  String get watchPartyCodeOrLink => 'Room code or invite link';
+
+  @override
+  String get watchPartyCopyInvite => 'Copy invite link';
+
+  @override
+  String get watchPartyInviteCopied => 'Invite link copied';
+
+  @override
+  String get watchPartyLetEveryoneVote => 'Let everyone vote on movies';
+
+  @override
+  String get watchPartyVoteHelp =>
+      'Add movies for everyone to vote on, then play the one you want. TV episodes are still your pick.';
+
+  @override
+  String get watchPartyGuestVoteHelp =>
+      'Vote for what you want to watch. The host plays one.';
+
+  @override
+  String get watchPartySearchMovies => 'Search movies';
+
+  @override
+  String get watchPartyNoSuggestions => 'No movies to vote on yet.';
+
+  @override
+  String get watchPartySuggested => 'Added to the Watch Party vote';
+
+  @override
+  String watchPartyVoteCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count votes',
+      one: '$count vote',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get watchParty => 'Watch Party';
+
+  @override
+  String get watchPartyUnavailable => 'This server doesn\'t offer Watch Party.';
+
+  @override
+  String get watchPartyRoomCode => 'Room code';
+
+  @override
+  String get watchPartyStart => 'Start a Watch Party';
+
+  @override
+  String get watchPartyPickTitle =>
+      'Open a title and choose Watch with group to pick what everyone watches.';
+
+  @override
+  String get watchPartyWaitingForHost =>
+      'Waiting for the host to pick something.';
+
+  @override
+  String get watchPartyShareCode =>
+      'Others join with this code from their Watch Party screen.';
+
+  @override
+  String get watchPartyReconnecting => 'Reconnecting...';
+
+  @override
+  String get watchPartyOffline => 'offline';
+
+  @override
+  String get watchPartyStartForEveryone => 'Start for everyone';
+
+  @override
+  String get watchPartyBackToLobby => 'Back to the lobby';
+
+  @override
+  String get watchPartyGuestsCanPause => 'Guests can play and pause';
+
+  @override
+  String get watchPartyEnd => 'End Watch Party';
+
+  @override
+  String get watchPartyEnded => 'The Watch Party has ended.';
+
+  @override
+  String get watchPartyStaged => 'Picked for the Watch Party';
+
+  @override
+  String watchPartyUpNext(String title) {
+    return 'Up next: $title';
+  }
 
   @override
   String get disk => 'Диск';
@@ -13807,9 +13963,6 @@ class AppLocalizationsSr extends AppLocalizations {
       'Додатак за распакивање ЦБ7-а (CB7) није доступан на овој платформи.';
 
   @override
-  String get closeGenrePanel => 'Затвори панел жанрова';
-
-  @override
   String get loadingShuffle => 'Учитавање насумичног избора...';
 
   @override
@@ -14622,6 +14775,9 @@ class AppLocalizationsSr extends AppLocalizations {
   String get showAlphabeticalFilters => 'Прикажи абецеду';
 
   @override
+  String get libraryFolderView => 'Folder View';
+
+  @override
   String get personalRatingStyle => 'Стил личне оцене';
 
   @override
@@ -14770,6 +14926,20 @@ class AppLocalizationsSr extends AppLocalizations {
       'Сакриј описни текст филма или епизоде.';
 
   @override
+  String get hideHomeWatchProgress => 'Hide Watch Progress';
+
+  @override
+  String get hideHomeWatchProgressSubtitle =>
+      'Hide the progress bar on posters you\'ve started watching.';
+
+  @override
+  String get hideHomeUnwatchedCount => 'Hide Unwatched Count';
+
+  @override
+  String get hideHomeUnwatchedCountSubtitle =>
+      'Hide the badge showing how many episodes are left to watch.';
+
+  @override
   String get continueWatchingAndNextUpHeader => 'Настави гледање и следеће';
 
   @override
@@ -14875,6 +15045,55 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get setupTourBulletMore => 'И још много тога';
+
+  @override
+  String setupStepOf(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get setupCurrent => 'Current';
+
+  @override
+  String get setupTvHint =>
+      'Up and down to preview · OK to choose · Back twice to skip';
+
+  @override
+  String get setupNavbarTopHint => 'Tabs across the top of the screen.';
+
+  @override
+  String get setupNavbarLeftHint => 'A slim rail of icons down the left side.';
+
+  @override
+  String get setupNavbarBottomHint =>
+      'Tabs along the bottom edge, in easy reach of your thumb.';
+
+  @override
+  String get setupMediaBarMoonfinHint =>
+      'Large artwork with the title, details and overview laid over it.';
+
+  @override
+  String get setupMediaBarMakdHint => 'Large artwork led by a big title logo.';
+
+  @override
+  String get setupMediaBarBookshelfHint =>
+      'Titles shelved as book spines, with the featured one face out.';
+
+  @override
+  String get setupMediaBarGalleryHint =>
+      'The featured title opened up, with the next few lined up beside it.';
+
+  @override
+  String get setupMediaBarBannerHint =>
+      'A shorter banner above your rows, so more of them fit on screen.';
+
+  @override
+  String get setupMediaBarAyaHint =>
+      'Artwork first in a framed panel, with your rows right underneath.';
+
+  @override
+  String get setupMediaBarOffHint =>
+      'No featured area. Home opens straight onto your rows.';
 
   @override
   String get runSetupAgain => 'Поново покрени подешавање';
@@ -15462,6 +15681,58 @@ class AppLocalizationsSr extends AppLocalizations {
       'Controls, seeking, player buttons, and trick play';
 
   @override
+  String get siloPasswordChangeTitle => 'Choose a new password';
+
+  @override
+  String get siloPasswordChangeMessage =>
+      'This account has a temporary password. Choose a new one to finish signing in.';
+
+  @override
+  String get siloPasswordChangeNew => 'New password';
+
+  @override
+  String get siloPasswordChangeConfirm => 'Confirm new password';
+
+  @override
+  String get siloPasswordChangeSubmit => 'Change password';
+
+  @override
+  String siloPasswordChangeTooShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Use at least $count characters',
+      one: 'Use at least 1 character',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get siloPasswordChangeTooLong => 'That password is too long';
+
+  @override
+  String get siloPasswordChangeMismatch => 'The passwords don\'t match';
+
+  @override
+  String get siloPasswordChangeSameAsTemporary =>
+      'Choose a password different from the temporary one';
+
+  @override
+  String get siloPasswordChangeFailed =>
+      'Couldn\'t change the password. Try again.';
+
+  @override
+  String get siloPasswordChangeUnavailable =>
+      'This account has a temporary password, and this server doesn\'t allow changing it here. Change it in Silo\'s web app, then sign in again.';
+
+  @override
+  String get siloPasswordChangedSignInAgain =>
+      'Your password was changed. Sign in with the new password.';
+
+  @override
+  String get siloServerRowSubtitle => 'From your server';
+
+  @override
   String get playlistSortReleaseDate => 'Release Date';
 
   @override
@@ -15537,6 +15808,9 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get homeScreenBackdropCorner => 'Corner';
+
+  @override
+  String get homeScreenBackdropTop => 'Top';
 
   @override
   String get detailsScreenBackdrop => 'Details Screen Backdrop';
@@ -15773,7 +16047,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get settingsApplePlayerUiDescription =>
-      'The native Apple style player has no casting, swipe gestures, orientation lock, audio delay or PiP button';
+      'The native Apple style player has no casting, audio delay or PiP button, and its rotation lock is only in Live TV';
 
   @override
   String get settingsApplePlayerUiStandard => 'Standard';
@@ -15921,6 +16195,154 @@ class AppLocalizationsSr extends AppLocalizations {
       'Recording started, but couldn\'t request a future showing.';
 
   @override
+  String get siloCodeSignIn => 'Sign in with a code';
+
+  @override
+  String siloCodeSignInInstruction(String address) {
+    return 'Scan the QR code with your phone, or go to $address on any signed-in device and enter this code:';
+  }
+
+  @override
+  String get siloCodeSignInInstructionNoLink =>
+      'Enter this code in Silo on a device where you\'re signed in:';
+
+  @override
+  String get siloCodeSignInOpened =>
+      'Code found. Approve the sign-in on your other device.';
+
+  @override
+  String get siloCodeSignInDenied => 'This sign-in was declined.';
+
+  @override
+  String get siloCodeSignInNewCode => 'Get a new code';
+
+  @override
+  String get siloCodeSignInOff =>
+      'Signing in with a code is turned off on this server.';
+
+  @override
+  String get siloCodeSignInPasswordChangeRequired =>
+      'This account has a temporary password. Sign in with the password once to replace it.';
+
+  @override
+  String get siloApproveSignIn => 'Approve a sign-in';
+
+  @override
+  String get siloApproveSignInHint => 'Code shown on the other device';
+
+  @override
+  String get siloApproveSignInApprove => 'Approve';
+
+  @override
+  String get siloApproveSignInDone =>
+      'Approved. The other device is signing in.';
+
+  @override
+  String get siloApproveSignInNoRequest =>
+      'No sign-in is waiting with that code. Check it, or get a new code on the other device.';
+
+  @override
+  String get siloNativeOfferTitle => 'Connect to Silo directly?';
+
+  @override
+  String siloNativeOfferMessage(String serverName, String address) {
+    return 'This address is the Jellyfin-compatible service of $serverName. Moonfin can connect to Silo directly at $address, with Silo\'s own features.';
+  }
+
+  @override
+  String get siloNativeOfferUse => 'Use Silo';
+
+  @override
+  String get siloNativeOfferKeep => 'Keep Jellyfin';
+
+  @override
+  String get siloAppUpdateRequired =>
+      'This Silo server needs a newer version of Moonfin. Update Moonfin to use it.';
+
+  @override
+  String get siloServerUpdateRequired =>
+      'This Silo server is too old for this version of Moonfin. Update Silo to use it.';
+
+  @override
+  String get siloTooManyAttempts => 'Too many attempts. Try again later.';
+
+  @override
+  String siloTooManyAttemptsWait(String wait) {
+    return 'Too many attempts. Try again in $wait.';
+  }
+
+  @override
+  String get siloServerBusy =>
+      'The server is busy or still starting. Try again later.';
+
+  @override
+  String siloServerBusyWait(String wait) {
+    return 'The server is busy or still starting. Try again in $wait.';
+  }
+
+  @override
+  String siloWaitSeconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seconds',
+      one: '1 second',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String siloWaitMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get siloPlaybackUnavailable =>
+      'Playback isn\'t available on this Silo server.';
+
+  @override
+  String get siloPlaybackUpdateRequired =>
+      'This Silo server needs a newer version of Moonfin to play.';
+
+  @override
+  String get siloPlaybackEndedOnServer =>
+      'Playback was ended on the Silo server.';
+
+  @override
+  String siloPinTitle(String name) {
+    return 'PIN for $name';
+  }
+
+  @override
+  String get siloPinHint => 'PIN';
+
+  @override
+  String get siloPinUnlock => 'Unlock';
+
+  @override
+  String get siloPinWrong => 'That PIN isn\'t right.';
+
+  @override
+  String get siloPinLocked => 'Too many wrong PINs. Try again later.';
+
+  @override
+  String siloPinLockedWait(String wait) {
+    return 'Too many wrong PINs. Try again in $wait.';
+  }
+
+  @override
+  String get siloPinFailed => 'The PIN couldn\'t be checked. Try again.';
+
+  @override
+  String get siloSignOutAccount => 'Sign out of the Silo account';
+
+  @override
   String trailerCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -16026,7 +16448,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get addServerAddressChoice =>
-      'Jellyfin or Emby on your network or online';
+      'Jellyfin, Emby or Silo on your network or online';
 
   @override
   String get addServerPlexChoice => 'Use your Plex account to find its servers';
@@ -16037,7 +16459,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get addServerDetectNote =>
-      'Works with Jellyfin and Emby. A Plex address opens the Plex sign-in.';
+      'Works with Jellyfin, Emby and Silo. A Plex address opens the Plex sign-in.';
 
   @override
   String addServerChecking(String address) {
@@ -16056,4 +16478,166 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get addServerUseDifferentAddress => 'Use a different address';
+
+  @override
+  String musicArtistCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count artists',
+      one: '1 artist',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String musicSongCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count songs',
+      one: '1 song',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String musicPlaylistCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count playlists',
+      one: '1 playlist',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String musicPlayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count plays',
+      one: '1 play',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get allArtists => 'All Artists';
+
+  @override
+  String get libraryZToA => 'Z to A';
+
+  @override
+  String get musicSortYear => 'Year';
+
+  @override
+  String get musicFilter => 'Filter';
+
+  @override
+  String get musicGenreFilterTitle => 'Filter by Genre';
+
+  @override
+  String get openAlbum => 'Open Album';
+
+  @override
+  String get openPlaylist => 'Open Playlist';
+
+  @override
+  String get allSongsAToZ => 'All Songs A to Z';
+
+  @override
+  String get musicMix => 'Mix';
+
+  @override
+  String get musicMixEverything => 'Everything';
+
+  @override
+  String get musicMixEverythingSubtitle => '300 songs at random';
+
+  @override
+  String get mostPlayed => 'Most Played';
+
+  @override
+  String get musicMixMostPlayedSubtitle => 'Your top 100';
+
+  @override
+  String get musicMixFreshArrivals => 'Fresh Arrivals';
+
+  @override
+  String get musicMixFreshArrivalsSubtitle => 'The newest 100 songs';
+
+  @override
+  String get musicMixRediscover => 'Rediscover';
+
+  @override
+  String get musicMixRediscoverSubtitle =>
+      'Favorites you haven\'t played lately';
+
+  @override
+  String get musicSortMostAlbums => 'Most Albums';
+
+  @override
+  String bookSeriesPosition(int index, int total) {
+    return 'Book $index of $total';
+  }
+
+  @override
+  String bookFavoriteCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count favorites',
+      one: '1 favorite',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bookSortZToA => 'Z to A';
+
+  @override
+  String get bookSortMostTitles => 'Most Titles';
+
+  @override
+  String get bookSurpriseMe => 'Surprise Me';
+
+  @override
+  String get bookShuffleAudiobooks => 'Shuffle Audiobooks';
+
+  @override
+  String get bookStartReading => 'Start Reading';
+
+  @override
+  String get bookOtherBooks => 'Other Books';
+
+  @override
+  String get bookDiscoverSearchBooks => 'Search Open Library';
+
+  @override
+  String get bookDiscoverSearchAudiobooks => 'Search LibriVox';
+
+  @override
+  String get bookDiscoverFeatured => 'Featured';
+
+  @override
+  String get bookReaderControlsAutoHide => 'Controls hide automatically';
+
+  @override
+  String get bookReaderControlsStayVisible => 'Controls stay visible';
+
+  @override
+  String get settingsLivePreview => 'Live preview';
+
+  @override
+  String settingsPreviewShowsOn(String screen) {
+    return 'Shows on the $screen preview';
+  }
+
+  @override
+  String get settingsPreviewNotShown => 'Not shown in the preview';
+
+  @override
+  String get settingsPreviewSaved => 'Saved';
 }
