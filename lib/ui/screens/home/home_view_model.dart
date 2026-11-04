@@ -3937,6 +3937,31 @@ class HomeViewModel extends ChangeNotifier {
 
     final formatted = <AggregatedItem>[];
 
+    for (final item in rawItems) {
+      final picked = pickSonarrEpisode(
+        item.rawData['Episodes'] as List? ?? const [],
+        now: now,
+        hideDownloaded: hideDownloaded,
+      );
+      if (picked == null) continue;
+
+      final airDateUtc = DateTime.tryParse(picked['AirDateUtc'] as String? ?? '');
+      if (airDateUtc == null) continue;
+
+      final sNum = (picked['ParentIndexNumber'] as num?)?.toInt() ?? 0;
+      final eNum = (picked['IndexNumber'] as num?)?.toInt() ?? 0;
+
+      String subtitleText;
+      if (showDate && showEpisodeInfo) {
+        subtitleText = '${sonarrAirDay(airDateUtc)} • S${sNum.toString().padLeft(2, '0')}E${eNum.toString().padLeft(2, '0')}';
+      } else if (showDate) {
+        subtitleText = sonarrAirDay(airDateUtc);
+      } else if (showEpisodeInfo) {
+        subtitleText = 'S${sNum.toString().padLeft(2, '0')}E${eNum.toString().padLeft(2, '0')}';
+      } else {
+        subtitleText = '';
+      }
+
       final newRawData = Map<String, dynamic>.from(item.rawData);
       newRawData['Subtitle'] = subtitleText;
       newRawData['SeasonNumber'] = sNum;
@@ -4463,7 +4488,6 @@ try {
       // rather than failing the whole row.
       return DateFormat.MMMd('en_US').format(date);
     }
-  }
   }
 
   Future<List<HomeRow>> _loadMergedCalendarRow({
