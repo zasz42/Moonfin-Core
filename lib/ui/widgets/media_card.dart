@@ -803,6 +803,13 @@ class _CardImage extends StatelessWidget {
     final borders = ThemeRegistry.active.borders;
     final showGlow =
         showBorder && !suppressFocusGlow && borders.focusGlow.isNotEmpty;
+    final seerrStyle = SeerrMediaStatus.hasDot(seerrStatus)
+        ? seerrBadgeStyle()
+        : null;
+    final showSeerrDot = seerrStyle == SeerrBadgeStyle.badge;
+    final bannerInset = seerrStyle == SeerrBadgeStyle.banner
+        ? kSeerrStatusBannerHeight
+        : 0.0;
 
     return AspectRatio(
       aspectRatio: aspectRatio,
@@ -947,7 +954,7 @@ class _CardImage extends StatelessWidget {
                     animeMarkerItemId != null ||
                     recordingItemId != null)
                   Positioned(
-                    top: overlayOccupiesTopLeft ? 32 : 6,
+                    top: bannerInset + (overlayOccupiesTopLeft ? 32 : 6),
                     left: 6,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -982,14 +989,25 @@ class _CardImage extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (_showSeerrStatusIndicator)
+                if (bannerInset > 0)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SeerrStatusBanner(status: seerrStatus),
+                  ),
+                if (showSeerrDot)
                   Positioned(
                     top: 6,
                     right: 6,
                     child: SeerrStatusDot(status: seerrStatus),
                   )
                 else if (_showWatchedIndicator)
-                  Positioned(top: 6, right: 6, child: _buildWatchedIndicator()),
+                  Positioned(
+                    top: bannerInset + 6,
+                    right: 6,
+                    child: _buildWatchedIndicator(),
+                  ),
                 if (playedPercentage != null && playedPercentage! > 0)
                   Positioned(
                     left: 6,
@@ -1052,8 +1070,6 @@ class _CardImage extends StatelessWidget {
     final type = seerrMediaType?.toLowerCase();
     return type == 'movie' || type == 'tv';
   }
-
-  bool get _showSeerrStatusIndicator => SeerrMediaStatus.hasDot(seerrStatus);
 
   Widget _buildWatchedIndicator() {
     if (isPlayed) {
