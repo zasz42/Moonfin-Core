@@ -217,6 +217,14 @@ class _HomeShellState extends State<_HomeShell>
   bool _lastRadarrCalendarHideDownloaded = true;
   bool _lastSonarrCalendarHideDownloaded = true;
 
+  // Row image prefetch state.
+  final Set<String> _rowPrefetchedUrls = {};
+  int _rowPrefetchInFlight = 0;
+  static const int _rowPrefetchMaxInFlight = 4;
+  static const double _rowPrefetchCardSpacing = 8.0;
+  static const Duration _rowPrefetchDelay = Duration(milliseconds: 100);
+  Timer? _rowPrefetchDebounce;
+
   static const _selectionDelay = Duration(milliseconds: 150);
   static const _backdropDelay = Duration(milliseconds: 200);
 

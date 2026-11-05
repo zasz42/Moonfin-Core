@@ -281,27 +281,7 @@ class MediaBarRepository {
         perSource: perSource,
       );
 
-if (selected.isEmpty && allParentIds.isNotEmpty) {
-        // Asking again for new releases would find nothing again, so a quiet
-        // window shows random titles from the first library that has some.
-        final newReleases = _isNewReleaseSource;
-        final retryParents = newReleases ? allParentIds : [allParentIds.first];
-        for (final parentId in retryParents) {
-          selected = _selectItemsWithBackdrops(
-            await _fetchItems(
-              allParentItemTypes[parentId] ?? includeTypes,
-              fetchLimit,
-              parentId: parentId,
-              random: newReleases,
-            ),
-            maxItems,
-            excludedGenres,
-          );
-          if (selected.isNotEmpty) break;
-        }
-      }
-
-      // Do not borrow titles from an unselected library when selected sources
+// Do not borrow titles from an unselected library when selected sources
       // have no usable backdrops.
       final slides = _mergedSlides(customSlides, selected, maxItems);
       final items = await _mixInExternal(
@@ -316,20 +296,6 @@ if (selected.isEmpty && allParentIds.isNotEmpty) {
 
       return MediaBarReady(items);
     } catch (e) {
-      // Try to fetch from first library as fallback (from main)
-      final firstLibraryItems = await _fetchItemsFromFirstSeriesOrMoviesLibrary(
-        includeTypes,
-        fetchLimit,
-        contentType: contentType,
-      );
-      final selected = _selectItemsWithBackdrops(
-        firstLibraryItems,
-        maxItems,
-        excludedGenres,
-      );
-      if (selected.isNotEmpty) {
-        return MediaBarReady(selected.map(_toSlideItem).toList());
-      }
       // Custom lists were read before any of this, so they still stand even if
       // the server-side selection blew up (from HEAD).
       if (customSlides.isNotEmpty) {
@@ -417,51 +383,6 @@ if (selected.isEmpty && allParentIds.isNotEmpty) {
       _sessionClients = {
         for (final session in sessions) session.server.id: session.client,
       };
-
-      String? libraryId;
-
-      for (final preferredType in preferredCollectionTypes) {
-        for (final view in views) {
-          final collectionType = _normalizeCollectionType(
-            view['CollectionType'],
-          );
-          if (collectionType != preferredType) {
-            continue;
-          }
-          final id = view['Id']?.toString();
-          if (id != null && id.isNotEmpty) {
-            libraryId = id;
-            break;
-          }
-        }
-        if (libraryId != null) {
-          break;
-        }
-      }
-
-      if (libraryId == null) {
-        for (final view in views) {
-          if (!supportsMediaBarLibrary(view, const ['movies', 'tvshows'])) {
-            continue;
-          }
-          final id = view['Id']?.toString();
-          if (id != null && id.isNotEmpty) {
-            libraryId = id;
-            break;
-          }
-        }
-      }
-
-      if (libraryId == null) {
-        return const <Map<String, dynamic>>[];
-      }
-
-      return await _fetchItems(
-        itemTypes,
-        limit,
-        parentId: libraryId,
-        random: _isNewReleaseSource,
-      );
     } catch (_) {
       _sessionClients = const {};
     }
@@ -1025,10 +946,6 @@ if (selected.isEmpty && allParentIds.isNotEmpty) {
       );
     }
   }
-
-  bool get _isNewReleaseSource =>
-      _prefs.get(UserPreferences.mediaBarSourceType) ==
-      UserPreferences.mediaBarSourceNewReleases;
 
   /// Series with episodes that aired within the window, newest first. A series'
   /// own date is its first season's, so the episodes are asked for and brought
