@@ -416,9 +416,9 @@ class MediaBarRepository {
     return value?.toString().trim().toLowerCase() ?? '';
   }
 
-  /// How many titles each source hands the selector. The random source reads
-  /// this many from a random place in the library, and the dated ones read
-  /// this many of the newest.
+  /// How many titles each source hands the selector. The random source asks
+  /// the server for this many in a random order, and the dated ones read this
+  /// many of the newest.
   static const _poolSize = 40;
 
   /// How many libraries and collections are read at once.
@@ -459,7 +459,7 @@ class MediaBarRepository {
       final countResponse = await effectiveClient.itemsApi
           .getItems(
             includeItemTypes: itemTypes,
-            sortBy: 'SortName',
+            sortBy: 'Random',
             sortOrder: 'Ascending',
             // A library the user has grouped with others holds those libraries
             // rather than the titles, so only a recursive walk reaches anything.
@@ -500,10 +500,11 @@ class MediaBarRepository {
           )
           .timeout(const Duration(seconds: 15));
 
-      final windowItems = windowResponse['Items'] as List? ?? [];
-      final rawItems = windowItems.cast<Map<String, dynamic>>().toList();
-
-      // Shuffle locally to provide a fresh random feel on every launch
+      final rawItems = (windowResponse['Items'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .toList();
+      // A server that ignores Random hands back its own order, so the pool is
+      // shuffled again before the selector takes its slides.
       rawItems.shuffle(_random);
       return rawItems;
     } on TimeoutException {

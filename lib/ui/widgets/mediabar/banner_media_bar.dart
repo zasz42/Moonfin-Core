@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 
 import '../../../data/models/media_bar_slide_item.dart';
+import 'media_bar_nav_arrow.dart';
 import 'media_bar_new_release_label.dart';
 import 'media_bar_title.dart';
 import '../../../data/models/media_bar_state.dart';
@@ -339,12 +340,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     if (items.isEmpty) {
       final state = widget.viewModel.state;
       if (state is! MediaBarLoading && state is! MediaBarError) {
-        // No titles: the whole bar is hidden, except when the Upcoming
-        // Releases rail is switched on. There the rail still has something to
-        // show, so the bar stays and the banner half is left blank.
-        if (_compact && _showUpcoming) {
-          return _buildBlankBannerWithRail(context);
-        }
         return const SizedBox.shrink();
       }
       final navbarAtTop =
@@ -389,8 +384,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppColorScheme.onSurface),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColorScheme.onSurface,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -411,11 +407,15 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     final isMobile = PlatformDetection.useMobileUi;
     // A phone's bar is about 2:1, where a banner would be a thin strip.
     final bannerUrl = isMobile ? null : item.bannerUrl;
-    final navbarAtTop =
-        widget.prefs.get(UserPreferences.navbarPosition) == NavbarPosition.top;
+    final navbarPosition = widget.prefs.get(UserPreferences.navbarPosition);
+    final navbarAtTop = navbarPosition == NavbarPosition.top;
     final topInset = isMobile
         ? MediaQuery.paddingOf(context).top + (navbarAtTop ? 60.0 : 0.0)
         : 0.0;
+    // The left sidebar is drawn over the banner, so the banner starts past it.
+    final sidebarInset =
+        !isMobile && navbarPosition == NavbarPosition.left ? 56.0 : 0.0;
+    final showArrows = items.length > 1 && PlatformDetection.useDesktopUi;
 
     // Compact banner: half the display width at 21:9 proportions; the
     // Upcoming Releases rail takes the other half when enabled.
@@ -430,7 +430,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       withUpcoming: showUpcomingRow,
     );
 
-    final AnimatedContainer bannerFrame = AnimatedContainer(
+    // Build the banner frame (used for both compact and full-width)
+    final bannerFrame = AnimatedContainer(
       width: _compact ? compactBannerWidth : null,
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
@@ -516,7 +517,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _backdrop(item),
+                        if (bannerUrl != null)
+                          _banner(bannerUrl, item)
+                        else
+                          _backdrop(item),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -527,32 +531,41 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           ),
                         ),
                         Positioned(
-                          left: 20,
+                          // Leaves room for the previous arrow when not compact.
+                          left: showArrows && !_compact ? 72 : 20,
                           right: 20,
                           bottom: 16,
                           child: _content(
                             context,
                             item,
                             // The banner carries the title already.
-                            showTitle: true,
+                            showTitle: bannerUrl == null,
                           ),
                         ),
+                        if (items.length > 1)
+                          Positioned(
+                            top: 12,
+                            right: 16,
+                            child: _Dots(count: items.length, active: index),
+                          ),
+                        if (_compact && _hasTrailer(item))
+                          const Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: IgnorePointer(child: _TrailerBadge()),
+                          ),
+                        if (showArrows && !_compact)
+                          ...mediaBarNavArrows(
+                            context,
+                            onPrevious: index > 0
+                                ? () => _setIndex(index - 1)
+                                : null,
+                            onNext: () => _setIndex(index + 1),
+                          ),
                       ],
                     ),
                   ),
                 ),
-                if (items.length > 1)
-                  Positioned(
-                    top: 12,
-                    right: 16,
-                    child: _Dots(count: items.length, active: index),
-                  ),
-                if (_compact && _hasTrailer(item))
-                  const Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: IgnorePointer(child: _TrailerBadge()),
-                  ),
               ],
             ),
           ),
@@ -560,7 +573,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       ),
     );
 
-    Focus focusedBanner(Widget child) => Focus(
+    // Focus wrapper - from main branch
+    final focusedBanner = Focus(
       focusNode: widget.focusNode,
       autofocus: widget.focusNode == null && PlatformDetection.useLeanbackUi,
       onFocusChange: (f) {
@@ -572,16 +586,14 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       // Align to loosen those constraints, the AnimatedContainer's `width`
       // below is overridden and it stretches to fill the screen instead of
       // sizing to the compact banner width.
-      child: child,
+      child: _compact
+          ? Align(alignment: Alignment.center, child: bannerFrame)
+          : bannerFrame,
     );
 
     Widget banner = Padding(
-      padding: EdgeInsets.fromLTRB(16, topInset, 16, _compact ? 4 : 8),
-      child: focusedBanner(
-        _compact
-            ? Align(alignment: Alignment.center, child: bannerFrame)
-            : bannerFrame,
-      ),
+      padding: EdgeInsets.fromLTRB(16 + sidebarInset, topInset, 16, _compact ? 4 : 8),
+      child: focusedBanner,
     );
 
     if (showUpcomingRow) {
@@ -608,7 +620,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         onExitLeft: _requestBannerFocus,
       );
       banner = Padding(
-        padding: EdgeInsets.fromLTRB(16, topInset, 16, 4),
+        padding: EdgeInsets.fromLTRB(16 + sidebarInset, topInset, 16, 4),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -616,7 +628,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
             SizedBox(
               width: compactBannerWidth,
               height: compactBannerHeight,
-              child: focusedBanner(bannerFrame),
+              child: focusedBanner,
             ),
             const SizedBox(width: BannerMediaBar.compactGap),
             SizedBox(
@@ -631,6 +643,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
 
     return banner;
   }
+
 
   /// The banner with no titles to show, kept alive only for the Upcoming
   /// Releases rail.

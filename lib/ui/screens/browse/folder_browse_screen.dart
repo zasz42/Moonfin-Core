@@ -442,6 +442,7 @@ class _FolderBrowseScreenState extends State<FolderBrowseScreen> {
             );
 
             return MediaCard(
+              posterBadgeItemId: isFolder ? null : item.id,
               title: _vm.getItemDisplayName(item),
               subtitle: _subtitleText(item, isFolder),
               imageUrl: posterUrls.$1,

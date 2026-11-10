@@ -248,7 +248,7 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
     _screensaver.setPlaybackActive(_state.isPlaying);
     _volume = _prefs
         .get(UserPreferences.playerVolume)
-        .clamp(0.0, 100.0)
+        .clamp(0.0, maxPlayerVolume)
         .toDouble();
     _subs.addAll([
       _state.playingStream.listen((playing) {
@@ -277,7 +277,7 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
   }
 
   void _setVolume(double fraction) {
-    final level = (fraction * 100).clamp(0.0, 100.0).toDouble();
+    final level = (fraction * 100).clamp(0.0, maxPlayerVolume).toDouble();
     setState(() => _volume = level);
     unawaited(_manager.backend?.setVolume(level));
     _manager.reportVolumeState(volume: level, isMuted: level <= 0);
@@ -311,7 +311,7 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
     final client = _clientFor(item);
     final service = MediaSegmentService(
       client,
-      FeatureDetector(serverType: client.serverType, serverVersion: ''),
+      client.features,
       _prefs,
     );
     _segments = service;
@@ -322,8 +322,13 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
     final service = _segments;
     if (service == null || !mounted) return;
     final result = service.checkPosition(position);
-    if (result.shouldSkip && result.skipTo != null) {
-      unawaited(_manager.seekTo(result.skipTo!));
+    var skipTo = result.skipTo;
+    if (skipTo != null &&
+        (PlatformDetection.isApple || PlatformDetection.isAppleTV)) {
+      skipTo = skipLandingBeforeEnd(skipTo, _state.duration);
+    }
+    if (result.shouldSkip && skipTo != null) {
+      unawaited(_manager.seekTo(skipTo));
       if (_askSegment != null) setState(() => _askSegment = null);
       return;
     }
@@ -331,7 +336,7 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
       if (_askSegment?.id != result.segment!.id) {
         setState(() {
           _askSegment = result.segment;
-          _askSkipTo = result.skipTo;
+          _askSkipTo = skipTo;
         });
       }
     } else if (result.isNone && _askSegment != null) {
@@ -786,6 +791,7 @@ class _VideoMiniPlayerBarState extends State<_VideoMiniPlayerBar> {
                     if (constraints.maxWidth >= _rightSideWidth(scale) + 168)
                       PlayerVolumeControl(
                         volume: _volume / 100,
+                        max: maxPlayerVolume / 100,
                         onChanged: _setVolume,
                         onToggleMute: _toggleMute,
                       )

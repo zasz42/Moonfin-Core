@@ -131,7 +131,7 @@ class AppleTvPlaybackPromptController {
 
   void onPositionTick(Duration position, Duration duration) {
     if (_disposed) return;
-    _checkSegments(position);
+    _checkSegments(position, duration);
     _checkNextUp(position, duration);
   }
 
@@ -332,7 +332,7 @@ class AppleTvPlaybackPromptController {
     _clearSkipSegment();
   }
 
-  void _checkSegments(Duration position) {
+  void _checkSegments(Duration position, Duration duration) {
     final service = _segmentService();
     if (service == null) return;
 
@@ -340,14 +340,17 @@ class AppleTvPlaybackPromptController {
     final replaceSkipOutroWithNextUp = _prefs.get(
       UserPreferences.replaceSkipOutroWithNextUp,
     );
+    final skipTo = result.skipTo == null
+        ? null
+        : skipLandingBeforeEnd(result.skipTo!, duration);
 
-    if (result.shouldSkip && result.skipTo != null) {
+    if (result.shouldSkip && skipTo != null) {
       final isOutro = result.segment?.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _showNextUp) {
         return;
       }
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUp()) {
-        unawaited(_commands.seekTo(result.skipTo!));
+        unawaited(_commands.seekTo(skipTo));
         _presentNextUp();
         return;
       }
@@ -355,7 +358,7 @@ class AppleTvPlaybackPromptController {
         unawaited(_commands.exitPlayback());
         return;
       }
-      unawaited(_commands.seekTo(result.skipTo!));
+      unawaited(_commands.seekTo(skipTo));
       _clearSkipSegment();
       return;
     }
@@ -386,7 +389,7 @@ class AppleTvPlaybackPromptController {
         return;
       }
       _skipSegmentVisible = true;
-      _skipTo = result.skipTo;
+      _skipTo = skipTo;
       _skipSegmentType = result.segment!.type;
       _skipSegmentId = result.segment!.id;
       unawaited(

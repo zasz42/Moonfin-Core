@@ -26,10 +26,21 @@ import 'package:moonfin/preference/preference_constants.dart';
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:moonfin/ui/screens/playback/video_player_screen.dart';
 import 'package:moonfin/ui/screensaver/screensaver_controller.dart';
+import 'package:moonfin/ui/widgets/marquee_text.dart';
 import 'package:moonfin/ui/widgets/playback/skip_segment_overlay.dart';
 import 'package:moonfin/util/platform_detection.dart';
 
 import '../util/media_segment_fakes.dart';
+
+class _Images extends Fake implements ImageApi {
+  @override
+  String getChapterImageUrl(
+    String itemId, {
+    required int index,
+    int? maxWidth,
+    String? tag,
+  }) => 'https://server/$itemId/chapter/$index?tag=$tag';
+}
 
 class _Client extends Fake implements MediaServerClient {
   final items = FakeItemsApi();
@@ -39,6 +50,9 @@ class _Client extends Fake implements MediaServerClient {
 
   @override
   ItemsApi get itemsApi => items;
+
+  @override
+  ImageApi get imageApi => _Images();
 
   @override
   TrickplayApi? get trickplayApi => null;
@@ -121,9 +135,13 @@ class _Manager extends PlaybackManager {
   int stopCalls = 0;
   int nextInQueueCalls = 0;
   PlaybackBringupState bringup = const PlaybackBringupState.idle();
+  StreamResolutionResult? resolution;
 
   @override
   PlaybackBringupState get bringupState => bringup;
+
+  @override
+  StreamResolutionResult? get currentResolution => resolution;
 
   // The real calls run too, since they record the viewer's pause.
   @override
@@ -514,6 +532,185 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('chapters open as a row on the one playing, and seek', (
+    tester,
+  ) async {
+    manager.queueService.setQueue([
+      const AggregatedItem(
+        id: 'movie',
+        serverId: 'server',
+        rawData: {
+          'Id': 'movie',
+          'RunTimeTicks': 6000000000,
+          'Chapters': [
+            {'Name': 'Opening', 'StartPositionTicks': 0},
+            {
+              'Name': 'Heist',
+              'StartPositionTicks': 1200000000,
+              'ImageTag': 'abc',
+            },
+            {
+              'Name': 'Escape through the asteroid field with the cruiser behind',
+              'StartPositionTicks': 3600000000,
+            },
+          ],
+        },
+      ),
+    ]);
+    await mountPlayer(tester);
+    manager.state.setPosition(const Duration(minutes: 3));
+    await tester.tap(find.byIcon(Icons.bookmark_outline_rounded));
+    await tester.pumpAndSettle();
+
+    final row = tester.widget<ListView>(
+      find.descendant(of: find.byType(Dialog), matching: find.byType(ListView)),
+    );
+    expect(row.scrollDirection, Axis.horizontal);
+    expect(Focus.of(tester.element(find.text('Heist'))).hasFocus, isTrue);
+    expect(tester.widget<MarqueeText>(find.byType(MarqueeText)).text, 'Heist');
+    expect(find.text('2:00'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is NetworkImage &&
+            (w.image as NetworkImage).url ==
+                'https://server/movie/chapter/1?tag=abc',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      tester.widget<MarqueeText>(find.byType(MarqueeText)).text,
+      startsWith('Escape'),
+      reason: 'only the focused card scrolls its name',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(manager.seeks.last, const Duration(minutes: 6));
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  Future<void> playWithHideDelay(WidgetTester tester, int milliseconds) async {
+    await GetIt.instance<UserPreferences>().set(
+      UserPreferences.controlsHideDelay,
+      milliseconds,
+    );
+    await mountPlayer(tester);
+    manager.state.setPlaying(true);
+    await tester.pump();
+  }
+
+  testWidgets('the controls stay up for the delay set in settings', (
+    tester,
+  ) async {
+    await playWithHideDelay(tester, 3000);
+
+    await tester.pump(const Duration(milliseconds: 2500));
+    expect(find.byType(Slider), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(Slider), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a short hide delay clears the controls sooner', (tester) async {
+    await playWithHideDelay(tester, 1000);
+
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.byType(Slider), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  group('dimming the controls in HDR', () {
+    Future<ColorFilter?> controlsFilter(
+      WidgetTester tester, {
+      required int dimming,
+      String range = 'HDR10',
+      StreamPlayMethod method = StreamPlayMethod.directPlay,
+    }) async {
+      await GetIt.instance<UserPreferences>().set(
+        UserPreferences.hdrControlsDimming,
+        dimming,
+      );
+      manager.resolution = StreamResolutionResult(
+        streamUrl: 'http://server/stream',
+        mediaSourceId: 'source',
+        playMethod: method,
+        videoRangeType: range,
+      );
+      await mountPlayer(tester);
+      final filters = find.ancestor(
+        of: find.byType(Slider),
+        matching: find.byType(ColorFiltered),
+      );
+      final filter = filters.evaluate().isEmpty
+          ? null
+          : tester.widget<ColorFiltered>(filters.first).colorFilter;
+      await tester.pumpWidget(const SizedBox());
+      return filter;
+    }
+
+    testWidgets('HDR dims the controls by the set amount', (tester) async {
+      expect(
+        await controlsFilter(tester, dimming: 50),
+        const ColorFilter.mode(
+          Color.fromARGB(255, 128, 128, 128),
+          BlendMode.modulate,
+        ),
+      );
+    });
+
+    testWidgets('SDR leaves the controls alone', (tester) async {
+      expect(await controlsFilter(tester, dimming: 50, range: 'SDR'), isNull);
+    });
+
+    testWidgets('nothing dims with the setting off', (tester) async {
+      expect(await controlsFilter(tester, dimming: 0), isNull);
+    });
+
+    testWidgets('a transcode reaches the screen as SDR, so nothing dims', (
+      tester,
+    ) async {
+      expect(
+        await controlsFilter(
+          tester,
+          dimming: 50,
+          method: StreamPlayMethod.transcode,
+        ),
+        isNull,
+      );
+    });
+  });
+
+  testWidgets('the clock tick rebuilds the seek bar, not the whole player', (
+    tester,
+  ) async {
+    await mountPlayer(tester);
+    manager.state.setDuration(const Duration(minutes: 10));
+    await tester.pump();
+
+    final rebuilt = <Type>[];
+    debugOnRebuildDirtyWidget = (element, _) {
+      rebuilt.add(element.widget.runtimeType);
+    };
+    try {
+      await tester.pump(const Duration(seconds: 3));
+    } finally {
+      debugOnRebuildDirtyWidget = null;
+    }
+
+    expect(rebuilt, isNot(contains(VideoPlayerScreen)));
+    expect(rebuilt, contains(ValueListenableBuilder<int>));
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   // Issue #1751: the unlock prompt sits at the end of the top bar, where the
   // lock button was, instead of over the middle of the picture.
   for (final direction in TextDirection.values) {
@@ -885,6 +1082,66 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  // Issue #2111: the remote's own subtitle and audio buttons open those menus,
+  // and a second press closes them.
+  group('remote subtitle and audio buttons', () {
+    setUp(() => PlatformDetection.setTvMode(true));
+    tearDown(() => PlatformDetection.setTvMode(false));
+
+    Future<void> mountEpisode(
+      WidgetTester tester,
+      List<Map<String, Object>> streams,
+    ) async {
+      manager.queueService.setQueue([
+        AggregatedItem(
+          id: 'ep1',
+          serverId: 'server',
+          rawData: {'Id': 'ep1', 'Type': 'Episode', 'MediaStreams': streams},
+        ),
+      ]);
+      await mountPlayer(tester);
+    }
+
+    testWidgets('open their menus and close them again', (tester) async {
+      await mountEpisode(tester, [
+        {'Type': 'Audio', 'Index': 1},
+        {'Type': 'Subtitle', 'Index': 2},
+      ]);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.closedCaptionToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('Subtitle Track'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.closedCaptionToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('Subtitle Track'), findsNothing);
+
+      // The test keyboard has no physical key for it, so any stands in.
+      await tester.sendKeyEvent(
+        LogicalKeyboardKey.mediaAudioTrack,
+        physicalKey: PhysicalKeyboardKey.f12,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Audio Track'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('the subtitle one does nothing with no subtitles', (
+      tester,
+    ) async {
+      await mountEpisode(tester, [
+        {'Type': 'Audio', 'Index': 1},
+      ]);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.closedCaptionToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('Subtitle Track'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
 
   // Issue #1335: S, or Enter while the skip button shows, skips the intro.
   for (final key in [LogicalKeyboardKey.keyS, LogicalKeyboardKey.enter]) {

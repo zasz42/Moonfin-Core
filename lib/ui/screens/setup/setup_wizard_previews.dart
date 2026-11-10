@@ -13,6 +13,7 @@ import '../../../data/models/media_bar_slide_item.dart';
 import '../../../data/models/media_bar_state.dart';
 import '../../../data/repositories/media_bar_repository.dart';
 import '../../../data/repositories/multi_server_repository.dart';
+import '../../../data/repositories/poster_badge_repository.dart';
 import '../../../data/repositories/user_views_repository.dart';
 import '../../../data/services/library_scope_service.dart';
 import '../../../data/services/plugin_sync_service.dart';
@@ -42,6 +43,7 @@ import '../../widgets/bounded_network_image.dart';
 import '../../widgets/downloads_nav_slot.dart';
 import '../../widgets/friends_nav_slot.dart';
 import '../../widgets/info_area.dart';
+import '../../widgets/poster_badges.dart';
 import '../../widgets/mediabar/gallery_glow.dart';
 import '../../widgets/mediabar/media_bar_new_release_label.dart';
 import '../../widgets/rating_display.dart';
@@ -51,6 +53,7 @@ import '../../widgets/user_avatar_image.dart';
 import '../detail/detail_buttons.dart';
 import '../detail/detail_layout_metrics.dart';
 import '../detail/frost/frost_detail_content.dart' show frostStageSize;
+import '../home/home_backdrop.dart';
 
 /// The artwork behind every preview, shared with the home screen.
 ///
@@ -212,7 +215,7 @@ double get _desktopScale => GetIt.instance.isRegistered<UserPreferences>()
           .scaleFactor
     : 1.0;
 
-/// TV rows render at 0.8 of the desktop size, same as _rowPlatformScale.
+/// TV rows render at 0.8 of the desktop size, same as homeRowPlatformScale.
 double get _rowScale => (_tv ? 0.8 : 1.0) * _desktopScale;
 
 double get _rowLeftInset => _phone ? 16 : (_tv ? 80 : 32);
@@ -1890,7 +1893,10 @@ Widget settingsHomePreview() {
           HomeRowsStyle.v2;
       // Modern rows hold the first card in focus, the way Home looks with a
       // row in focus, so the card's grown state and its details show.
-      return switch (previewValue(context, UserPreferences.navbarPosition)) {
+      final home = switch (previewValue(
+        context,
+        UserPreferences.navbarPosition,
+      )) {
         NavbarPosition.top => _topNavbarPreview(
           context,
           items,
@@ -1911,10 +1917,65 @@ Widget settingsHomePreview() {
           focusFirst: modern,
         ),
       };
+      final backdrop = _homeBackdropStyle(context);
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (backdrop != UserPreferences.homeBackdropOff)
+            HomeBackdrop(
+              url: items.first.backdropUrl,
+              blurAmount: previewValue(
+                context,
+                UserPreferences.browsingBackgroundBlurAmount,
+              ).toDouble(),
+              style: backdrop,
+            ),
+          const HomeGradientScrim(),
+          home,
+        ],
+      );
     },
     fallback: _fallbackNavbar(position),
   );
 }
+
+/// The backdrop Home draws. A phone only has the switch and always fills the
+/// screen, and a style the picker is trying shows before the switch follows it.
+String _homeBackdropStyle(BuildContext context) {
+  final enabled = previewValue(context, UserPreferences.homeBackdropEnabled);
+  if (_phone) {
+    return enabled
+        ? UserPreferences.homeBackdropFullScreen
+        : UserPreferences.homeBackdropOff;
+  }
+  final trying =
+      SettingsPreviewScope.maybeOf(context)
+          ?.isTrying(UserPreferences.homeBackdropStyle.key) ??
+      false;
+  return enabled || trying
+      ? previewValue(context, UserPreferences.homeBackdropStyle)
+      : UserPreferences.homeBackdropOff;
+}
+
+/// [body] as a screen under the navbar the live preview draws over Home, for a
+/// screen that keeps its own room for the bar.
+Widget settingsNavbarPreviewOver(Widget body) => _screen(
+  Builder(
+    builder: (context) {
+      final items = SetupPreviewData.items;
+      return switch (previewValue(context, UserPreferences.navbarPosition)) {
+        NavbarPosition.top => _topNavbarPreview(context, items, body: body),
+        NavbarPosition.left => _leftNavbarPreview(context, items, body: body),
+        NavbarPosition.bottom => _bottomNavbarPreview(
+          context,
+          items,
+          previewValue(context, UserPreferences.bottomNavbarStyle),
+          body: body,
+        ),
+      };
+    },
+  ),
+);
 
 typedef _NavButton = ({
   Widget Function(double size, Color color) icon,
@@ -1924,6 +1985,10 @@ typedef _NavButton = ({
 bool get _seerrAvailable =>
     GetIt.instance.isRegistered<PluginSyncService>() &&
     GetIt.instance<PluginSyncService>().seerrAvailable;
+
+bool get _calendarAvailable =>
+    GetIt.instance.isRegistered<PluginSyncService>() &&
+    GetIt.instance<PluginSyncService>().calendarAvailable;
 
 bool get _downloadsAvailable =>
     GetIt.instance.isRegistered<UserRepository>() &&
@@ -2002,12 +2067,14 @@ List<_NavButton> _navButtons(
     if (!kids &&
         on(UserPreferences.syncPlayEnabled) &&
         on(UserPreferences.showSyncPlayButton))
-      icon(Icons.groups_rounded, l10n.syncPlay),
+      icon(Icons.groups_rounded, l10n.watchParties),
     if (!kids && on(UserPreferences.showSeerrButton) && _seerrAvailable)
       (
         icon: (size, color) => SeerrIcon(size: size, color: color),
         label: seerrLabel,
       ),
+    if (!kids && on(UserPreferences.showCalendarButton) && _calendarAvailable)
+      icon(Icons.calendar_month_rounded, l10n.calendar),
     if (libraries && on(UserPreferences.showLibrariesIndividually))
       for (final (glyph, label) in _navLibraries(
         l10n,
@@ -2145,6 +2212,7 @@ Widget _navbarRows(
 Widget _topNavbarPreview(
   BuildContext context,
   List<MediaBarSlideItem> items, {
+  Widget? body,
   bool? modern,
   bool focusFirst = false,
 }) {
@@ -2210,7 +2278,7 @@ Widget _topNavbarPreview(
     ),
   );
 
-  return Column(
+  final screen = Column(
     children: [
       SizedBox(
         height: toolbarHeight,
@@ -2252,14 +2320,24 @@ Widget _topNavbarPreview(
           ),
         ),
       ),
-      Expanded(
-        child: _navbarRows(
-          context,
-          items,
-          modern: modern,
-          focusFirst: focusFirst,
+      if (body == null)
+        Expanded(
+          child: _navbarRows(
+            context,
+            items,
+            modern: modern,
+            focusFirst: focusFirst,
+          ),
         ),
-      ),
+    ],
+  );
+  if (body == null) return screen;
+  // A screen with its own top inset runs under the bar, which floats over it
+  // the way the real one does.
+  return Stack(
+    children: [
+      Positioned.fill(child: body),
+      Positioned.fill(child: screen),
     ],
   );
 }
@@ -2269,6 +2347,7 @@ Widget _topNavbarPreview(
 Widget _leftNavbarPreview(
   BuildContext context,
   List<MediaBarSlideItem> items, {
+  Widget? body,
   bool? modern,
   bool focusFirst = false,
 }) {
@@ -2284,14 +2363,16 @@ Widget _leftNavbarPreview(
   return Stack(
     children: [
       Positioned.fill(
-        left: railInset,
-        child: _navbarRows(
-          context,
-          items,
-          topInset: 24,
-          modern: modern,
-          focusFirst: focusFirst,
-        ),
+        left: body == null ? railInset : 0,
+        child:
+            body ??
+            _navbarRows(
+              context,
+              items,
+              topInset: 24,
+              modern: modern,
+              focusFirst: focusFirst,
+            ),
       ),
       Positioned(
         left: 0,
@@ -2329,6 +2410,7 @@ Widget _bottomNavbarPreview(
   BuildContext context,
   List<MediaBarSlideItem> items,
   BottomNavbarStyle style, {
+  Widget? body,
   bool? modern,
   bool focusFirst = false,
 }) {
@@ -2345,6 +2427,8 @@ Widget _bottomNavbarPreview(
     showLiveTv: previewValue(context, UserPreferences.showLiveTvButton),
     showSeerr: previewValue(context, UserPreferences.showSeerrButton),
     seerrAvailable: _seerrAvailable,
+    showCalendar: previewValue(context, UserPreferences.showCalendarButton),
+    calendarAvailable: _calendarAvailable,
   );
   final views = [
     for (final item in resolveBarItems(
@@ -2393,13 +2477,15 @@ Widget _bottomNavbarPreview(
   return Stack(
     children: [
       Positioned.fill(
-        child: _navbarRows(
-          context,
-          items,
-          topInset: 24,
-          modern: modern,
-          focusFirst: focusFirst,
-        ),
+        child:
+            body ??
+            _navbarRows(
+              context,
+              items,
+              topInset: 24,
+              modern: modern,
+              focusFirst: focusFirst,
+            ),
       ),
       Align(
         alignment: Alignment.bottomCenter,
@@ -2578,6 +2664,22 @@ Widget _homeRowsScreen(
   );
 }
 
+/// The colours of the 4K and HDR10 built-in labels.
+const _sampleLabels = [
+  PosterBadge(label: '4K', color: '#7C3AED'),
+  PosterBadge(label: 'HDR', color: '#CA8A04'),
+];
+
+/// Sample labels on the preview's posters, only for someone whose server gives
+/// them labels, so the preview never shows what the app never will.
+bool _showSampleLabels(BuildContext context) {
+  if (!GetIt.instance.isRegistered<PosterBadgeRepository>() ||
+      GetIt.instance<PosterBadgeRepository>().available.value != true) {
+    return false;
+  }
+  return previewValue(context, UserPreferences.showPosterLabels);
+}
+
 Widget _homeRowsColumn(
   BuildContext context,
   List<MediaBarSlideItem> items, {
@@ -2608,6 +2710,7 @@ Widget _homeRowsColumn(
     required double aspect,
     String? imageUrl,
     double? progress,
+    List<PosterBadge> labels = const [],
   }) {
     final width = height * aspect;
     return Column(
@@ -2623,6 +2726,12 @@ Widget _homeRowsColumn(
               fit: StackFit.expand,
               children: [
                 _artwork(imageUrl ?? item.posterUrl),
+                if (labels.isNotEmpty)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: PosterBadgeSample(badges: labels, scale: 0.85 * scale),
+                  ),
                 if (progress != null)
                   Positioned(
                     left: 6,
@@ -2834,6 +2943,7 @@ Widget _homeRowsColumn(
     int offset = 0,
     bool withFocus = false,
   }) {
+    final showLabels = _showSampleLabels(context);
     final cards = <Widget>[
       for (var i = 0; i < 8; i++)
         if (withFocus && i == 0)
@@ -2845,6 +2955,10 @@ Widget _homeRowsColumn(
             aspect: thumbs ? 16 / 9 : 2 / 3,
             imageUrl: thumbs ? _itemAt(items, i + offset).backdropUrl : null,
             progress: thumbs && i == 0 ? 0.35 : (thumbs && i == 1 ? 0.7 : null),
+            // Not every file has both, as in a real library.
+            labels: !showLabels || i % 3 == 2
+                ? const []
+                : (i % 3 == 0 ? _sampleLabels : _sampleLabels.sublist(0, 1)),
           ),
     ];
     return Column(
@@ -3107,17 +3221,19 @@ List<Widget> _techChips(BuildContext context, {double gap = 6}) {
   ];
 }
 
-/// The backdrop shown whole under the toolbar when a phone has Backdrop Size
-/// on Fit.
-Widget _detailBackdropFit(BuildContext context, Widget art) =>
-    DetailBackdropFit(
-      prefs: GetIt.instance<UserPreferences>(),
-      fits:
-          _phone &&
-          previewValue(context, UserPreferences.detailsBackdropSize) ==
-              UserPreferences.detailsBackdropFit,
-      child: art,
-    );
+/// The details backdrop as its settings draw it: left out when it's switched
+/// off, and shown whole under the toolbar when a phone has Backdrop Size on Fit.
+Widget _detailBackdrop(BuildContext context, Widget art) =>
+    previewValue(context, UserPreferences.detailsBackdropEnabled)
+    ? DetailBackdropFit(
+        prefs: GetIt.instance<UserPreferences>(),
+        fits:
+            _phone &&
+            previewValue(context, UserPreferences.detailsBackdropSize) ==
+                UserPreferences.detailsBackdropFit,
+        child: art,
+      )
+    : const SizedBox.shrink();
 
 /// The details background setting from 0 to 1. Classic blurs its backdrop by
 /// it and every other style dims its backdrop by it instead.
@@ -3224,7 +3340,7 @@ Widget _detailPreviewScaffold(
     fit: StackFit.expand,
     children: [
       ColoredBox(color: base),
-      _detailBackdropFit(
+      _detailBackdrop(
         context,
         _artwork(
           item.backdropUrl,
@@ -3513,9 +3629,8 @@ Widget _classicDetail(BuildContext context, List<MediaBarSlideItem> items) {
   return Stack(
     fit: StackFit.expand,
     children: [
-      if (item.backdropUrl != null &&
-          previewValue(context, UserPreferences.detailsBackdropEnabled))
-        _detailBackdropFit(
+      if (item.backdropUrl != null)
+        _detailBackdrop(
           context,
           sigma > 0
               ? ImageFiltered(
@@ -3780,7 +3895,7 @@ Widget _minimalistDetail(BuildContext context, MediaBarSlideItem item) {
   return Stack(
     fit: StackFit.expand,
     children: [
-      _detailBackdropFit(context, _artwork(item.backdropUrl)),
+      _detailBackdrop(context, _artwork(item.backdropUrl)),
       ColoredBox(
         color: AppColors.black.withValues(
           alpha: 0.35 + 0.5 * _detailBackgroundAmount(context),
@@ -3991,7 +4106,7 @@ Widget _stageDetail(BuildContext context, MediaBarSlideItem item) {
   return Stack(
     fit: StackFit.expand,
     children: [
-      _detailBackdropFit(context, _artwork(item.backdropUrl)),
+      _detailBackdrop(context, _artwork(item.backdropUrl)),
       ColoredBox(
         color: AppColors.black.withValues(
           alpha: 0.55 + 0.3 * _detailBackgroundAmount(context),
@@ -4032,7 +4147,7 @@ Widget _premiereDetail(BuildContext context, MediaBarSlideItem item) {
     fit: StackFit.expand,
     children: [
       ColoredBox(color: base),
-      _detailBackdropFit(
+      _detailBackdrop(
         context,
         _artwork(item.backdropUrl, alignment: Alignment.topCenter),
       ),
@@ -4195,11 +4310,13 @@ Widget _frostDetail(BuildContext context, MediaBarSlideItem item) {
     columns: true,
     columnTextScale: _phone ? 1 : 1.3,
   );
+  final showArt = previewValue(context, UserPreferences.detailsBackdropEnabled);
   final environment = [
-    ImageFiltered(
-      imageFilter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-      child: _artwork(item.backdropUrl),
-    ),
+    if (showArt)
+      ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: _artwork(item.backdropUrl),
+      ),
     ColoredBox(color: AppColors.black.withValues(alpha: 0.55)),
   ];
 
@@ -4222,7 +4339,9 @@ Widget _frostDetail(BuildContext context, MediaBarSlideItem item) {
               colors: [Colors.white, Colors.white, Colors.transparent],
               stops: [0, 0.62, 1],
             ).createShader(rect),
-            child: _artwork(item.backdropUrl, alignment: Alignment.topCenter),
+            child: showArt
+                ? _artwork(item.backdropUrl, alignment: Alignment.topCenter)
+                : const SizedBox.shrink(),
           ),
         ),
         Positioned(
@@ -4367,7 +4486,7 @@ Widget _frostDetail(BuildContext context, MediaBarSlideItem item) {
       fit: StackFit.expand,
       children: [
         const ColoredBox(color: Color(0x5C1C1C20)),
-        _artwork(item.backdropUrl),
+        if (showArt) _artwork(item.backdropUrl),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -4541,13 +4660,16 @@ Widget _quickLookDetail(BuildContext context, List<MediaBarSlideItem> items) {
     AppColorScheme.background,
   );
   final inset = landscape ? 28.0 : 20.0;
+  final showArt = previewValue(context, UserPreferences.detailsBackdropEnabled);
 
   final panel = ColoredBox(
     color: surface,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (landscape)
+        if (landscape && !showArt)
+          const SizedBox(height: 64)
+        else if (landscape)
           SizedBox(
             height: 230,
             child: Stack(

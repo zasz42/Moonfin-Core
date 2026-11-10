@@ -207,6 +207,9 @@ enum AutoHdrSwitchingBehavior {
   always,
 }
 
+/// What a Jellyfin user starts from Watch Parties. Synced as the plain name.
+enum WatchPartyServiceChoice { moonbase, syncplay }
+
 /// How phones and tablets are held while a game plays. [auto] follows the
 /// device, so the system rotation lock applies.
 enum GamePlaybackOrientation {
@@ -1187,4 +1190,24 @@ enum ModernCardTransitionSpeed {
 
   const ModernCardTransitionSpeed(this.duration);
   final Duration duration;
+}
+
+/// What the Calendar button opens. The month grid sits behind both styles.
+enum CalendarStyle { agenda, countdown }
+
+enum CalendarWeekStart { locale, sunday, monday }
+
+/// [myShows] keeps episodes of series the user favorited or has watched.
+enum CalendarScope { everything, myShows }
+
+enum CalendarColorBy { type, status }
+
+enum CalendarImageType { poster, thumb }
+
+enum CalendarSelectAction { details, play }
+
+enum DateFormatSetting {
+  system,
+  monthDay,
+  dayMonth,
 }

@@ -103,6 +103,15 @@ class _SeasonalRowScreenState extends State<_SeasonalRowScreen> {
                           code: _countryLabel(code, l10n),
                       },
                     ),
+                    // Silo picks its own seasonal row, so the switch would do nothing there.
+                    if (GetIt.instance<MediaServerClient>().itemsApi is! ServerHomeSectionsApi)
+                      SwitchPreferenceTile(
+                        preference: UserPreferences.seasonalRowAllYear,
+                        title: l10n.seasonalRowAllYear,
+                        subtitle: l10n.seasonalRowAllYearDescription,
+                        icon: Icons.event_repeat,
+                        onChanged: _reloadHomeRows,
+                      ),
                   ],
                 ),
                 _SectionHeader(l10n.seasonalRowHolidays),
@@ -1089,6 +1098,18 @@ class _UpcomingCalendarsScreenState extends State<_UpcomingCalendarsScreen> {
                       enabled: calendarsCanMerge,
                       onChanged: () => setState(() {}),
                     ),
+                    if (GetIt.instance<PluginSyncService>().calendarAvailable)
+                      SwitchPreferenceTile(
+                        key: const ValueKey('calendarRowSeeAll'),
+                        preference: UserPreferences.calendarRowSeeAll,
+                        title: l10n.calendarRowSeeAll,
+                        subtitle: l10n.calendarRowSeeAllSubtitle,
+                        icon: Icons.calendar_view_month,
+                        onChanged: () {
+                          _pushPersonalizationSync();
+                          _reloadHomeRows();
+                        },
+                      ),
                   ],
                 ),
               ],

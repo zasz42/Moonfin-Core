@@ -5,6 +5,7 @@ import '../../theme/focus_foreground.dart';
 import '../../widgets/bounded_network_image.dart';
 import '../../widgets/offline_aware_image.dart';
 import '../../widgets/anime_marker_badge.dart';
+import '../../widgets/poster_badges.dart';
 import '../../../data/repositories/anime_marker_repository.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/media_badge.dart';
@@ -130,6 +131,7 @@ import '../../../playback/server_shuffle_queue.dart';
 import '../../../syncplay/syncplay_manager.dart';
 import '../../../watch_party/silo_watch_party_manager.dart';
 import '../watch_party/silo_watch_party_screen.dart';
+import '../watch_party/watch_together_route.dart';
 import '../../../util/audio_labels.dart';
 import '../../../util/detail_trailer.dart';
 import '../../../util/download_utils.dart';
@@ -287,6 +289,7 @@ class ItemDetailScreen extends StatefulWidget {
   final String itemId;
   final String? serverId;
   final bool autoPlay;
+  final String? libraryId;
 
   /// Only used to resolve an IMDb-keyed Seerr id by searching for it.
   final String? seerrTitle;
@@ -307,6 +310,7 @@ class ItemDetailScreen extends StatefulWidget {
     this.seerrTitle,
     this.contextSeasonId,
     this.quickLook = false,
+    this.libraryId,
   });
 
   @override
@@ -362,6 +366,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
       mutations: ItemMutationRepository(client),
       mdbListRepository: GetIt.instance<MdbListRepository>(),
       tmdbRepository: GetIt.instance<TmdbRepository>(),
+      libraryId: widget.libraryId,
     );
     _viewModel.seerrOnlyTitle = widget.seerrTitle;
     _viewModel.addListener(_onChanged);
@@ -1900,6 +1905,7 @@ class _DetailContentState extends State<_DetailContent> {
       'MusicAlbum' || 'Playlist' => _buildAlbumContent(context, item),
       'BoxSet' => _buildBoxSetContent(context, item),
       'Photo' => _buildPhotoContent(item),
+      'BookSeries' => _buildBookContent(context, item),
       _ =>
         _isReadableBookItem(item)
             ? _buildBookContent(context, item)
@@ -2025,6 +2031,11 @@ class _DetailContentState extends State<_DetailContent> {
   }
 
   List<Widget> _buildBookContent(BuildContext context, AggregatedItem item) {
+    final isSeries = item.type == 'BookSeries';
+    final booksInSeries = isSeries
+        ? viewModel.seriesBooks
+        : const <AggregatedItem>[];
+    item = viewModel.seriesFeaturedBook ?? item;
     final l10n = AppLocalizations.of(context);
     final author = _bookAuthorName(item);
     final authorDisplay = author ?? l10n.unknownAuthor;
@@ -2040,6 +2051,9 @@ class _DetailContentState extends State<_DetailContent> {
         _visibility.shows(DetailSection.moreLikeThis);
     final similarFocusNode = showSimilar
         ? _sectionFocusNode('detailBookSimilar')
+        : null;
+    final bookFocusNode = isSeries
+        ? _sectionFocusNode('detailSeriesBook')
         : null;
     final coverTag = item.primaryImageTag;
     const coverWidth = 132.0;
@@ -2164,9 +2178,11 @@ class _DetailContentState extends State<_DetailContent> {
           text: overview,
           focusNode: overviewFocusNode,
           onArrowUp: () => _requestSectionFocus(actionButtonsFocusNode),
-          onArrowDown: similarFocusNode != null
-              ? () => _requestSectionFocus(similarFocusNode)
-              : null,
+          onArrowDown: bookFocusNode != null
+              ? () => _requestSectionFocus(bookFocusNode)
+              : similarFocusNode != null
+                  ? () => _requestSectionFocus(similarFocusNode)
+                  : null,
           onArrowLeft: () => _tryFocusSidebar(),
           onCollapse: () => setState(() {}),
           style: const TextStyle(
@@ -2184,6 +2200,32 @@ class _DetailContentState extends State<_DetailContent> {
             height: 1.5,
           ),
         ),
+      if (booksInSeries.isNotEmpty) ...[
+        const SizedBox(height: 32),
+        HorizontalScrollSection(
+          title: l10n.books,
+          titleStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: ThemeRegistry.active.id == ThemeRegistry.neonPulseId
+            ? AppColorScheme.onSurface
+            : Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+          builder: (_, ctrl) => DetailSimilarRow(
+            items: booksInSeries,
+            imageApi: viewModel.imageApi,
+            prefs: prefs,
+            firstItemFocusNode: bookFocusNode,
+            onItemLongPress: _showItemContextMenu,
+            scrollController: ctrl,
+            onItemKeyEvent: _buildVerticalRowHandler(
+              sourceFocusNode: bookFocusNode,
+              upTarget: overviewFocusNode ?? actionButtonsFocusNode,
+              itemCount: booksInSeries.length,
+              consumeDownWhenNoTarget: true,
+            ),
+          )
+        )
+      ],
       if (item.genres.isNotEmpty &&
           _visibility.shows(DetailSection.bookGenres)) ...[
         const SizedBox(height: 20),
@@ -6943,7 +6985,8 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
   @override
   Widget build(BuildContext context) {
-    final item = viewModel.item!;
+    final featuredBook = viewModel.seriesFeaturedBook;
+    final item = featuredBook ?? viewModel.item!;
     final l10n = AppLocalizations.of(context);
     // Only grab initial focus when this screen is actually in front. A settings
     // panel change (detail style or theme) rebuilds the details underneath the
@@ -7234,6 +7277,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     final seerr = overlay != null && overlay.state.tmdbId != 0 ? overlay : null;
     final onWatchlist = seerr?.state.onUserWatchlist ?? false;
     final seerrTrailer = seerr?.state.bestTrailer;
+    final seriesName = item.seriesName?.trim() ?? '';
 
     final byButton = <DetailButton, Widget>{
       if (_supportsShuffle(item) && shows(DetailButton.shuffle))
@@ -7411,6 +7455,26 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           onPressed: () => context.push(
             Destinations.item(item.seriesId!, serverId: item.serverId),
           ),
+        ),
+      // A series page features one of its own books, which mustn't link back.
+      if (item.type == 'Book' &&
+          featuredBook == null &&
+          seriesName.isNotEmpty &&
+          shows(DetailButton.goToSeries))
+        DetailButton.goToSeries: _DetailActionButton(
+          label: l10n.goToSeries,
+          icon: Icons.book,
+          onPressed: () async {
+            final libraryId = await viewModel.libraryIdOf(item);
+            if (!context.mounted) return;
+            context.push(
+              Destinations.item(
+                'bookSeries:$seriesName',
+                serverId: item.serverId,
+                libraryId: libraryId,
+              ),
+            );
+          },
         ),
       if (shows(DetailButton.seerrRequest))
         DetailButton.seerrRequest: ?_seerrRequestButton(
@@ -8650,12 +8714,15 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     );
   }
 
-  /// On Silo the host picks what a Watch Party watches; anyone else can open
-  /// a party by picking.
+  /// On Silo and Moonbase the host picks what a watch party watches, and
+  /// anyone else can open a party by picking. A Jellyfin user who starts
+  /// SyncPlay groups picks through SyncPlay instead.
   bool _canPickForWatchParty() {
     try {
       final party = GetIt.instance<SiloWatchPartyManager>();
-      if (party.activeSiloClient == null) return false;
+      final moonbase =
+          party.isMoonbase || (party.moonbaseAvailable && !startsSyncPlay());
+      if (party.activeSiloClient == null && !moonbase) return false;
       return party.room?.isHost ?? true;
     } catch (_) {
       return false;
@@ -9653,9 +9720,24 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             } else {
               // Next Up arrives on its own future, so fall back to whatever is part
               // way through. First unwatched can sit behind the user, since a
-              // skipped episode or a special counts as unwatched.
+              // skipped episode or a special counts as unwatched. A Next Up
+              // marked played is stale until its refetch lands, so go on from
+              // the first unwatched episode after it.
+              final shownNextUp = viewModel.nextUp;
+              var nextUp = shownNextUp;
+              if (shownNextUp != null && shownNextUp.isPlayed) {
+                final at = allEpisodes.indexWhere(
+                  (e) => e.id == shownNextUp.id,
+                );
+                nextUp = at < 0
+                    ? null
+                    : allEpisodes
+                          .skip(at + 1)
+                          .where((e) => !e.isPlayed)
+                          .firstOrNull;
+              }
               targetEpisode =
-                  viewModel.nextUp ??
+                  nextUp ??
                   allEpisodes.firstWhere(
                     (e) => !e.isPlayed && (e.playedPercentage ?? 0) > 0,
                     orElse: () => allEpisodes.firstWhere(
@@ -12287,8 +12369,12 @@ class _DownloadButtonState extends State<_DownloadButton> {
   /// and a followed series' delete setting.
   static Widget? _keepDownloadedRow(AggregatedItem item) {
     final prefs = GetIt.instance<UserPreferences>();
+    final removeWatchedHours = prefs.get(
+      UserPreferences.downloadRemoveWatchedAfterHours,
+    );
     final removeWatched =
-        prefs.get(UserPreferences.downloadRemoveWatchedAfterHours) >= 0;
+        removeWatchedHours >= 0 ||
+        removeWatchedHours == UserPreferences.removeWatchedAsk;
     final autoDownloads = GetIt.instance.isRegistered<AutoDownloadService>();
     final episodeRules =
         autoDownloads &&
@@ -13280,6 +13366,11 @@ class _DetailActionButtonState extends State<_DetailActionButton>
     // accent. Everywhere else it looks like the buttons beside it until it
     // has focus.
     final accentPrimary = widget.isPrimary && (isMobile || labeledPlay);
+    // On the accent fill the label takes the accent's text color like the
+    // icon does, since Neon Pulse's label color is the accent itself.
+    final labelOnPill = accentPrimary && !showHighlight
+        ? AppColorScheme.onAccent
+        : labelColor;
 
     final containerColor = showHighlight
         ? AppColorScheme.buttonFocused
@@ -13412,13 +13503,13 @@ class _DetailActionButtonState extends State<_DetailActionButton>
                     text: widget.label,
                     style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: labelColor,
+                          color: labelOnPill,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
                         ) ??
                         TextStyle(
-                          color: labelColor,
+                          color: labelOnPill,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
@@ -14207,6 +14298,7 @@ class DetailSimilarRow extends StatelessWidget {
           final isSeerrItem =
               item.id.startsWith('tmdb:') || item.serverId == 'seerr';
           return MediaCard(
+            posterBadgeItemId: isSeerrItem ? null : item.id,
             title: item.name,
             titleColor: isNeon ? AppColorScheme.accent : null,
             imageUrl: item.primaryImageTag != null
@@ -14338,6 +14430,7 @@ class DetailFeaturesRow extends StatelessWidget {
         itemBuilder: (context, index) {
           final item = items[index];
           return MediaCard(
+            posterBadgeItemId: item.id,
             title: item.name,
             subtitle: item.subtitle,
             titleColor: isNeon ? AppColorScheme.onSurface : null,
@@ -15008,7 +15101,9 @@ class DetailMetadataSectionState extends State<DetailMetadataSection> {
               name: name,
               id: id,
               onTap: name.isNotEmpty
-                  ? () => context.push(Destinations.studio(name))
+                  ? () => context.push(
+                      Destinations.studio(name, serverId: serverId),
+                    )
                   : null,
             );
           }).toList(),
@@ -15779,6 +15874,21 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
                                 size: 18,
                               ),
                             ),
+                          Positioned(
+                            top: 6,
+                            left: 6,
+                            child: PosterBadges(itemId: ep.id, scale: 0.8),
+                          ),
+                          Positioned.fill(
+                            child: PosterBadgeCorners(
+                              itemId: ep.id,
+                              scale: 0.8,
+                              top: ep.isPlayed && (ep.playedPercentage ?? 0) == 0
+                                  ? 30
+                                  : 6,
+                              bottom: (ep.playedPercentage ?? 0) > 0 ? 12 : 6,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -16022,6 +16132,18 @@ class DetailNextUpCardState extends State<DetailNextUpCard>
                               _EpisodeProgressBar(
                                 percentage: episode.playedPercentage!,
                               ),
+                            Positioned(
+                              top: 6,
+                              left: 6,
+                              child: PosterBadges(itemId: episode.id, scale: 0.8),
+                            ),
+                            Positioned.fill(
+                              child: PosterBadgeCorners(
+                                itemId: episode.id,
+                                scale: 0.8,
+                                bottom: (episode.playedPercentage ?? 0) > 0 ? 12 : 6,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -16289,16 +16411,35 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                                   percentage: episode.playedPercentage!,
                                 ),
                               // Top left, opposite the played tick and above the progress
-                              // bar. Draws only when the server picked this placement.
+                              // bar. The anime pill draws only when the server picked this
+                              // placement, and pads itself only when it does.
                               Positioned(
                                 top: 6,
                                 left: 6,
-                                child: AnimeMarkerBadge(
-                                  seriesId: episode.seriesId,
-                                  episodeId: episode.id,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    AnimeMarkerBadge(
+                                      seriesId: episode.seriesId,
+                                      episodeId: episode.id,
+                                      scale: 0.8,
+                                      slot: AnimeMarkerPlacement.thumbnail,
+                                      filled: true,
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                    ),
+                                    PosterBadges(itemId: episode.id, scale: 0.8),
+                                  ],
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: PosterBadgeCorners(
+                                  itemId: episode.id,
                                   scale: 0.8,
-                                  slot: AnimeMarkerPlacement.thumbnail,
-                                  filled: true,
+                                  top: episode.isPlayed ? 30 : 6,
+                                  bottom: (episode.playedPercentage ?? 0) > 0
+                                      ? 12
+                                      : 6,
                                 ),
                               ),
                               if (episode.isPlayed)
@@ -17080,6 +17221,7 @@ class FilmographyRow extends StatelessWidget {
           }
 
           return MediaCard(
+            posterBadgeItemId: item.id,
             title: title,
             subtitle: subtitle,
             imageUrl: item.primaryImageTag != null

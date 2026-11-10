@@ -37,6 +37,7 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
     private var lastPromptStrings: [String: Any]?
     private var lastTimeSlots: [String: Any]?
     private var lastCinemaSkipState: [String: Any]?
+    private var lastWatchParty: [String: Any]?
     static var lastCommand = "-"
 
     /// The root is looked up per presentation because on iOS the Flutter window
@@ -124,6 +125,16 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
             resumePresentation()
         case "setReconnecting":
             playerVC?.setReconnecting(args["label"] as? String)
+        case "setWatchParty":
+            lastWatchParty = args["party"] as? [String: Any]
+            playerVC?.applyWatchParty(lastWatchParty)
+        case "showWatchPartyEvent":
+            if args["type"] as? String == "glyphs" {
+                let glyphs = (args["glyphs"] as? [String: FlutterStandardTypedData]) ?? [:]
+                WatchPartyGlyphs.store(glyphs.mapValues { $0.data })
+            } else {
+                playerVC?.showWatchPartyEvent(args)
+            }
         case "showMessage":
             playerVC?.presentMessage(
                 (args["message"] as? String) ?? "",
@@ -192,6 +203,8 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
         case "showRemoteSubtitles":
             let results = (args["results"] as? [[String: Any]]) ?? []
             playerVC?.presentRemoteSubtitleResults(results)
+        case "showSubtitleCues":
+            playerVC?.showSubtitleCues(args)
         case "showSubtitleProgress":
             playerVC?.showSubtitleProgress((args["message"] as? String) ?? "Working\u{2026}")
         case "hideSubtitleProgress":
@@ -306,7 +319,13 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
             strokeColor: (args["strokeColor"] as? NSNumber)?.intValue,
             fontSize: (args["fontSize"] as? NSNumber)?.doubleValue,
             fontWeight: (args["fontWeight"] as? NSNumber)?.intValue,
-            verticalOffset: (args["verticalOffset"] as? NSNumber)?.doubleValue)
+            verticalOffset: (args["verticalOffset"] as? NSNumber)?.doubleValue,
+            strokeScale: (args["strokeScale"] as? NSNumber)?.doubleValue,
+            shadowColor: (args["shadowColor"] as? NSNumber)?.intValue,
+            shadowOffset: (args["shadowOffset"] as? NSNumber)?.doubleValue,
+            shadowBlur: (args["shadowBlur"] as? NSNumber)?.doubleValue,
+            fontPath: args["fontPath"] as? String,
+            boldFontPath: args["boldFontPath"] as? String)
         vc?.baseSubtitlePos = player.baseSubtitlePos
         vc?.reapplySubtitleClearance()
     }
@@ -431,6 +450,9 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
         vc.onEpisodesClosed = { [weak self] in
             self?.send(["event": "episodesClosed"])
         }
+        vc.onPartyAction = { [weak self] action in
+            self?.send(action)
+        }
         if let meta = lastMetadata {
             vc.applyUiMetadata(meta)
         }
@@ -448,6 +470,9 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
         }
         if let cinema = lastCinemaSkipState {
             vc.applyCinemaSkipState(cinema)
+        }
+        if let party = lastWatchParty {
+            vc.applyWatchParty(party)
         }
         guard let presenter = presentingController() else {
             created.shutdown()
@@ -487,6 +512,7 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
 
     private func dismiss() {
         lastCinemaSkipState = nil
+        lastWatchParty = nil
         stopStateTimer()
         player?.shutdown()
         suspendedFrames?.teardown()
@@ -532,6 +558,14 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
             send(["event": "dismissed"])
         }
         onPlayerChanged?()
+    }
+
+    /// The remote's Guide button, which tvOS sends as an app activity rather
+    /// than a press. It still reaches a Live TV player that stepped aside for
+    /// its guide.
+    func handleGuideButton() {
+        guard playerVC?.isLive == true else { return }
+        send(["event": "guideButton"])
     }
 
     /// Takes the player off screen while the engine keeps playing, so Flutter

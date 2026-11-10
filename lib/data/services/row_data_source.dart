@@ -31,6 +31,18 @@ import '../viewmodels/live_tv_guide_view_model.dart';
 import 'custom_external_lists_service.dart';
 import 'plugin_sync_service.dart';
 
+/// What a home row's See All card opens: the library a Latest row comes from,
+/// or a pinned collection. Null for any other row, merged ones included.
+({String id, bool isCollection})? homeRowSeeAllTarget(HomeRow row) {
+  if (row.id.startsWith('latest_')) {
+    return (id: row.id.substring('latest_'.length), isCollection: false);
+  }
+  final parsed = RowDataSource._parseStableId(row.id);
+  if (parsed?.source != HomeSectionPluginSource.collections) return null;
+  final collectionId = parsed!.additionalData.trim();
+  return collectionId.isEmpty ? null : (id: collectionId, isCollection: true);
+}
+
 class RowDataSource {
   final MediaServerClient _client;
 
@@ -1409,7 +1421,7 @@ class RowDataSource {
     );
   }
 
-  _ParsedStableId? _parseStableId(String id) {
+  static _ParsedStableId? _parseStableId(String id) {
     if (!id.startsWith('pluginDynamic:')) return null;
     final lastColon = id.lastIndexOf(':');
     if (lastColon < 0) return null;
@@ -1843,6 +1855,7 @@ class RowDataSource {
       case HomeRowType.activeRecordings:
       case HomeRowType.mediaBar:
       case HomeRowType.pluginDynamic:
+      case HomeRowType.watchParties:
         return (row.items, row.totalCount);
     }
 

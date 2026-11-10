@@ -210,6 +210,9 @@ class PlaybackManager implements AudioOwnable {
   int? _lastExplicitAudioIndex;
   String? _lastExplicitAudioTitle;
   String? _lastExplicitSubtitleLanguage;
+  // The track behind _lastExplicitSubtitleLanguage, always written with it and
+  // only read while that is set.
+  Map<String, dynamic>? _lastExplicitSubtitleStream;
   bool? _lastExplicitSubtitleEnabled;
   Duration _lastKnownPosition = Duration.zero;
   Duration _itemKnownDuration = Duration.zero;
@@ -217,9 +220,15 @@ class PlaybackManager implements AudioOwnable {
 
   /// Host supplied measurement of the link to the active server, in bits per
   /// second. Consulted when nothing else caps the stream, so Auto means a
-  /// measured ceiling rather than no ceiling. Null answers keep the request
-  /// uncapped.
+  /// measured ceiling rather than no ceiling. It can run a speed test, so a
+  /// start only waits on it for a stream that will transcode. Null answers
+  /// keep the request uncapped.
   Future<int?> Function()? autoBitrateProvider;
+
+  /// The host's last saved measurement for the active server, or a starting
+  /// ceiling before the first. It never runs a test, so any start can use it
+  /// without waiting.
+  Future<int?> Function()? savedAutoBitrateProvider;
   DateTime? _playbackStartTime;
   bool _waitingForMedia = false;
   SubtitleRendererMode _subtitleRendererMode = SubtitleRendererMode.native;
@@ -663,7 +672,7 @@ class PlaybackManager implements AudioOwnable {
     required bool isMuted,
     bool reportImmediately = false,
   }) {
-    final level = volume.clamp(0, 100).toDouble();
+    final level = volume < 0 ? 0.0 : volume;
     _isMuted = isMuted;
     if (level != _volume) {
       _volume = level;
@@ -3222,14 +3231,22 @@ class PlaybackManager implements AudioOwnable {
       profile['MaxStreamingBitrate'] = _maxBitrateOverrideMbps! * 1000000;
     }
     var maxBitrate = profile['MaxStreamingBitrate'] as int?;
+    final autoBitrate = maxBitrate == null && autoBitrateProvider != null;
     int? measuredBitrate;
-    if (maxBitrate == null && autoBitrateProvider != null) {
-      final measured = await autoBitrateProvider!();
+    if (autoBitrate) {
+      // Only a stream that has to transcode, or a live one that can't be asked
+      // for again, waits on a measurement here. Anything else starts on the
+      // saved one and measures only if the server answers with a transcode.
+      final int? startingBitrate;
+      if (!enableDirectPlay || _isLiveTvItem(item)) {
+        startingBitrate = measuredBitrate = await autoBitrateProvider!();
+      } else {
+        startingBitrate = await savedAutoBitrateProvider?.call();
+      }
       if (sessionToken != _playbackSessionToken) return;
-      if (measured != null && measured > 0) {
-        measuredBitrate = measured;
+      if (startingBitrate != null && startingBitrate > 0) {
         maxBitrate = _autoBitrateCap(
-          measured,
+          startingBitrate,
           _sourceBitrate(item),
           enableDirectPlay,
         );
@@ -3373,18 +3390,26 @@ class PlaybackManager implements AudioOwnable {
       }
     }
 
-    // An item that came without its sources only learns the source bitrate
-    // from the server, so the ceiling is weighed again once it's known. A live
-    // stream is left as is, since asking again would open a second one.
-    if (measuredBitrate != null &&
+    // Auto measures once the server says it will transcode, and weighs the
+    // ceiling with the source bitrate the server names, since an item that
+    // came without its sources only learns it here. A live stream is left as
+    // is, since asking again would open a second one.
+    if (autoBitrate &&
         resolution.liveStreamId == null &&
         resolution.playMethod == StreamPlayMethod.transcode) {
-      final cap = _autoBitrateCap(
-        measuredBitrate,
-        resolution.sourceBitrate,
-        enableDirectPlay,
-      );
-      if (cap > maxBitrate!) {
+      measuredBitrate ??= await autoBitrateProvider!();
+      if (sessionToken != _playbackSessionToken) {
+        _cleanupPreemptedSession(item, resolution);
+        return;
+      }
+      final cap = measuredBitrate == null || measuredBitrate <= 0
+          ? maxBitrate
+          : _autoBitrateCap(
+              measuredBitrate,
+              resolution.sourceBitrate ?? _sourceBitrate(item),
+              enableDirectPlay,
+            );
+      if (cap != maxBitrate) {
         maxBitrate = cap;
         profile['MaxStreamingBitrate'] = cap;
         resolution = await resolve(cap);
@@ -3521,11 +3546,7 @@ class PlaybackManager implements AudioOwnable {
           }
         }
       } else if (_lastExplicitSubtitleLanguage != null) {
-        final matchedIdx = _matchStreamIndexByLanguage(
-          resolution.mediaStreams,
-          _lastExplicitSubtitleLanguage,
-          'Subtitle',
-        );
+        final matchedIdx = _matchLastExplicitSubtitle(resolution.mediaStreams);
         if (matchedIdx != null && _subtitleStreamIndex != matchedIdx) {
           _subtitleStreamIndex = matchedIdx;
           if (resolution.playMethod == StreamPlayMethod.transcode) {
@@ -3605,6 +3626,7 @@ class PlaybackManager implements AudioOwnable {
         );
         if (stream.isNotEmpty) {
           _lastExplicitSubtitleLanguage = _extractLanguage(stream);
+          _lastExplicitSubtitleStream = stream;
         }
       }
     }
@@ -4100,7 +4122,9 @@ class PlaybackManager implements AudioOwnable {
               isPaused: state.isPaused,
               audioStreamIndex: _audioStreamIndex,
               subtitleStreamIndex: _subtitleStreamIndex,
-              volumeLevel: _volume.round(),
+              // The server's scale stops at 100, so a boosted player reads as
+              // full volume there.
+              volumeLevel: _volume.clamp(0, 100).round(),
               isMuted: _isMuted,
             )
             .then<void>(
@@ -4141,18 +4165,22 @@ class PlaybackManager implements AudioOwnable {
     final service = generation.service;
     if (service == null) return;
     try {
-      unawaited(
-        service
-            .onPlaybackStop(
-              generation.item,
-              generation.resolution,
-              generation.stopPosition,
-              releaseLiveStream: _claimLiveStreamRelease(generation.resolution),
-            )
-            .catchError((_) {}),
-      );
+      _lastStopReport = service
+          .onPlaybackStop(
+            generation.item,
+            generation.resolution,
+            generation.stopPosition,
+            releaseLiveStream: _claimLiveStreamRelease(generation.resolution),
+          )
+          .catchError((_) {});
     } catch (_) {}
   }
+
+  Future<void> _lastStopReport = Future<void>.value();
+
+  /// The latest stop report, for anything about to close the app to wait on
+  /// so the server keeps the resume point.
+  Future<void> get lastStopReport => _lastStopReport;
 
   /// True only the first time it is asked for [resolution], so a session
   /// makes at most one live stream release attempt however many stops it
@@ -4908,6 +4936,7 @@ class PlaybackManager implements AudioOwnable {
         );
         if (selectedStream.isNotEmpty) {
           _lastExplicitSubtitleLanguage = _extractLanguage(selectedStream);
+          _lastExplicitSubtitleStream = selectedStream;
         }
       }
     } else {
@@ -5610,17 +5639,16 @@ class PlaybackManager implements AudioOwnable {
           _issuePlaybackStop(progressGeneration);
         } else {
           try {
-            unawaited(
-              _service
-                      ?.onPlaybackStop(
-                        reportItem,
-                        resolution,
-                        pos,
-                        releaseLiveStream: _claimLiveStreamRelease(resolution),
-                      )
-                      .catchError((_) {}) ??
-                  Future<void>.value(),
-            );
+            _lastStopReport =
+                _service
+                    ?.onPlaybackStop(
+                      reportItem,
+                      resolution,
+                      pos,
+                      releaseLiveStream: _claimLiveStreamRelease(resolution),
+                    )
+                    .catchError((_) {}) ??
+                Future<void>.value();
           } catch (_) {}
         }
         if (releaseServerResources &&
@@ -5714,6 +5742,20 @@ class PlaybackManager implements AudioOwnable {
     return const [];
   }
 
+  // Matching on language alone takes the first track in it, often a forced
+  // one listed ahead of the full track the viewer picked.
+  int? _matchLastExplicitSubtitle(List<Map<String, dynamic>> streams) {
+    final picked = _lastExplicitSubtitleStream;
+    return _matchStreamIndexByLanguage(
+      streams,
+      _lastExplicitSubtitleLanguage,
+      'Subtitle',
+      preferredIndex: picked?['Index'] as int?,
+      preferredTitle: _extractTrackTitle(picked),
+      preferredForced: picked == null ? null : _isForcedStream(picked),
+    );
+  }
+
   void _translateTrackSelectionsForNewItem(dynamic item) {
     final newStreams = _extractMediaStreams(item);
     if (newStreams.isEmpty) {
@@ -5741,11 +5783,7 @@ class PlaybackManager implements AudioOwnable {
     if (_lastExplicitSubtitleEnabled == false) {
       _subtitleStreamIndex = -1;
     } else if (_lastExplicitSubtitleLanguage != null) {
-      _subtitleStreamIndex = _matchStreamIndexByLanguage(
-        newStreams,
-        _lastExplicitSubtitleLanguage,
-        'Subtitle',
-      );
+      _subtitleStreamIndex = _matchLastExplicitSubtitle(newStreams);
     } else {
       _subtitleStreamIndex = null;
     }
@@ -5911,8 +5949,20 @@ int? _matchStreamIndexByLanguage(
   String type, {
   int? preferredIndex,
   String? preferredTitle,
+  bool? preferredForced,
 }) {
-  final candidates = streams.where((s) => s['Type'] == type).toList();
+  var candidates = streams.where((s) => s['Type'] == type).toList();
+  // A forced track only covers the foreign lines, so it can't stand in for a
+  // full one in the same language, nor the other way round.
+  if (preferredForced != null) {
+    final sameKind = candidates
+        .where(
+          (s) =>
+              _isForcedStream(s) == preferredForced && _languagesMatch(s, lang),
+        )
+        .toList();
+    if (sameKind.isNotEmpty) candidates = sameKind;
+  }
   // Tier 1: exact index that also language-matches.
   if (preferredIndex != null) {
     final i = candidates.indexWhere(
@@ -5953,6 +6003,16 @@ String? _extractLanguage(Map? stream) {
     }
   }
   return lang;
+}
+
+// Plenty of files only say forced in the track title and leave the flag off.
+final _forcedTitle = RegExp(r'(?<!non[\s-])\bforced\b');
+
+bool _isForcedStream(Map<dynamic, dynamic> stream) {
+  if (stream['IsForced'] == true) return true;
+  return _forcedTitle.hasMatch(
+    '${stream['DisplayTitle'] ?? ''} ${stream['Title'] ?? ''}'.toLowerCase(),
+  );
 }
 
 /// Returns the most descriptive non-empty title for an audio stream,

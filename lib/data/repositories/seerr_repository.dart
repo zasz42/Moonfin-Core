@@ -734,6 +734,7 @@ class SeerrRepository {
     int? profileId,
     String? rootFolder,
     int? serverId,
+    int? tvdbId,
   }) => _withClient(
     (c) async => SeerrRequest.fromJson(
       await c.createRequest(
@@ -745,6 +746,7 @@ class SeerrRepository {
         profileId: profileId,
         rootFolder: rootFolder,
         serverId: serverId,
+        tvdbId: tvdbId,
       ),
     ),
   );
@@ -936,6 +938,20 @@ class SeerrRepository {
         (c) async => SeerrServiceServerDetails.fromJson(
           await c.getSonarrServerDetails(serverId),
         ),
+      );
+
+  /// Sonarr's matches for a series TMDB has no TVDB id for. A match without a
+  /// TVDB id is no use for the request, so it is left out.
+  Future<List<SeerrSonarrSeries>> lookupSonarrSeries(int tmdbId) =>
+      _withClient(
+        (c) async => [
+          for (final e in await c.lookupSonarrSeries(tmdbId))
+            if (e is Map<String, dynamic> &&
+                e['tvdbId'] is num &&
+                (e['tvdbId'] as num) > 0 &&
+                e['title'] is String)
+              SeerrSonarrSeries.fromJson(e),
+        ],
       );
 
   Future<List<SeerrRadarrSettings>> getRadarrSettings() => _withClient(

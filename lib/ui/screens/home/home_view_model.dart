@@ -33,11 +33,13 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/seerr_repository.dart';
+import '../../../data/repositories/tmdb_repository.dart';
 import '../../../data/services/plugin_sync_service.dart';
 import '../../../data/services/seerr/seerr_api_models.dart';
 import '../../../data/services/seerr/seerr_discover_sliders.dart';
 import '../../../data/utils/bounded_concurrency.dart';
 import '../../../util/calendar_days.dart';
+import '../../../util/date_format_util.dart';
 import '../../../util/game_library.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/server_url.dart';
@@ -75,9 +77,23 @@ class HomeViewModel extends ChangeNotifier {
   final TvChannelsService _tvChannels = TvChannelsService();
 
   List<HomeRow> _rows = [];
-  List<HomeRow> get rows => _emptySectionIds.isEmpty
-      ? _rows
-      : _rows.where((row) => !_isEmptySectionPlaceholder(row)).toList();
+  List<HomeRow> get rows {
+    final base = _emptySectionIds.isEmpty
+        ? _rows
+        : _rows.where((row) => !_isEmptySectionPlaceholder(row)).toList();
+    final party = _watchPartyRow;
+    return party == null ? base : [party, ...base];
+  }
+
+  /// The Watch Parties row, first while rooms exist. It isn't one of the
+  /// layout's sections, so it never reaches the row cache.
+  HomeRow? _watchPartyRow;
+
+  void setWatchPartyRow(HomeRow? row) {
+    if (identical(row, _watchPartyRow)) return;
+    _watchPartyRow = row;
+    notifyListeners();
+  }
 
   /// Placeholder ids of sections expected to come back empty, because their
   /// last load did or a cold start found nothing cached for them. Their
@@ -90,6 +106,8 @@ class HomeViewModel extends ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  Future<void> _loadDone = Future<void>.value();
+  Future<void> _bgMerge = Future<void>.value();
   bool _bgMergeInFlight = false;
   bool _bgResumeRefreshInFlight = false;
   bool _reloadRequestedWhileLoading = false;
@@ -113,6 +131,7 @@ class HomeViewModel extends ChangeNotifier {
   /// ask Moonbase again. The daily refresh clears it, which is when the server's
   /// shuffle changes too.
   Map<String, dynamic>? _seasonalMemo;
+  String? _seasonalMemoKey;
 
   String get _serverId => _client.baseUrl;
   MediaBarViewModel get mediaBarViewModel => _mediaBarViewModel;
@@ -397,6 +416,8 @@ class HomeViewModel extends ChangeNotifier {
     newSectionsOnly = newSectionsOnly && _rows.isNotEmpty;
     if (newSectionsOnly) preserveExisting = true;
     _isLoading = true;
+    final done = Completer<void>();
+    _loadDone = done.future;
     if (!newSectionsOnly) {
       _mediaBarViewModel.load(force: forceRefresh);
       _rowOffsets.clear();
@@ -747,6 +768,7 @@ class HomeViewModel extends ChangeNotifier {
       _tvChannels.update();
     } finally {
       _isLoading = false;
+      done.complete();
       notifyListeners();
       if (_reloadRequestedWhileLoading) {
         final nextPreserveExisting = _pendingReloadPreserveExisting;
@@ -1063,8 +1085,11 @@ class HomeViewModel extends ChangeNotifier {
   /// pagination, scroll, and focus state) untouched. A full [refresh] still runs
   /// on the Home button, pull-to-refresh, cold start, and periodic refresh.
   Future<void> refreshResumeAndNextUp() async {
-    // A full load already covers these rows, so don't compete with it.
-    if (_isLoading) return;
+    // A full load can start before the server has the playback stop and fetch
+    // the old rows, so wait for it to finish and fetch again.
+    while (_isLoading) {
+      await _loadDone;
+    }
 
     // A row that came back empty was dropped, so there's no row to refresh in
     // place. Loading it as a new section brings it back once it has items.
@@ -1077,6 +1102,8 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     if (_prefs.effectiveMergeContinueWatchingNextUp) {
+      // The full load starts a merged fetch of its own, so wait for that first.
+      await _bgMerge;
       await _loadResumeAndNextUpInBackground();
       return;
     }
@@ -1642,22 +1669,23 @@ class HomeViewModel extends ChangeNotifier {
             .get(UserPreferences.studiosRowSortOrder)
             .apiValue;
         final selectedIds = _prefs.get(UserPreferences.studiosRowSelectedIds);
-        return [
-          _multiServerEnabled
-              ? await _multiServerRepo.getAggregatedStudios(
-                  sortBy: studiosSortBy,
-                  sortOrder: studiosSortOrder,
-                  selectedIds: selectedIds,
-                  title: l10n.studios,
-                )
-              : await _dataSource.loadStudios(
-                  _serverId,
-                  sortBy: studiosSortBy,
-                  sortOrder: studiosSortOrder,
-                  selectedIds: selectedIds,
-                  title: l10n.studios,
-                ),
-        ];
+        final logoUrls = GetIt.instance<TmdbRepository>().getStudioLogoUrls();
+        final studiosRow = _multiServerEnabled
+            ? await _multiServerRepo.getAggregatedStudios(
+                sortBy: studiosSortBy,
+                sortOrder: studiosSortOrder,
+                selectedIds: selectedIds,
+                title: l10n.studios,
+              )
+            : await _dataSource.loadStudios(
+                _serverId,
+                sortBy: studiosSortBy,
+                sortOrder: studiosSortOrder,
+                selectedIds: selectedIds,
+                title: l10n.studios,
+              );
+        attachStudioLogoUrls(studiosRow.items, await logoUrls);
+        return [studiosRow];
       case HomeSectionType.libraryTilesSmall:
         return [
           _multiServerEnabled
@@ -2532,7 +2560,7 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> _loadResumeAndNextUpInBackground() {
     if (_bgMergeInFlight) return Future<void>.value();
     _bgMergeInFlight = true;
-    return () async {
+    return _bgMerge = () async {
       try {
         // Fetched side by side but tolerated separately. A server that is
         // slow to answer one of these must not take the other down with it,
@@ -3662,17 +3690,20 @@ class HomeViewModel extends ChangeNotifier {
       if (api is ServerHomeSectionsApi) {
         return await _loadServerSeasonalRow(api as ServerHomeSectionsApi);
       }
-      if (forceRefresh) _seasonalMemo = null;
       final sync = GetIt.instance<PluginSyncService>();
+      final country = seasonalCountryParam(
+        _prefs.get(UserPreferences.seasonalRowCountry),
+        deviceCountry: deviceCountryCode(),
+      );
+      final allYear = _prefs.get(UserPreferences.seasonalRowAllYear);
+      final memoKey = '$country|$allYear';
+      if (forceRefresh || memoKey != _seasonalMemoKey) _seasonalMemo = null;
       var body = _seasonalMemo;
       if (body == null) {
-        final country = seasonalCountryParam(
-          _prefs.get(UserPreferences.seasonalRowCountry),
-          deviceCountry: deviceCountryCode(),
-        );
-        body = await sync.fetchSeasonalRow(_client, country: country);
+        body = await sync.fetchSeasonalRow(_client, country: country, allYear: allYear);
         if (body == null) return const [];
         _seasonalMemo = body;
+        _seasonalMemoKey = memoKey;
       }
 
       final mapped = mapSeasonalResponse(
@@ -4479,16 +4510,8 @@ return _CalendarItemWithDate(
   static String sonarrAirDay(DateTime airDateUtc) =>
       _formatDateHuman(airDateUtc.toLocal());
 
-  static String _formatDateHuman(DateTime date) {
-try {
-      return DateFormat.MMMd(currentAppLocalizations().localeName).format(date);
-    } catch (_) {
-      // The app loads the date data for its language at startup. Without it,
-      // in tests or for a language intl has no data for, fall back to English
-      // rather than failing the whole row.
-      return DateFormat.MMMd('en_US').format(date);
-    }
-  }
+static String _formatDateHuman(DateTime date) =>
+      formatShortDate(date, locale: currentAppLocalizations().localeName);
 
   Future<List<HomeRow>> _loadMergedCalendarRow({
     bool forceRefresh = false,
