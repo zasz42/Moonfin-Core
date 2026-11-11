@@ -2799,9 +2799,11 @@ class _ContentRowsState extends State<_ContentRows>
     final screenWidth = size.width;
 
     if (_isBannerMode()) {
-      // Compact banner: half the display width at 21:9 proportions (the
-      // Upcoming Releases rail takes the other half when enabled), so the
-      // layout slot tracks the responsive card size. Full banner stays fixed.
+      // Compact banner: its height still derives from half the display
+      // width at the legacy 21:9 proportions, while the banner itself
+      // frames the title's 16:9 backdrop (the Upcoming Releases rail takes
+      // everything past it when enabled), so the layout slot tracks the
+      // responsive card size. Full banner stays fixed.
       if (widget.prefs.get(UserPreferences.compactBannerEnabled)) {
         return BannerMediaBar.compactHeightFor(
           screenWidth,

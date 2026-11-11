@@ -55,8 +55,10 @@ class UpcomingReleasesBarState extends State<UpcomingReleasesBar> {
   static const _cacheDuration = Duration(minutes: 5);
 
   /// Title posters visible across the rail. Poster size derives from the
-  /// rail width so exactly this many fit on every display size.
-  static const visiblePosterCount = 7;
+  /// rail width so exactly this many fit on every display size. The rail
+  /// takes everything past the compact banner's 16:9 frame, which is what
+  /// leaves room for eight.
+  static const visiblePosterCount = 8;
 
   /// Gap between posters; ([visiblePosterCount] - 1) gaps fit the rail.
   static const itemSpacing = 12.0;

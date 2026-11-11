@@ -58,6 +58,11 @@ class BannerMediaBar extends StatefulWidget {
   static const double fixedHeight = 280.0;
   static const double aspectRatio = 21 / 9;
 
+  /// The compact banner frames the title's logo-free 16:9 backdrop instead
+  /// of the 21:9 banner art, so the title logo overlays the text instead of
+  /// being painted into the image.
+  static const double compactAspectRatio = 16 / 9;
+
   /// Horizontal gap between the compact banner and the Upcoming Releases
   /// rail when both are shown.
   static const double compactGap = 24.0;
@@ -65,9 +70,24 @@ class BannerMediaBar extends StatefulWidget {
   /// Outer horizontal padding the compact row sits inside (16 on each side).
   static const double compactHorizontalPadding = 32.0;
 
-  /// Compact banner width for [screenWidth]: half the display width (less
-  /// padding and, when the rail is shown, the gap).
+  /// Compact banner width for [screenWidth]: the 16:9 frame that matches
+  /// the compact banner height (which still derives from half the display
+  /// width at the legacy 21:9 proportions — see [compactHeightFor]). The
+  /// narrower frame shifts the Upcoming Releases rail left and leaves it
+  /// the rest of the display (see [compactUpcomingWidthFor]).
   static double compactWidthFor(
+    double screenWidth, {
+    required bool withUpcoming,
+  }) {
+    return compactHeightFor(screenWidth, withUpcoming: withUpcoming) *
+        compactAspectRatio;
+  }
+
+  /// Compact banner height for [screenWidth]: half the display width (less
+  /// padding and, when the rail is shown, the gap) at the legacy 21:9
+  /// proportions, so the media bar's height — and the layout slot the home
+  /// screen reserves for it — stays where it was.
+  static double compactHeightFor(
     double screenWidth, {
     required bool withUpcoming,
   }) {
@@ -76,17 +96,16 @@ class BannerMediaBar extends StatefulWidget {
           0.0,
           double.infinity,
         ) /
-        2);
+        2) /
+        aspectRatio;
   }
 
-  /// Compact banner height for [screenWidth]: the half-width above at 21:9
-  /// proportions.
-  static double compactHeightFor(
-    double screenWidth, {
-    required bool withUpcoming,
-  }) {
-    return compactWidthFor(screenWidth, withUpcoming: withUpcoming) /
-        aspectRatio;
+  /// Width left for the Upcoming Releases rail beside the compact banner:
+  /// everything past the banner frame and the gap.
+  static double compactUpcomingWidthFor(double screenWidth) {
+    final bannerWidth = compactWidthFor(screenWidth, withUpcoming: true);
+    return (screenWidth - compactHorizontalPadding - compactGap - bannerWidth)
+        .clamp(0.0, double.infinity);
   }
 
   @override
@@ -417,8 +436,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         !isMobile && navbarPosition == NavbarPosition.left ? 56.0 : 0.0;
     final showArrows = items.length > 1 && PlatformDetection.useDesktopUi;
 
-    // Compact banner: half the display width at 21:9 proportions; the
-    // Upcoming Releases rail takes the other half when enabled.
+    // Compact banner: the title's logo-free 16:9 backdrop at the legacy
+    // 21:9 height; the Upcoming Releases rail takes everything past it
+    // when enabled.
     final showUpcomingRow = _compact && _showUpcoming;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final compactBannerWidth = BannerMediaBar.compactWidthFor(
@@ -429,6 +449,11 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       screenWidth,
       withUpcoming: showUpcomingRow,
     );
+    // The 16:9 backdrop carries no painted title, so the title logo stacks
+    // above the text in the banner's lower left. The 21:9 banner art does
+    // carry the title, so the full-width banner keeps it hidden. Falls back
+    // to the banner art when the item has no backdrop.
+    final useLogoFreeArt = _compact && item.backdropUrl != null;
 
     // Build the banner frame (used for both compact and full-width)
     final bannerFrame = AnimatedContainer(
@@ -517,7 +542,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (bannerUrl != null)
+                        if (useLogoFreeArt)
+                          _compactBackdrop(item)
+                        else if (bannerUrl != null)
                           _banner(bannerUrl, item)
                         else
                           _backdrop(item),
@@ -538,8 +565,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           child: _content(
                             context,
                             item,
-                            // The banner carries the title already.
-                            showTitle: bannerUrl == null,
+                            // The 16:9 backdrop carries no title, so the
+                            // logo stacks above the text. The banner art
+                            // carries it already.
+                            showTitle: useLogoFreeArt || bannerUrl == null,
                           ),
                         ),
                         if (items.length > 1)
@@ -603,7 +632,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       // The rail matches the banner height on every platform and is pinned
       // to the same bottom edge. Full height (not the old TV 0.75) leaves
       // room for the width-sized posters plus their title/subtitle lines.
+      // The narrower 16:9 banner leaves the rail everything past it, which
+      // is what lets eight posters fit.
       final upcomingHeight = compactBannerHeight;
+      final upcomingWidth = BannerMediaBar.compactUpcomingWidthFor(screenWidth);
       final upcoming = UpcomingReleasesBar(
         key: widget.upcomingKey,
         height: upcomingHeight,
@@ -632,7 +664,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
             ),
             const SizedBox(width: BannerMediaBar.compactGap),
             SizedBox(
-              width: compactBannerWidth,
+              width: upcomingWidth,
               height: upcomingHeight,
               child: upcoming,
             ),
@@ -648,8 +680,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   /// The banner with no titles to show, kept alive only for the Upcoming
   /// Releases rail.
   ///
-  /// The layout matches the titled case exactly — the rail takes the other half
-  /// of the display at the same 21:9 banner height and the same bottom edge —
+  /// The layout matches the titled case exactly — the rail takes everything
+  /// past the banner frame at the same height and the same bottom edge —
   /// with the banner half left as an empty (unfocusable, non-interactive)
   /// frame, since there is nothing in it to open or play.
   Widget _buildBlankBannerWithRail(BuildContext context) {
@@ -668,6 +700,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       screenWidth,
       withUpcoming: true,
     );
+    final upcomingWidth = BannerMediaBar.compactUpcomingWidthFor(screenWidth);
 
     final blankBanner = DecoratedBox(
       decoration: BoxDecoration(
@@ -706,7 +739,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
           ),
           const SizedBox(width: BannerMediaBar.compactGap),
           SizedBox(
-            width: compactBannerWidth,
+            width: upcomingWidth,
             height: compactBannerHeight,
             child: upcoming,
           ),
@@ -765,6 +798,33 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       ),
     ],
   );
+
+  /// The compact banner's title-free 16:9 backdrop whole — it carries no
+  /// painted title, so nothing is cropped away and the title logo overlays
+  /// the text instead — over a blurred copy that fills whatever space its
+  /// shape leaves.
+  Widget _compactBackdrop(MediaBarSlideItem item) {
+    final url = item.backdropUrl!;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        BoundedNetworkImage(
+          imageUrl: url,
+          scale: 0.3,
+          minWidth: 320,
+          maxWidth: 640,
+          blurSigma: 24,
+        ),
+        BoundedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.contain,
+          minWidth: 640,
+          maxWidth: 1280,
+          errorBuilder: (_, _, _) => _backdrop(item),
+        ),
+      ],
+    );
+  }
 
   Widget _content(
     BuildContext context,
