@@ -467,10 +467,6 @@ class SessionRepository {
 
     await _pluginSyncService.syncOnLogin(client, serverId: serverId);
 
-    // Moonbase for Plex has no push or Seerr proxy, and unlike Silo, Plex has
-    // no requests of its own to set up.
-    if (client.serverType == ServerType.plex) return;
-
     // Register the FCM token now that a session exists. Startup registration
     // bails before login, so this is where closed-app push actually enrolls.
     if (PlatformDetection.isMobile) {

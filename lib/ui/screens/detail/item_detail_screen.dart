@@ -29,6 +29,7 @@ import '../../../data/repositories/tmdb_repository.dart';
 import '../../../data/services/background_service.dart';
 import '../../../data/services/auto_download_service.dart';
 import '../../../data/services/download_service.dart';
+import '../../../data/utils/video_range_label.dart';
 import '../../../data/models/download_quality.dart';
 import '../../../data/database/offline_database.dart';
 import '../../../data/models/lyrics.dart';
@@ -92,6 +93,7 @@ import '../../widgets/logo_view.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/marquee_text.dart';
 import '../../widgets/seerr/seerr_cancel_request_dialog.dart';
+import '../../widgets/seerr/seerr_different_release_dialog.dart';
 import '../../widgets/seerr/seerr_collection_banner.dart';
 import '../../widgets/seerr/seerr_image_urls.dart';
 import '../../widgets/seerr/seerr_item_chips.dart';
@@ -1122,6 +1124,14 @@ class _DetailContentState extends State<_DetailContent> {
   FocusNode? _publishedNavbarTarget;
   final Map<FocusNode, ScrollController> _sectionScrollControllers =
       <FocusNode, ScrollController>{};
+
+  /// Where a row rests when focus enters or leaves it, for a row that doesn't
+  /// start at its first item. An episode's season row starts on that episode.
+  final Map<FocusNode, double> _sectionRestOffsets = <FocusNode, double>{};
+
+  /// The episode whose season row has been scrolled to it, so that happens
+  /// once per episode rather than on every rebuild.
+  String? _episodesRowPlacedFor;
   final Set<FocusNode> _pendingSectionFocusRetries = <FocusNode>{};
   final FocusNode _firstChapterFocusNode = FocusNode(
     debugLabel: 'detailFirstChapter',
@@ -1237,18 +1247,24 @@ class _DetailContentState extends State<_DetailContent> {
     return controller;
   }
 
-  void _resetSectionHorizontalOffset(FocusNode? sectionFocusNode) {
+  /// Returns whether the row was there to move.
+  bool _resetSectionHorizontalOffset(FocusNode? sectionFocusNode) {
     if (sectionFocusNode == null) {
-      return;
+      return false;
     }
     final controller = _sectionScrollControllers[sectionFocusNode];
     if (controller == null || !controller.hasClients) {
-      return;
+      return false;
     }
-    final minOffset = controller.position.minScrollExtent;
-    if (controller.offset != minOffset) {
-      controller.jumpTo(minOffset);
+    final position = controller.position;
+    final restOffset =
+        (position.minScrollExtent +
+                (_sectionRestOffsets[sectionFocusNode] ?? 0))
+            .clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (controller.offset != restOffset) {
+      controller.jumpTo(restOffset);
     }
+    return true;
   }
 
   bool _isLaidOutFocusNode(FocusNode target) {
@@ -1433,7 +1449,12 @@ class _DetailContentState extends State<_DetailContent> {
     }
 
     _scheduleSingleSectionFocusRetry(target, alignment: alignment);
-    return KeyEventResult.ignored;
+    // A row resting past its start can need a frame to build the card it was
+    // just moved to. The press is spoken for meanwhile, so the default
+    // traversal doesn't send focus somewhere else first.
+    return _sectionRestOffsets.containsKey(target)
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
   }
 
   KeyEventResult Function(int index, KeyEvent event)? _buildVerticalRowHandler({
@@ -2788,6 +2809,21 @@ class _DetailContentState extends State<_DetailContent> {
         ? viewModel.episodes[currentEpisodeIndex + 1]
         : null;
 
+    // The season row starts on this episode, both where it rests and where
+    // focus lands coming down into it.
+    final startIndex = currentEpisodeIndex < 0 ? 0 : currentEpisodeIndex;
+    _sectionRestOffsets[episodesFocusNode] =
+        startIndex * _EpisodesRow.strideFor(context);
+    if (startIndex > 0 && _episodesRowPlacedFor != item.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Until the row is built there's nothing to move, so a later build
+        // tries again.
+        if (mounted && _resetSectionHorizontalOffset(episodesFocusNode)) {
+          _episodesRowPlacedFor = item.id;
+        }
+      });
+    }
+
     final specs = <_SectionSpec>[
       ?_metadataSpec(item, 'detailEpisodeMetadata'),
       ..._chapterAndExtraSpecs(context, item),
@@ -2816,6 +2852,7 @@ class _DetailContentState extends State<_DetailContent> {
                 ctrl,
               ),
               firstItemFocusNode: episodesFocusNode,
+              focusIndex: startIndex,
               onItemKeyEvent: _sectionRowHandler(
                 episodesFocusNode,
                 links,
@@ -6505,19 +6542,20 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     });
   }
 
-  void _ensureTvPlayFocus(String itemId) {
+  /// [node] defaults to Play's. A person page leads with Favorite instead.
+  void _ensureTvPlayFocus(String itemId, {FocusNode? node}) {
     if (PlatformDetection.useMobileUi) return;
     if (_tvPlayFocusAppliedForItemId == itemId) return;
-    _tryRequestPlayFocus(itemId, 0);
+    _tryRequestPlayFocus(itemId, 0, node);
   }
 
-  void _tryRequestPlayFocus(String itemId, int attempt) {
+  void _tryRequestPlayFocus(String itemId, int attempt, FocusNode? target) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Inside the retry rather than on the way in, since it runs for
       // seconds and a panel can open partway through it.
       if (!canClaimInitialFocus(context)) return;
-      final node = _tvPlayFocusNode;
+      final node = target ?? _tvPlayFocusNode;
       if (node.context != null && node.canRequestFocus) {
         node.requestFocus();
         if (node.hasFocus) {
@@ -6529,7 +6567,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       if (attempt + 1 >= 60) return;
       Future<void>.delayed(const Duration(milliseconds: 50), () {
         if (!mounted) return;
-        _tryRequestPlayFocus(itemId, attempt + 1);
+        _tryRequestPlayFocus(itemId, attempt + 1, target);
       });
     });
   }
@@ -6983,8 +7021,28 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           prefs,
         );
 
+  // Held back for a moment while the late lookups land, so the row shows with
+  // its buttons at once instead of growing one after the rest. It still lays
+  // out, so nothing below it moves when it fades in. Focus is kept out too, or
+  // OK on a remote would press an invisible Play. The rebuild that shows the
+  // row asks for Play's focus again.
   @override
   Widget build(BuildContext context) {
+    final settled = viewModel.actionsSettled;
+    return ExcludeFocus(
+      excluding: !settled,
+      child: IgnorePointer(
+        ignoring: !settled,
+        child: AnimatedOpacity(
+          opacity: settled ? 1 : 0,
+          duration: const Duration(milliseconds: 100),
+          child: _buildActions(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
     final featuredBook = viewModel.seriesFeaturedBook;
     final item = featuredBook ?? viewModel.item!;
     final l10n = AppLocalizations.of(context);
@@ -7004,13 +7062,19 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           compact &&
           (item.tmdbId?.isNotEmpty ?? false) &&
           GetIt.instance<PluginSyncService>().seerrAvailable;
+      final favoriteFocusNode = widget.tvPlayFocusNode ?? _primaryFocusNode(0);
+      // Autofocus alone tries once, and misses while the row is still held
+      // back. With no heart Display has this node, so it needs the same help.
+      if (autofocusPlay) {
+        _ensureTvPlayFocus(item.id, node: favoriteFocusNode);
+      }
       final normalizedPrimaryButtons = [
         if (canFavorite)
           _DetailActionButton(
             label: item.isFavorite ? l10n.favorited : l10n.favorite,
             icon: Icons.favorite,
             isPrimary: !compact,
-            focusNode: widget.tvPlayFocusNode ?? _primaryFocusNode(0),
+            focusNode: favoriteFocusNode,
             autofocus: autofocusPlay,
             onPressed: viewModel.toggleFavorite,
             isActive: item.isFavorite,
@@ -7542,7 +7606,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
     // Taking a request back rides in the same arrangement slot as the track's
     // request button, so moving or hiding seerrRequest carries its cancel
-    // along with it.
+    // along with it. Swapping a stuck download for another release rides with
+    // Manage Requests the same way, since both are an admin's request tools,
+    // and that keeps the synced button arrangement free of a new id.
     final cancelByButton = <DetailButton, Widget>{
       if (shows(DetailButton.seerrRequest))
         DetailButton.seerrRequest: ?_seerrCancelButton(
@@ -7557,6 +7623,20 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           seerr,
           l10n,
           is4k: true,
+        ),
+      // Only on the title itself. A season or episode page shows the series'
+      // download, and offering there to swap another season's pack would
+      // surprise.
+      if (seerr != null &&
+          item.type != 'Season' &&
+          item.type != 'Episode' &&
+          seerr.state.hd.replaceableDownload != null &&
+          shows(DetailButton.seerrManage))
+        DetailButton.seerrManage: _DetailActionButton(
+          label: l10n.seerrGetDifferentRelease,
+          icon: Icons.find_replace,
+          onPressed: () =>
+              showSeerrDifferentReleaseDialog(context: context, vm: seerr),
         ),
     };
 
@@ -11689,16 +11769,11 @@ String? resolutionFromStreams(List<Map<String, dynamic>> streams) {
   return 'SD';
 }
 
-String? hdrFromStreams(List<Map<String, dynamic>> streams) {
+/// The range badges for the video stream (`DV P8`, `HDR10+`, `SDR`), or none
+/// when there's no video stream or it carries no range at all.
+List<String> hdrBadgesFromStreams(List<Map<String, dynamic>> streams) {
   final video = streams.where((s) => s['Type'] == 'Video').firstOrNull;
-  if (video == null) {
-    return null;
-  }
-  final hdr = video['VideoRangeType'] as String?;
-  if (hdr == null || hdr.isEmpty) {
-    return null;
-  }
-  return hdr.toUpperCase();
+  return video == null ? const [] : videoRangeBadges(video);
 }
 
 String? audioLabelFromStreams(List<Map<String, dynamic>> streams) {
@@ -11733,8 +11808,14 @@ String? codecFromStreams(
   final badges = <String>[];
   final res = resolutionFromStreams(streams) ?? item.videoResolution;
   if (res != null) badges.add(res);
-  final hdr = hdrFromStreams(streams) ?? item.hdrType;
-  if (hdr != null) badges.add(hdr);
+  var hdr = hdrBadgesFromStreams(streams);
+  // The item's own streams are its first version's, so they only stand in for
+  // that one.
+  if (hdr.isEmpty &&
+      selectedMediaSource?['Id'] == item.mediaSources.firstOrNull?['Id']) {
+    hdr = hdrBadgesFromStreams(item.mediaStreams);
+  }
+  badges.addAll(hdr);
   final vcodec =
       codecFromStreams(streams, 'Video') ?? item.videoCodec?.toUpperCase();
   if (vcodec != null) badges.add(vcodec);
@@ -13078,8 +13159,8 @@ class _FrostedButtonFaceState extends State<_FrostedButtonFace> {
     final size = compact ? 46.0 : 60.0;
 
     if (widget.isPrimary) {
-      // Filled the way Modern fills its labeled Play, in the accent until it
-      // has focus.
+      // Filled in the accent until it has focus. The circles beside it have
+      // no fill of their own to match, so Play keeps one on the glass.
       final ink = focused
           ? AppColorScheme.onButtonFocused
           : AppColorScheme.onAccent;
@@ -13313,10 +13394,16 @@ class _DetailActionButtonState extends State<_DetailActionButton>
     // wrap beneath); landscape keeps it content-width, inline with them.
     final fullWidth = widget.isPrimary && (host?.fullWidthPrimary ?? false);
 
+    // Only a compact layout, which has no focus to show, keeps Play filled
+    // with the accent. Everywhere else it looks like the buttons beside it
+    // until it has focus, or a white accent would read as focused next to the
+    // one that is.
+    final accentPrimary = widget.isPrimary && isMobile;
+
     if (fullWidth) {
       final fg = showHighlight
           ? AppColorScheme.onButtonFocused
-          : AppColorScheme.onAccent;
+          : (accentPrimary ? AppColorScheme.onAccent : labelColor);
       final heartColor = (widget.icon == Icons.favorite && widget.isActive)
           ? const Color(0xFFE50914)
           : fg;
@@ -13328,11 +13415,17 @@ class _DetailActionButtonState extends State<_DetailActionButton>
         decoration: BoxDecoration(
           color: showHighlight
               ? AppColorScheme.buttonFocused
-              : AppColorScheme.accent,
+              : (accentPrimary
+                    ? AppColorScheme.accent
+                    : Colors.white.withValues(alpha: 0.06)),
           borderRadius: AppRadius.circular(height / 2),
           border: Border.all(
-            color: showHighlight ? focusColor : Colors.transparent,
-            width: 3,
+            color: showHighlight
+                ? focusColor
+                : (accentPrimary
+                      ? Colors.transparent
+                      : AppColorScheme.onSurface.withValues(alpha: 0.35)),
+            width: showHighlight || accentPrimary ? 3 : 1.5,
           ),
         ),
         child: Row(
@@ -13361,16 +13454,6 @@ class _DetailActionButtonState extends State<_DetailActionButton>
       );
       return SizedBox(width: double.infinity, child: pillInner);
     }
-
-    // Only a compact layout or a labeled Play keeps it filled with the
-    // accent. Everywhere else it looks like the buttons beside it until it
-    // has focus.
-    final accentPrimary = widget.isPrimary && (isMobile || labeledPlay);
-    // On the accent fill the label takes the accent's text color like the
-    // icon does, since Neon Pulse's label color is the accent itself.
-    final labelOnPill = accentPrimary && !showHighlight
-        ? AppColorScheme.onAccent
-        : labelColor;
 
     final containerColor = showHighlight
         ? AppColorScheme.buttonFocused
@@ -13503,13 +13586,13 @@ class _DetailActionButtonState extends State<_DetailActionButton>
                     text: widget.label,
                     style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: labelOnPill,
+                          color: labelColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
                         ) ??
                         TextStyle(
-                          color: labelOnPill,
+                          color: labelColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           height: 1.1,
@@ -15586,6 +15669,11 @@ class DetailSeasonsRow extends StatelessWidget {
   }
 
   String? _seasonImageUrl(AggregatedItem season, {required bool isMobile}) {
+    // A season only Seerr knows of has no server artwork, just its TMDB poster.
+    if (season.serverId == 'seerr') {
+      final path = season.rawData['PosterPath'] as String?;
+      return path == null || path.isEmpty ? null : '$seerrPosterBase$path';
+    }
     final desktopScale = _desktopUiScale(prefs: prefs);
     final primaryHeight = isMobile ? 300 : (400 * desktopScale).round();
     final secondaryWidth = isMobile ? 200 : (260 * desktopScale).round();
@@ -15644,6 +15732,9 @@ class _EpisodesRow extends StatelessWidget {
   final ImageApi imageApi;
   final ScrollController? scrollController;
   final FocusNode? firstItemFocusNode;
+
+  /// The card that takes [firstItemFocusNode], so the row is entered there.
+  final int focusIndex;
   final KeyEventResult Function(int index, KeyEvent event)? onItemKeyEvent;
   final VoidCallback? onChanged;
 
@@ -15657,10 +15748,28 @@ class _EpisodesRow extends StatelessWidget {
     required this.imageApi,
     this.scrollController,
     this.firstItemFocusNode,
+    this.focusIndex = 0,
     this.onItemKeyEvent,
     this.onChanged,
     this.contextSeasonId,
   });
+
+  static const _compactCardWidth = 180.0;
+  static const _cardWidth = 220.0;
+  static const _compactGap = 8.0;
+  static const _gap = 12.0;
+
+  static double cardWidth({required bool isMobile}) =>
+      isMobile ? _compactCardWidth : _cardWidth * _desktopUiScale();
+
+  static double gap({required bool isMobile}) =>
+      isMobile ? _compactGap : _gap * _desktopUiScale();
+
+  /// One card and the gap after it, as [build] lays them out.
+  static double strideFor(BuildContext context) {
+    final isMobile = _isCompact(context);
+    return cardWidth(isMobile: isMobile) + gap(isMobile: isMobile);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15686,7 +15795,7 @@ class _EpisodesRow extends StatelessWidget {
         padding: const EdgeInsets.only(top: _kDetailRowTopInset),
         itemCount: episodes.length,
         separatorBuilder: (_, _) =>
-            SizedBox(width: isMobile ? 8 : 12 * desktopScale),
+            SizedBox(width: gap(isMobile: isMobile)),
         itemBuilder: (context, index) {
           final ep = episodes[index];
           final isCurrent = ep.id == currentEpisodeId;
@@ -15695,7 +15804,9 @@ class _EpisodesRow extends StatelessWidget {
             isCurrent: isCurrent,
             imageApi: imageApi,
             isMobile: isMobile,
-            focusNode: index == 0 ? firstItemFocusNode : null,
+            focusNode: index == focusIndex.clamp(0, episodes.length - 1)
+                ? firstItemFocusNode
+                : null,
             onKeyEvent: onItemKeyEvent == null
                 ? null
                 : (event) => onItemKeyEvent!(index, event),
@@ -15824,7 +15935,7 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
           onLongPress: _handleLongPress,
           onSecondaryTap: _handleLongPress,
           child: Container(
-            width: widget.isMobile ? 180.0 : 220.0 * desktopScale,
+            width: _EpisodesRow.cardWidth(isMobile: widget.isMobile),
             decoration: BoxDecoration(borderRadius: AppRadius.circular(8)),
             clipBehavior: Clip.antiAlias,
             child: Stack(

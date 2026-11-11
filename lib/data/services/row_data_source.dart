@@ -2384,17 +2384,20 @@ class RowDataSource {
           } catch (_) {}
           final showUserRatings = rowConfig['show_user_ratings'] == true;
 
-          final aggregatedItems = items.map((item) {
-            return AggregatedItem(
-              id: item.imdbId.isNotEmpty ? item.imdbId : item.tmdbId,
-              serverId: 'seerr',
-              rawData: {
-                ...item.cardData,
-                'UserRating': item.userRating ?? '',
-                'ShowUserRatings': showUserRatings,
-              },
-            );
-          }).toList();
+          final aggregatedItems = await withLibraryCopies(
+            serverId,
+            items.map((item) {
+              return AggregatedItem(
+                id: item.imdbId.isNotEmpty ? item.imdbId : item.tmdbId,
+                serverId: 'seerr',
+                rawData: {
+                  ...item.cardData,
+                  'UserRating': item.userRating ?? '',
+                  'ShowUserRatings': showUserRatings,
+                },
+              );
+            }).toList(),
+          );
           return HomeRow(
             id: rowId,
             title: title,
@@ -2441,6 +2444,192 @@ class RowDataSource {
           rowType: HomeRowType.pluginDynamic,
         );
     }
+  }
+
+  /// What an outside list entry keeps when it turns into its library copy:
+  /// the list's own sort and rating fields, which the library item lacks.
+  static const _listOnlyFields = ['Popularity', 'UserRating', 'ShowUserRatings'];
+
+  /// Swaps the outside list entries the library has for the library items,
+  /// matched by TMDB and IMDb id, so the card shows the server's own artwork
+  /// and opens the library page without going through Seerr. Only titles the
+  /// user can see are matched. An entry the library lacks, or whose lookup
+  /// fails, stays the outside entry it was.
+  Future<List<AggregatedItem>> withLibraryCopies(
+    String serverId,
+    List<AggregatedItem> items,
+  ) async {
+    final keys = [for (final item in items) _providerKeys(item.rawData)];
+    final wanted = {for (final itemKeys in keys) ...itemKeys};
+    if (wanted.isEmpty) return items;
+
+    final Map<String, Map<String, dynamic>> library;
+    try {
+      library = switch (_client.serverType) {
+        ServerType.emby => await _matchOnEmby(wanted),
+        ServerType.jellyfin => await _matchOnJellyfin(wanted),
+        // Plex lists its items without their Guids, so it has no provider ids to match on.
+        _ => const {},
+      };
+    } catch (e) {
+      debugPrint('[RowDataSource] Matching an outside list to the library failed: $e');
+      return items;
+    }
+    if (library.isEmpty) return items;
+
+    return [
+      for (var i = 0; i < items.length; i++)
+        switch (keys[i].map((key) => library[key]).nonNulls.firstOrNull) {
+          final local? => AggregatedItem(
+              id: local['Id'].toString(),
+              serverId: serverId,
+              rawData: {
+                ...local,
+                for (final key in _listOnlyFields)
+                  if (items[i].rawData[key] != null) key: items[i].rawData[key],
+              },
+            ),
+          null => items[i],
+        },
+    ];
+  }
+
+  /// How many ids one lookup asks for. A hundred keep the query string near
+  /// 3.5 KB, well below the 8 KB many proxies allow.
+  static const _libraryCopyBatch = 100;
+  static const _libraryCopyFields = '$_fields,ProviderIds';
+  static const _libraryIndexPage = 1000;
+  static const _libraryIndexTtl = Duration(minutes: 30);
+
+  ({String scope, DateTime at, Future<Map<String, String>> index})? _libraryIndex;
+
+  /// The keys a title is matched on, whatever case its provider names come
+  /// in. TMDB numbers movies and shows separately, so its id only names a
+  /// title together with the type.
+  static List<String> _providerKeys(Map data) {
+    var tmdb = '';
+    var imdb = '';
+    if (data['ProviderIds'] case final Map ids) {
+      for (final MapEntry(:key, :value) in ids.entries) {
+        switch (key.toString().toLowerCase()) {
+          case 'tmdb':
+            tmdb = value?.toString() ?? '';
+          case 'imdb':
+            imdb = value?.toString().toLowerCase() ?? '';
+        }
+      }
+    }
+    final type = data['Type'];
+    return [
+      if (tmdb.isNotEmpty && (type == 'Movie' || type == 'Series')) 'tmdb.$type.$tmdb',
+      if (imdb.isNotEmpty) 'imdb.$imdb',
+    ];
+  }
+
+  /// Emby filters by provider id itself, though it takes a TMDB id without
+  /// the type.
+  Future<Map<String, Map<String, dynamic>>> _matchOnEmby(Set<String> keys) =>
+      _libraryItemsByKey(
+        {
+          for (final key in keys)
+            key.startsWith('tmdb.') ? 'tmdb.${key.split('.').last}' : key,
+        }.toList(),
+        (batch) => _client.itemsApi.getItems(
+          recursive: true,
+          includeItemTypes: const ['Movie', 'Series'],
+          anyProviderIdEquals: batch.join(','),
+          // Bounds the answer from a server that ignores the filter.
+          limit: batch.length * 2,
+          fields: _libraryCopyFields,
+          enableTotalRecordCount: false,
+        ),
+      );
+
+  /// Jellyfin ignores a provider id filter and answers with the whole
+  /// library, so the titles are found in an index of it and fetched by id.
+  Future<Map<String, Map<String, dynamic>>> _matchOnJellyfin(Set<String> keys) async {
+    final index = await _libraryIndexFor();
+    final ids = {for (final key in keys) ?index[key]};
+    return _libraryItemsByKey(
+      ids.toList(),
+      (batch) => _client.itemsApi.getItems(
+        ids: batch,
+        fields: _libraryCopyFields,
+        enableTotalRecordCount: false,
+      ),
+    );
+  }
+
+  /// The user's movies and series by provider key. Rows loading together
+  /// share one read, and a failed read isn't kept, so the next load tries again.
+  Future<Map<String, String>> _libraryIndexFor() {
+    final scope = '${_client.baseUrl}|${_client.userId}';
+    final held = _libraryIndex;
+    if (held != null &&
+        held.scope == scope &&
+        DateTime.now().difference(held.at) < _libraryIndexTtl) {
+      return held.index;
+    }
+    final index = _readLibraryIndex();
+    _libraryIndex = (scope: scope, at: DateTime.now(), index: index);
+    unawaited(index.then<void>((_) {}, onError: (Object _) {
+      if (identical(_libraryIndex?.index, index)) _libraryIndex = null;
+    }));
+    return index;
+  }
+
+  Future<Map<String, String>> _readLibraryIndex() async {
+    final index = <String, String>{};
+    for (var start = 0;; start += _libraryIndexPage) {
+      final response = await _client.itemsApi.getItems(
+        recursive: true,
+        includeItemTypes: const ['Movie', 'Series'],
+        fields: 'ProviderIds',
+        imageTypeLimit: 0,
+        startIndex: start,
+        limit: _libraryIndexPage,
+        enableTotalRecordCount: false,
+      );
+      final page = response['Items'] as List? ?? const [];
+      for (final raw in page) {
+        if (raw is! Map || raw['Id'] == null) continue;
+        for (final key in _providerKeys(raw)) {
+          index.putIfAbsent(key, () => raw['Id'].toString());
+        }
+      }
+      if (page.length < _libraryIndexPage) return index;
+    }
+  }
+
+  /// Sends [request] for every batch of [values] at once and keys the items
+  /// that come back by provider key. A failed batch adds nothing, which leaves
+  /// only its own entries outside.
+  Future<Map<String, Map<String, dynamic>>> _libraryItemsByKey(
+    List<String> values,
+    Future<Map<String, dynamic>> Function(List<String> batch) request,
+  ) async {
+    Future<List> attempt(List<String> batch) async {
+      try {
+        return (await request(batch))['Items'] as List? ?? const [];
+      } catch (e) {
+        debugPrint('[RowDataSource] Library copies for an outside list failed: $e');
+        return const [];
+      }
+    }
+
+    final pages = await Future.wait([
+      for (var i = 0; i < values.length; i += _libraryCopyBatch)
+        attempt(values.skip(i).take(_libraryCopyBatch).toList()),
+    ]);
+    final found = <String, Map<String, dynamic>>{};
+    for (final raw in pages.expand((page) => page)) {
+      if (raw is! Map || raw['Id'] == null) continue;
+      final item = Map<String, dynamic>.from(raw);
+      for (final key in _providerKeys(item)) {
+        found.putIfAbsent(key, () => item);
+      }
+    }
+    return found;
   }
 
   List<AggregatedItem> _parseItems(

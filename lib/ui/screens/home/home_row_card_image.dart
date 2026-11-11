@@ -172,7 +172,12 @@ String? _resolveLandscapeImageUrl(
 
 /// The image type a Classic card in [row] asks for: forced for audio, Seerr
 /// and music rows, else the universal override or the row's section setting.
-ImageType homeRowImageTypeForRow(HomeRow row, UserPreferences prefs) {
+/// [perRow] reads that section setting in place of the saved one.
+ImageType homeRowImageTypeForRow(
+  HomeRow row,
+  UserPreferences prefs, {
+  ImageType Function(HomeSectionType section)? perRow,
+}) {
   if (row.isAudio) {
     return ImageType.poster;
   }
@@ -191,7 +196,9 @@ ImageType homeRowImageTypeForRow(HomeRow row, UserPreferences prefs) {
   if (sectionType == null) {
     return ImageType.poster;
   }
-  return prefs.get(UserPreferences.homeRowImageType(sectionType));
+  return perRow != null
+      ? perRow(sectionType)
+      : prefs.get(UserPreferences.homeRowImageType(sectionType));
 }
 
 HomeSectionType? _sectionTypeForRow(HomeRow row, UserPreferences prefs) =>
@@ -222,6 +229,7 @@ HomeRowCardImage homeRowCardImage(
   required double platformScale,
   required ImageApi imageApi,
   HomeRowImageUrlResolver resolveUrl = resolveRowImageUrl,
+  ImageType Function(HomeSectionType section)? perRowImageType,
 }) {
   final isRowsV2 = isHomeRowModern(row, prefs);
   final isModernMyMediaStatic = isHomeRowModernMyMediaStatic(row, prefs);
@@ -229,7 +237,7 @@ HomeRowCardImage homeRowCardImage(
       ? ImageType.thumb
       : (isRowsV2
             ? (isModernMyMediaStatic ? ImageType.thumb : ImageType.poster)
-            : homeRowImageTypeForRow(row, prefs));
+            : homeRowImageTypeForRow(row, prefs, perRow: perRowImageType));
   final isMyMediaRow = row.rowType == HomeRowType.libraryTiles;
   if (row.id == 'mdblist_watching_now') {
     final height = posterSize.landscapeHeight.toDouble() * platformScale;
@@ -634,4 +642,39 @@ String? tagForType(AggregatedItem item, String imageType) {
   final tags = item.rawData['ImageTags'];
   if (tags is! Map) return null;
   return tags[imageType] as String?;
+}
+
+/// The year, genres and runtime a grown Modern card shows under its title,
+/// with the artist ahead of the year for music.
+String homeRowModernMetadataLine(AggregatedItem item) {
+  final parts = <String>[];
+  final year = item.productionYear;
+  if (item.type == 'MusicAlbum' || item.type == 'Audio') {
+    final artist = (item.albumArtist ?? '').trim().isNotEmpty
+        ? item.albumArtist!.trim()
+        : (item.albumArtists.isNotEmpty
+              ? (item.albumArtists.first['Name'] as String?)?.trim()
+              : (item.artists.isNotEmpty ? item.artists.first.trim() : ''));
+    if (artist != null && artist.isNotEmpty) {
+      parts.add(year != null ? '$artist ($year)' : artist);
+    } else if (year != null) {
+      parts.add('$year');
+    }
+  } else if (year != null) {
+    parts.add('$year');
+  }
+  final genres = item.genres.take(2).join(' • ');
+  if (genres.isNotEmpty) parts.add(genres);
+  final runtime = _formatRuntime(item.runtime);
+  if (runtime.isNotEmpty) parts.add(runtime);
+  return parts.join(' • ');
+}
+
+String _formatRuntime(Duration? runtime) {
+  final totalMinutes = runtime?.inMinutes ?? 0;
+  if (totalMinutes <= 0) return '';
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  if (hours == 0) return '${minutes}m';
+  return minutes == 0 ? '${hours}h' : '${hours}h ${minutes}m';
 }

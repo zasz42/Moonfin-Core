@@ -168,6 +168,9 @@ Widget navigationSettingsScreenForTesting() =>
 @visibleForTesting
 Widget watchPartySettingsScreenForTesting() => const _SyncPlaySettingsScreen();
 
+@visibleForTesting
+Widget playerSettingsScreenForTesting() => const _VideoPlaybackScreen();
+
 bool get _showThemeEditorEntry =>
     PlatformDetection.isWeb && webRuntimeConfig.pluginMode;
 
