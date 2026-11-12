@@ -457,19 +457,25 @@ class UpcomingCalendarService {
         if (airDateUtc == null) continue;
 
         final existing = groupedEpisodes[tvdbId];
+        // The Sonarr/Calendar response may use different field names for season/episode
+        // depending on whether it comes from the Moonfin plugin or Moonbase.
+        // Try multiple common field names.
+        final seasonNum = (res['seasonNumber'] ?? res['season'] ?? 0);
+        final episodeNum = (res['episodeNumber'] ?? res['episode'] ?? 0);
+
         if (existing == null) {
           groupedEpisodes[tvdbId] = {
             'series': seriesMap,
             'airDate': airDateUtc,
-            'seasonNumber': res['seasonNumber'],
-            'episodeNumber': res['episodeNumber'],
+            'seasonNumber': seasonNum,
+            'episodeNumber': episodeNum,
           };
         } else {
           final existingAirDate = existing['airDate'] as DateTime;
           if (airDateUtc.isBefore(existingAirDate)) {
             existing['airDate'] = airDateUtc;
-            existing['seasonNumber'] = res['seasonNumber'];
-            existing['episodeNumber'] = res['episodeNumber'];
+            existing['seasonNumber'] = seasonNum;
+            existing['episodeNumber'] = episodeNum;
           }
         }
       }
