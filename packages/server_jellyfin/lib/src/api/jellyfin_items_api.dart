@@ -61,6 +61,7 @@ class JellyfinItemsApi implements ItemsApi {
     bool? isHd,
     bool? is4K,
     bool? is3D,
+    bool? enableUserData,
   }) async {
     final queryParams = {
       'ParentId': ?parentId,
@@ -108,6 +109,7 @@ class JellyfinItemsApi implements ItemsApi {
       'EnableTotalRecordCount': ?enableTotalRecordCount,
       'EnableImageTypes': ?enableImageTypes,
       'ImageTypeLimit': ?imageTypeLimit,
+      'EnableUserData': ?enableUserData,
       if (tags != null && tags.isNotEmpty) 'Tags': tags.join('|'),
       if (studios != null && studios.isNotEmpty) 'Studios': studios.join('|'),
       if (minPremiereDate != null)
@@ -303,6 +305,7 @@ class JellyfinItemsApi implements ItemsApi {
     String? enableImageTypes,
     int? imageTypeLimit,
     bool recursive = false,
+    bool? hideWatched,
   }) async {
     final userId = _getUserId();
     final response = await _dio.get(
@@ -312,6 +315,7 @@ class JellyfinItemsApi implements ItemsApi {
         if (recursive) 'Recursive': true,
         if (includeItemTypes != null)
           'IncludeItemTypes': includeItemTypes.join(','),
+        if (hideWatched == true) 'Filters': 'IsUnplayed',
         'Limit': ?limit,
         'Fields': ?fields,
         'EnableImageTypes': ?enableImageTypes,

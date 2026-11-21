@@ -22,6 +22,7 @@ import '../rating_display.dart';
 import '../../util/error_message.dart';
 import 'media_bar_status_focus.dart';
 import 'upcoming_releases_bar.dart';
+import 'mobile_chrome_insets.dart';
 
 class BannerMediaBar extends StatefulWidget {
   final MediaBarViewModel viewModel;
@@ -93,10 +94,10 @@ class BannerMediaBar extends StatefulWidget {
   }) {
     final gap = withUpcoming ? compactGap : 0.0;
     return ((screenWidth - compactHorizontalPadding - gap).clamp(
-          0.0,
-          double.infinity,
-        ) /
-        2) /
+              0.0,
+              double.infinity,
+            ) /
+            2) /
         aspectRatio;
   }
 
@@ -361,19 +362,18 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       if (state is! MediaBarLoading && state is! MediaBarError) {
         return const SizedBox.shrink();
       }
-      final navbarAtTop =
-          widget.prefs.get(UserPreferences.navbarPosition) ==
-          NavbarPosition.top;
-      final topInset = PlatformDetection.useMobileUi
-          ? MediaQuery.paddingOf(context).top + (navbarAtTop ? 60.0 : 0.0)
-          : 0.0;
+      final topInset = mobileChromeInsets(
+        context,
+        widget.prefs,
+        widget.height,
+      ).top;
       if (state is MediaBarLoading) {
         final loadingHeight = (widget.height - topInset - 12.0).clamp(
           0.0,
           double.infinity,
         );
         return Padding(
-          padding: EdgeInsets.fromLTRB(16, topInset, 16, 8),
+          padding: EdgeInsets.fromLTRB(_sideInset, topInset, _sideInset, 8),
           child: _wrapStatusFocus(
             SizedBox(
               height: loadingHeight,
@@ -388,7 +388,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         AppLocalizations.of(context),
       );
       return Padding(
-        padding: EdgeInsets.fromLTRB(16, topInset, 16, 8),
+        padding: EdgeInsets.fromLTRB(_sideInset, topInset, _sideInset, 8),
         child: _wrapStatusFocus(
           SizedBox(
             height: 72,
@@ -403,9 +403,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColorScheme.onSurface,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColorScheme.onSurface),
                   ),
                 ),
                 TextButton(
@@ -427,13 +426,15 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     // A phone's bar is about 2:1, where a banner would be a thin strip.
     final bannerUrl = isMobile ? null : item.bannerUrl;
     final navbarPosition = widget.prefs.get(UserPreferences.navbarPosition);
-    final navbarAtTop = navbarPosition == NavbarPosition.top;
-    final topInset = isMobile
-        ? MediaQuery.paddingOf(context).top + (navbarAtTop ? 60.0 : 0.0)
-        : 0.0;
+    final topInset = mobileChromeInsets(
+      context,
+      widget.prefs,
+      widget.height,
+    ).top;
     // The left sidebar is drawn over the banner, so the banner starts past it.
-    final sidebarInset =
-        !isMobile && navbarPosition == NavbarPosition.left ? 56.0 : 0.0;
+    final sidebarInset = !isMobile && navbarPosition == NavbarPosition.left
+        ? 56.0
+        : 0.0;
     final showArrows = items.length > 1 && PlatformDetection.useDesktopUi;
 
     // Compact banner: the title's logo-free 16:9 backdrop at the legacy
@@ -568,7 +569,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                             // The 16:9 backdrop carries no title, so the
                             // logo stacks above the text. The banner art
                             // carries it already.
-                            showTitle: useLogoFreeArt || bannerUrl == null,
+                            showTitle:
+                                useLogoFreeArt ||
+                                bannerUrl == null ||
+                                PlatformDetection.isTV,
                           ),
                         ),
                         if (items.length > 1)
@@ -605,7 +609,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     // Focus wrapper - from main branch
     final focusedBanner = Focus(
       focusNode: widget.focusNode,
-      autofocus: widget.focusNode == null && PlatformDetection.useLeanbackUi,
+      autofocus:
+          widget.focusNode == null &&
+          (PlatformDetection.useLeanbackUi || PlatformDetection.isTV),
       onFocusChange: (f) {
         if (mounted) setState(() => _focused = f);
       },
@@ -621,7 +627,12 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     );
 
     Widget banner = Padding(
-      padding: EdgeInsets.fromLTRB(16 + sidebarInset, topInset, 16, _compact ? 4 : 8),
+      padding: EdgeInsets.fromLTRB(
+        16 + sidebarInset,
+        topInset,
+        16,
+        _compact ? 4 : 8,
+      ),
       child: focusedBanner,
     );
 
@@ -675,7 +686,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
 
     return banner;
   }
-
 
   /// The banner with no titles to show, kept alive only for the Upcoming
   /// Releases rail.
@@ -758,6 +768,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     return mode == UserPreferences.mediaBarModeBanner &&
         widget.prefs.get(UserPreferences.compactBannerEnabled);
   }
+
+  double get _sideInset => PlatformDetection.useMobileUi ? 16 : 24;
 
   Widget _backdrop(MediaBarSlideItem item) {
     final url = item.backdropUrl;

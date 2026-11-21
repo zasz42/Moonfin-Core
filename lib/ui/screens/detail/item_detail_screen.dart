@@ -2413,24 +2413,33 @@ class _DetailContentState extends State<_DetailContent> {
     TextStyle? titleStyle,
     double gap = 32,
     void Function(AggregatedItem item)? onItemLongPress,
+    VoidCallback? onNearEnd,
   }) {
     final node = _sectionFocusNode(label);
     return _SectionSpec(
       focusNode: node,
       gap: gap,
-      build: (links) => HorizontalScrollSection(
-        title: title,
-        titleStyle: titleStyle,
-        builder: (_, ctrl) => DetailSimilarRow(
-          items: items,
-          imageApi: viewModel.imageApi,
-          prefs: prefs,
-          onItemLongPress: onItemLongPress ?? _showItemContextMenu,
-          scrollController: _trackSectionScrollController(node, ctrl),
-          firstItemFocusNode: node,
-          onItemKeyEvent: _sectionRowHandler(node, links, items.length),
-        ),
-      ),
+      build: (links) {
+        final keys = _sectionRowHandler(node, links, items.length);
+        return HorizontalScrollSection(
+          title: title,
+          titleStyle: titleStyle,
+          builder: (_, ctrl) => DetailSimilarRow(
+            items: items,
+            imageApi: viewModel.imageApi,
+            prefs: prefs,
+            onItemLongPress: onItemLongPress ?? _showItemContextMenu,
+            scrollController: _trackSectionScrollController(node, ctrl),
+            firstItemFocusNode: node,
+            onItemKeyEvent: onNearEnd == null
+                ? keys
+                : (index, event) {
+                    if (index >= items.length - 8) onNearEnd();
+                    return keys?.call(index, event) ?? KeyEventResult.ignored;
+                  },
+          ),
+        );
+      },
     );
   }
 
@@ -2657,7 +2666,7 @@ class _DetailContentState extends State<_DetailContent> {
       if (pieces.similar)
         row(
           l10n.similar,
-          state.similar,
+          pieces.similarItems,
           _sectionFocusNode('detailSeerrSimilar'),
         ),
       if (pieces.collection)
@@ -3949,6 +3958,7 @@ class _DetailContentState extends State<_DetailContent> {
       items: items,
       gap: first ? 8 : 32,
       onItemLongPress: _showBoxSetItemContextMenu,
+      onNearEnd: () => unawaited(viewModel.loadMoreCollectionItems()),
     );
 
     final specs = <_SectionSpec>[
@@ -4939,6 +4949,9 @@ class DetailActionButtons extends StatefulWidget {
   /// Adds a Collections button to the row when set.
   final VoidCallback? onCollectionsPressed;
 
+  /// Names that button for what it opens, when that isn't Collections.
+  final String? collectionsLabel;
+
   /// Leaves the audio, subtitle and version buttons out of the row, for a
   /// style that offers them on their own through
   /// [DetailActionButtonsState.trackChoices].
@@ -4982,6 +4995,7 @@ class DetailActionButtons extends StatefulWidget {
     this.playlistTracksOverride,
     this.onExtrasPressed,
     this.onCollectionsPressed,
+    this.collectionsLabel,
     this.omitTrackButtons = false,
     this.labelsUnderCircles = false,
     this.centerRow = false,
@@ -5855,6 +5869,7 @@ class _HorizontalActionRowState extends State<_HorizontalActionRow> {
   bool _hasOverflow = false;
   int _fitCount = 1;
   double _effectiveButtonWidth = 108.0;
+  Key? _focusedChildKey;
 
   @override
   void initState() {
@@ -5866,7 +5881,15 @@ class _HorizontalActionRowState extends State<_HorizontalActionRow> {
   @override
   void didUpdateWidget(covariant _HorizontalActionRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollMetrics());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScrollMetrics();
+      // A focused button shifts when the ones before it come and go, and it's
+      // only scrolled to when focus moves, so it could slide out of view.
+      final key = _focusedChildKey;
+      if (key == null) return;
+      final index = widget.children.indexWhere((child) => child.key == key);
+      if (index >= 0) _scrollToIndex(index);
+    });
   }
 
   @override
@@ -5973,11 +5996,18 @@ class _HorizontalActionRowState extends State<_HorizontalActionRow> {
               for (var i = 0; i < widget.children.length; i++) ...[
                 if (i > 0) SizedBox(width: widget.spacing),
                 Focus(
+                  // Lets a button's element follow it when the ones before it
+                  // come and go.
+                  key: widget.children[i].key,
                   canRequestFocus: false,
                   skipTraversal: true,
                   onFocusChange: (focused) {
+                    final key = widget.children[i].key;
                     if (focused) {
+                      _focusedChildKey = key;
                       _scrollToIndex(i);
+                    } else if (_focusedChildKey == key) {
+                      _focusedChildKey = null;
                     }
                   },
                   child: widget.children[i],
@@ -6144,12 +6174,33 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     return _primaryFocusNodes[listIndex];
   }
 
+  /// Focus nodes of the row's actions, one per action rather than per slot.
+  /// An action that comes or goes (Restart once the resume point is cleared)
+  /// shifts the slots after it, and a node tied to a slot would leave focus on
+  /// whichever button slid under it.
+  final Map<Object, FocusNode> _actionFocusNodes = {};
+
+  /// What sits in each slot of the first and second row in the last build.
+  List<Object> _rowPrimaryIds = const [];
+  List<Object> _rowExtraIds = const [];
+
+  /// The node each action was given in the last build.
+  Map<Object, FocusNode> _nodeByAction = const {};
+
+  FocusNode _actionFocusNode(Object id) => _actionFocusNodes.putIfAbsent(
+    id,
+    () => FocusNode(debugLabel: 'detail_action_$id'),
+  );
+
   /// Returns the focus node for extra-row button [index], matching the same
   /// logic used when assigning focus nodes during build so index 0 always
   /// resolves to [widget.extraFirstFocusNode] when provided.
   FocusNode _extraFocusNode(int index) {
     if (index == 0 && widget.extraFirstFocusNode != null) {
       return widget.extraFirstFocusNode!;
+    }
+    if (index < _rowExtraIds.length) {
+      return _actionFocusNode(_rowExtraIds[index]);
     }
     while (_extraFocusNodes.length <= index) {
       _extraFocusNodes.add(
@@ -6170,21 +6221,26 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
   FocusNode _primaryNodeAt(int index, int count) {
     if (index == 0) return widget.tvPlayFocusNode ?? _primaryFocusNode(0);
     if (index == count - 1) {
-      return widget.actionRowRightFocusNode ?? _primaryFocusNode(index);
+      return widget.actionRowRightFocusNode ?? _primaryNodePlain(index);
     }
-    return _primaryFocusNode(index);
+    return _primaryNodePlain(index);
   }
 
   /// Resolves the focus node for primary-row button [index] in an overflow row,
   /// where the More button owns the right-edge node separately.
-  FocusNode _primaryNodePlain(int index) => index == 0
-      ? (widget.tvPlayFocusNode ?? _primaryFocusNode(0))
-      : _primaryFocusNode(index);
+  FocusNode _primaryNodePlain(int index) {
+    if (index == 0) return widget.tvPlayFocusNode ?? _primaryFocusNode(0);
+    if (index < _rowPrimaryIds.length) {
+      return _actionFocusNode(_rowPrimaryIds[index]);
+    }
+    return _primaryFocusNode(index);
+  }
 
   /// Focuses the nearest mounted button along [nodeAt], scanning from [from] by
   /// [step]. Skips slots that currently render nothing (unattached focus node),
   /// e.g. the hidden delete-download action, so the d-pad chain is never
-  /// stranded on an invisible button.
+  /// stranded on an invisible button. A node keeps its context after its
+  /// button goes away, so check that the context is still mounted.
   bool _focusAdjacent(
     FocusNode Function(int) nodeAt,
     int from,
@@ -6193,7 +6249,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
   ) {
     for (var i = from; i >= 0 && i < count; i += step) {
       final node = nodeAt(i);
-      if (node.context != null) {
+      if (node.context?.mounted == true) {
         node.requestFocus();
         return true;
       }
@@ -6203,7 +6259,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
   void _focusFirstRowButton(int index, int primaryCount) {
     final targetIndex = index.clamp(0, primaryCount - 1);
-    _primaryFocusNode(targetIndex).requestFocus();
+    _primaryNodePlain(targetIndex).requestFocus();
   }
 
   String? _tvPlayFocusAppliedForItemId;
@@ -6240,6 +6296,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       node.dispose();
     }
     for (final node in _extraFocusNodes) {
+      node.dispose();
+    }
+    for (final node in _actionFocusNodes.values) {
       node.dispose();
     }
     super.dispose();
@@ -7435,8 +7494,6 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           onPressed: () => _isInSyncPlayGroup()
               ? _watchWithGroup(context, item)
               : _pickForWatchParty(context, item),
-          isActive: true,
-          activeColor: AppColorScheme.accent,
         ),
       if (shows(DetailButton.watched))
         DetailButton.watched: _DetailActionButton(
@@ -7702,7 +7759,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         : null;
     final collectionsButton = widget.onCollectionsPressed != null
         ? _DetailActionButton(
-            label: l10n.detailSectionCollections,
+            label: widget.collectionsLabel ?? l10n.detailSectionCollections,
             icon: Icons.collections_bookmark_outlined,
             onPressed: widget.onCollectionsPressed!,
           )
@@ -7715,6 +7772,17 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       for (final button in _orderedButtons(prefs)) ...[
         ?byButton[button],
         ?cancelByButton[button],
+      ],
+    ];
+    // What each button is, in the same order, so its focus node and element
+    // follow it when the buttons before it come and go.
+    final allIds = <Object>[
+      if (primaryAction != null) 'primary',
+      if (extrasButton != null) 'extras',
+      if (collectionsButton != null) 'collections',
+      for (final button in _orderedButtons(prefs)) ...[
+        if (byButton[button] != null) button,
+        if (cancelByButton[button] != null) ('cancel', button),
       ],
     ];
 
@@ -7751,13 +7819,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     }
 
     if (widget.nouveauStyle) {
-      final orderedSecondaryButtons = <_DetailActionButton>[
+      final orderedSecondary = <(Object, _DetailActionButton)>[
         for (final detailButton in _orderedButtons(prefs)) ...[
           if (byButton[detailButton] case final btn?)
-            ?_actionForOverflow(context, btn),
+            if (_actionForOverflow(context, btn) case final action?)
+              (detailButton, action),
           if (cancelByButton[detailButton] case final btn?)
-            ?_actionForOverflow(context, btn),
+            if (_actionForOverflow(context, btn) case final action?)
+              (('cancel', detailButton), action),
         ],
+      ];
+      final secondaryNodes = [
+        for (final (id, _) in orderedSecondary) _actionFocusNode(id),
       ];
 
       // A null primary only means there is nothing to play, and the secondary
@@ -7822,21 +7895,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                   ? _focusDownTarget
                   : null,
               onArrowLeft: _focusSidebar,
-              onArrowRight: orderedSecondaryButtons.isNotEmpty
-                  ? () => _primaryFocusNode(1).requestFocus()
+              onArrowRight: secondaryNodes.isNotEmpty
+                  ? () => secondaryNodes.first.requestFocus()
                   : widget.onArrowRightAtEnd,
             );
 
-      final secondaryActions = orderedSecondaryButtons.asMap().entries.map((
-        entry,
-      ) {
+      final secondaryActions = orderedSecondary.asMap().entries.map((entry) {
         final index = entry.key;
-        final button = entry.value;
-        final focusIndex = index + 1;
+        final (_, button) = entry.value;
 
         return _toNouveauAction(
           button,
-          focusNode: _primaryFocusNode(focusIndex),
+          focusNode: secondaryNodes[index],
           onArrowUp:
               NavigationLayout.focusNavbarNotifier.value != null ||
                   widget.upTarget != null
@@ -7851,10 +7921,10 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               ? (primaryButton == null
                     ? _focusSidebar
                     : () => primaryFocusNode.requestFocus())
-              : () => _primaryFocusNode(focusIndex - 1).requestFocus(),
-          onArrowRight: index == orderedSecondaryButtons.length - 1
+              : () => secondaryNodes[index - 1].requestFocus(),
+          onArrowRight: index == secondaryNodes.length - 1
               ? widget.onArrowRightAtEnd
-              : () => _primaryFocusNode(focusIndex + 1).requestFocus(),
+              : () => secondaryNodes[index + 1].requestFocus(),
         );
       }).toList();
 
@@ -7986,6 +8056,25 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       }
     }
 
+    final idOf = Map<Widget, Object>.identity();
+    for (var i = 0; i < allButtons.length; i++) {
+      idOf[allButtons[i]] = allIds[i];
+    }
+    _rowPrimaryIds = [for (final button in primaryButtons) idOf[button]!];
+    _rowExtraIds = [for (final button in extraButtons) idOf[button]!];
+    // The page's own nodes stay with their slot, so an action that moves into
+    // or out of one changes node. Focus follows the action, not the node.
+    final focused = FocusManager.instance.primaryFocus;
+    final focusedAction = _nodeByAction.entries
+        .where((entry) => identical(entry.value, focused))
+        .firstOrNull
+        ?.key;
+    final nodeByAction = <Object, FocusNode>{};
+    Widget keyed(Widget button, Widget wired, FocusNode node) {
+      nodeByAction[idOf[button]!] = node;
+      return KeyedSubtree(key: ValueKey(idOf[button]), child: wired);
+    }
+
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     final Widget rowContent;
@@ -7996,11 +8085,12 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         final existingUp = button is _DetailActionButton
             ? button.onArrowUp
             : null;
-        return _wireButton(
+        final fNode = index == allButtons.length - 1
+            ? (widget.actionRowRightFocusNode ?? _primaryNodePlain(index))
+            : _primaryNodePlain(index);
+        final wired = _wireButton(
           button,
-          focusNode: index == allButtons.length - 1
-              ? (widget.actionRowRightFocusNode ?? _primaryNodePlain(index))
-              : _primaryNodePlain(index),
+          focusNode: fNode,
           onArrowUp:
               existingUp ??
               (NavigationLayout.focusNavbarNotifier.value != null ||
@@ -8035,6 +8125,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             }
           },
         );
+        return keyed(button, wired, fNode);
       }).toList();
       final startsRow = widget.modernStyle && !widget.centerRow;
       final rowAlignment = startsRow
@@ -8075,10 +8166,8 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         final existingUp = button is _DetailActionButton
             ? button.onArrowUp
             : null;
-        final fNode = index == 0
-            ? (widget.tvPlayFocusNode ?? _primaryFocusNode(0))
-            : _primaryFocusNode(index);
-        return _wireButton(
+        final fNode = _primaryNodePlain(index);
+        final wired = _wireButton(
           button,
           focusNode: fNode,
           onFocused: () => widget.onFocusExtra?.call(false),
@@ -8121,24 +8210,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               ? () => _focusSecondRowButton(index, extraButtons.length)
               : (widget.downTarget != null ? _focusDownTarget : null),
         );
+        return keyed(button, wired, fNode);
       }).toList();
 
       final normalizedExtraButtons = extraButtons.asMap().entries.map((entry) {
         final index = entry.key;
         final button = entry.value;
-        final fNode = (index == 0 && widget.extraFirstFocusNode != null)
-            ? widget.extraFirstFocusNode!
-            : (() {
-                while (_extraFocusNodes.length <= index) {
-                  _extraFocusNodes.add(
-                    FocusNode(
-                      debugLabel: 'extra_btn_${_extraFocusNodes.length}',
-                    ),
-                  );
-                }
-                return _extraFocusNodes[index];
-              })();
-        return _wireButton(
+        final fNode = _extraFocusNode(index);
+        final wired = _wireButton(
           button,
           focusNode: fNode,
           onFocused: () {
@@ -8178,6 +8257,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           },
           suppressAutoScrollToTop: true,
         );
+        return keyed(button, wired, fNode);
       }).toList();
 
       final moreButton = _DetailActionButton(
@@ -8347,6 +8427,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           ),
         );
       }
+    }
+
+    _nodeByAction = nodeByAction;
+    final refocus = nodeByAction[focusedAction];
+    if (refocus != null && !identical(refocus, focused)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && refocus.context?.mounted == true) refocus.requestFocus();
+      });
     }
 
     // Under the row rather than in it, so a bar never takes a focus slot. The
@@ -13358,11 +13446,13 @@ class _DetailActionButtonState extends State<_DetailActionButton>
 
   /// Modern detail style. Phones show every button as a circle with its label
   /// underneath, except portrait Play, which spans the width as a pill. Larger
-  /// screens show circles that grow their label while focused or hovered.
+  /// screens show circles that grow their label while focused, and show it in
+  /// a tooltip while hovered.
   Widget _buildModernChild(
     BuildContext context, {
     required bool isMobile,
     required bool showHighlight,
+    required bool focusShown,
     required Color focusColor,
     required Color iconColor,
     required Color labelColor,
@@ -13384,7 +13474,10 @@ class _DetailActionButtonState extends State<_DetailActionButton>
     final labelUnder = host?.labelsUnderCircles ?? false;
     // With the circles' labels under them, Play keeps its own in the pill.
     final labeledPlay = widget.isPrimary && labelUnder;
-    final isExpanded = labeledPlay || (showHighlight && !labelUnder);
+    // Only focus grows a circle. A hovered one that no longer fit its line
+    // would wrap to the next, out from under the pointer, then shrink and wrap
+    // back.
+    final isExpanded = labeledPlay || (focusShown && !labelUnder);
     final scale = _modernButtonScale(context);
     final double height = widget.isPrimary
         ? (isMobile ? 50.0 : 54.0 * scale)
@@ -13605,7 +13698,17 @@ class _DetailActionButtonState extends State<_DetailActionButton>
         ),
       ),
     );
-    if (!labelUnder) return circle;
+    // The tooltip stays while focused, since taking it away would rebuild the
+    // circle and skip its grow animation.
+    if (!labelUnder) {
+      return widget.label.isEmpty
+          ? circle
+          : Tooltip(
+              message: widget.label,
+              triggerMode: TooltipTriggerMode.manual,
+              child: circle,
+            );
+    }
 
     // The label's space is kept even with nothing in it, so the row doesn't
     // shift as focus moves along it. A long label stays centered under its
@@ -13720,9 +13823,11 @@ class _DetailActionButtonState extends State<_DetailActionButton>
     final nodeHasFocus = widget.focusNode?.hasFocus ?? false;
     // Focus only shows while the keys are driving, or the Play button that
     // takes focus on arrival would stay lit beside whatever the mouse hovers.
-    final showHighlight =
-        hovered ||
-        InputModeTracker.showFocusVisuals(context, focused || nodeHasFocus);
+    final focusShown = InputModeTracker.showFocusVisuals(
+      context,
+      focused || nodeHasFocus,
+    );
+    final showHighlight = hovered || focusShown;
     final modern =
         context
             .findAncestorWidgetOfExactType<DetailActionButtons>()
@@ -13844,6 +13949,7 @@ class _DetailActionButtonState extends State<_DetailActionButton>
                   context,
                   isMobile: isMobile,
                   showHighlight: showHighlight,
+                  focusShown: focusShown,
                   focusColor: focusColor,
                   iconColor: iconColor,
                   labelColor: labelColor,
@@ -17432,7 +17538,7 @@ class SeerrAppearancesRow extends StatelessWidget {
             title: item.displayTitle,
             subtitle: item.character,
             imageUrl: item.posterPath != null
-                ? 'https://image.tmdb.org/t/p/w342${item.posterPath}'
+                ? seerrImageUrl(seerrPosterBase, item.posterPath!)
                 : null,
             width: cardWidth,
             aspectRatio: 2 / 3,

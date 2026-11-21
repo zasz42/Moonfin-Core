@@ -21,6 +21,8 @@ import '../../../../util/platform_detection.dart';
 import '../../../../util/tv_ui_scale.dart';
 import '../../../util/home_row_title_localizer.dart';
 import '../../../widgets/bounded_network_image.dart';
+import '../../../widgets/carousel_panel.dart';
+import '../../../widgets/home_row_spacing.dart';
 import '../../../widgets/info_area.dart';
 import '../../../widgets/media_card.dart';
 import '../../../widgets/modern_row.dart';
@@ -173,9 +175,9 @@ class _HomeSnapshot {
     prefs.get(UserPreferences.enableMultiServerLibraries),
     prefs.get(UserPreferences.mergeContinueWatchingNextUp),
     prefs.get(UserPreferences.mergeRecentRowsByType),
+    prefs.get(UserPreferences.hideWatchedInRecentRows),
     prefs.get(UserPreferences.displayRewatchRow),
     prefs.get(UserPreferences.displaySinceYouWatchedRows),
-    prefs.get(UserPreferences.seasonalRowEnabled),
     for (final group in RowOptionsGroup.values) prefs.get(group.display),
   ].join('|');
 
@@ -393,7 +395,11 @@ class _PreviewRowOptionsHomeState extends State<PreviewRowOptionsHome> {
     var x = 0.0;
     for (final (index, item) in row.items.indexed) {
       if (x > frame.size.width) break;
-      final card = frame.card(row, item, focused: index == 0 && !frame.phone);
+      final card = frame.card(
+        row,
+        item,
+        focused: index == 0 && frame.focuses(row),
+      );
       x += card.width + frame.spacing(row);
       final url = card.url;
       if (url == null) continue;
@@ -805,7 +811,7 @@ class _HomeFrame {
     final tv = PlatformDetection.useLeanbackUi;
     // Read straight from the saved settings, since none of these is tried in
     // a picker.
-    final modern = prefs.get(UserPreferences.homeRowsStyle) == HomeRowsStyle.v2;
+    final modern = prefs.get(UserPreferences.homeRowsStyle).usesModernCards;
     final desktopScale = prefs.get(UserPreferences.desktopUiScale).scaleFactor;
     final navbarTop =
         prefs.get(UserPreferences.navbarPosition) == NavbarPosition.top;
@@ -813,7 +819,7 @@ class _HomeFrame {
         !phone && !modern && prefs.get(UserPreferences.homeRowInfoOverlay);
     // _ContentRows' rowLeftInset.
     final rowLeftInset =
-        (!navbarTop && !phone ? 56.0 : (navbarTop && tv ? 48.0 : 0.0)) +
+        (!navbarTop && !phone ? 56.0 : (navbarTop && tv ? tvTopNavbarRowInset : 0.0)) +
         (phone ? 0.0 : 16.0);
     // The band the InfoArea sits in, from _ContentRows' layout pass.
     final infoNavbar = tv ? (navbarTop ? 45.0 : 15.0) : (phone ? 60.0 : 80.0);
@@ -873,7 +879,8 @@ class _HomeFrame {
   /// Everything the cards are drawn from, so rows kept between builds are
   /// built again once one of them changes.
   String look(List<HomeRow> rows) => [
-    modern,
+    prefs.get(UserPreferences.homeRowsStyle),
+    prefs.get(UserPreferences.hideHomeMediaDescription),
     desktopScale,
     posterSize,
     cardExpansion,
@@ -904,6 +911,26 @@ class _HomeFrame {
   }
 
   bool isModern(HomeRow row) => isHomeRowModern(row, prefs);
+
+  /// Whether [row] holds its first card in focus. A phone has no focus, so
+  /// only a Modern card grows there, the way a tap grows it on Home.
+  bool focuses(HomeRow row) => !phone || isModern(row);
+
+  bool isCarousel(HomeRow row) => isHomeRowCarousel(row, prefs);
+
+  /// The Carousel panel for [row]'s first card, which is the one Home shows
+  /// before the row is focused.
+  Widget carouselPanel(HomeRow row) {
+    final item = row.items.first;
+    final api = _apiFor(item);
+    return CarouselPanel(
+      item: item,
+      desktopScale: desktopScale,
+      backdropUrl: api == null ? null : carouselBackdropUrl(item, api),
+      ratings: CarouselPanel.homeRatings(item, prefs),
+      showOverview: !prefs.get(UserPreferences.hideHomeMediaDescription),
+    );
+  }
 
   /// Live TV, Watch Parties and the small library tiles, which Home draws
   /// as squares under a fixed label band.
@@ -961,7 +988,11 @@ class _HomeFrame {
               _useSeriesThumbs,
               1.0,
             );
-      return (url: wide ?? poster, width: height * 16 / 9, aspectRatio: 16 / 9);
+      // A phone caps a grown card at the row's width, the way Home does.
+      final width = phone
+          ? math.min(height * 16 / 9, size.width - rowLeftInset - 32)
+          : height * 16 / 9;
+      return (url: wide ?? poster, width: width, aspectRatio: width / height);
     }
     if (api == null) {
       final ar = rowModern
@@ -1019,12 +1050,19 @@ class _HomeFrame {
       ? maxImageHeight(row) * (MediaCard.focusScale - 1)
       : 0.0;
 
-  /// The room under the artwork for the labels, or Modern's details.
-  double metadataHeight(HomeRow row) {
+  /// The room under the artwork for the labels, or Modern's details. A phone
+  /// only keeps room for details in the [focused] row, as Home does for the
+  /// row a tap grew.
+  double metadataHeight(HomeRow row, bool focused) {
     if (isSquareRow(row)) return 56.0 * _metadataScale;
     if (!isModern(row)) return 50.0 * _metadataScale;
+    if (isCarousel(row)) {
+      return carouselPanelGap(desktopScale) + carouselPanelHeight(desktopScale);
+    }
     final budget = row.rowType == HomeRowType.libraryTiles
         ? 38.0
+        : phone && !focused
+        ? modernLabelBudget
         : modernMetadataBudget(prefs, UserPreferences.homeRowsRatings);
     return budget * _metadataScale;
   }
@@ -1046,6 +1084,7 @@ class _HomeFrame {
   /// Classic library row from the Classic one.
   double modernTrailing(HomeRow row) {
     if (!phone && prefs.get(UserPreferences.fullScreenRows)) return 0;
+    if (isCarousel(row)) return carouselRowPadding(prefs, desktopScale);
     if (!isModern(row)) {
       if (!_isLibraryRow(row)) return 0;
       final padding = prefs
@@ -1140,7 +1179,7 @@ class _Rows extends StatelessWidget {
     var top = frame.focusTop;
     for (final (index, row) in rows.indexed) {
       if (top > frame.size.height) break;
-      final focused = index == 0 && !frame.phone;
+      final focused = index == 0 && frame.focuses(row);
       final rowWidget = _Row(
         row: row,
         title: localizeHomeRowTitle(
@@ -1151,7 +1190,7 @@ class _Rows extends StatelessWidget {
         frame: frame,
         focused: focused,
       );
-      final extent = _Row.extent(frame, row);
+      final extent = _Row.extent(frame, row, focused);
       // A TV moves the focused row's content down 20 when there's no
       // InfoArea, inside the room laid out for the row, so the row after it
       // doesn't move.
@@ -1240,13 +1279,13 @@ class _Row extends StatelessWidget {
       : row.subtitle;
 
   /// How tall Home lays [row] out, from _staticRowHeight.
-  static double extent(_HomeFrame frame, HomeRow row) {
+  static double extent(_HomeFrame frame, HomeRow row, bool focused) {
     final cards = _HomeFrame.isSquareRow(row)
         ? frame.maxImageHeight(row) +
-              frame.metadataHeight(row) +
+              frame.metadataHeight(row, focused) +
               frame.headroom(row)
         : frame.maxImageHeight(row) +
-              frame.metadataHeight(row) +
+              frame.metadataHeight(row, focused) +
               frame.classicPadding(row) +
               10 * frame.desktopScale +
               frame.headroom(row);
@@ -1270,20 +1309,24 @@ class _Row extends StatelessWidget {
 
   /// Home centres a Classic row's content in the room laid out for it, and
   /// sits a Modern one near the top of it.
-  static double _extraTop(_HomeFrame frame, HomeRow row) {
+  static double _extraTop(_HomeFrame frame, HomeRow row, bool focused) {
     final content =
         frame.maxImageHeight(row) +
-        frame.metadataHeight(row) +
+        frame.metadataHeight(row, focused) +
         frame.classicPadding(row) +
         frame.headroom(row) +
         34 * frame.desktopScale;
-    final spare = (extent(frame, row) - content).clamp(0.0, double.infinity);
+    final spare = (extent(frame, row, focused) - content).clamp(
+      0.0,
+      double.infinity,
+    );
     return frame.isModern(row) ? spare * 0.1 : spare / 2;
   }
 
   @override
   Widget build(BuildContext context) {
     final modern = frame.isModern(row);
+    final carousel = frame.isCarousel(row) && row.items.isNotEmpty;
     final rowPadding = _rowPadding(frame);
     final topPadding = rowPadding + frame.headroom(row);
     final spacing = frame.spacing(row);
@@ -1300,17 +1343,22 @@ class _Row extends StatelessWidget {
           padding: EdgeInsetsDirectional.only(end: spacing),
           child: focused
               ? _focusedRowCard(context, item, image, isFocused, x, rightEdge)
-              : _LightCard(item: item, image: image, classicLabel: !modern),
+              : _LightCard(
+                  item: item,
+                  image: image,
+                  classicLabel: !modern,
+                  showLabel: !carousel,
+                ),
         ),
       );
       x += image.width + spacing;
     }
     return SizedBox(
-      height: extent(frame, row),
+      height: extent(frame, row, focused),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: _extraTop(frame, row)),
+          SizedBox(height: _extraTop(frame, row, focused)),
           Padding(
             padding: EdgeInsetsDirectional.fromSTEB(
               16,
@@ -1371,6 +1419,16 @@ class _Row extends StatelessWidget {
               ),
             ),
           ),
+          if (carousel) ...[
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 16, end: 20),
+              child: SizedBox(
+                height: carouselPanelHeight(frame.desktopScale),
+                child: frame.carouselPanel(row),
+              ),
+            ),
+            SizedBox(height: frame.modernTrailing(row)),
+          ],
         ],
       ),
     );
@@ -1389,14 +1447,16 @@ class _Row extends StatelessWidget {
     final subtitle = modern && isFocused && !row.isAudio
         ? homeRowModernMetadataLine(item)
         : item.subtitle;
+    final carousel = frame.isCarousel(row);
     final card = MediaCard(
-      title: item.name,
+      title: carousel ? null : item.name,
       subtitle: subtitle,
       imageUrl: image.url,
       width: image.width,
       aspectRatio: image.aspectRatio,
       isBanner: image.aspectRatio == kBannerAspectRatio,
       classicHomeLabel: !modern,
+      showLabel: !carousel,
       isFavorite: item.isFavorite,
       isPlayed: item.isPlayed,
       unplayedCount: prefs.get(UserPreferences.hideHomeUnwatchedCount)
@@ -1426,7 +1486,7 @@ class _Row extends StatelessWidget {
     // scroll for as long as the setting has focus, redrawing the preview
     // every frame, so it holds still.
     final still = TickerMode(enabled: false, child: card);
-    if (!modern || !isFocused) return still;
+    if (!modern || !isFocused || carousel) return still;
     return ModernExpandingCard(
       card: still,
       prefs: prefs,
@@ -1452,11 +1512,13 @@ class _LightCard extends StatelessWidget {
   final AggregatedItem item;
   final HomeRowCardImage image;
   final bool classicLabel;
+  final bool showLabel;
 
   const _LightCard({
     required this.item,
     required this.image,
     required this.classicLabel,
+    this.showLabel = true,
   });
 
   @override
@@ -1505,20 +1567,22 @@ class _LightCard extends StatelessWidget {
                     ),
             ),
           ),
-          SizedBox(height: classicLabel ? tvPx(16) : 6),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: titleStyle,
-          ),
-          if (item.subtitle case final subtitle? when subtitle.isNotEmpty)
+          if (showLabel) ...[
+            SizedBox(height: classicLabel ? tvPx(16) : 6),
             Text(
-              subtitle,
+              item.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: subtitleStyle,
+              style: titleStyle,
             ),
+            if (item.subtitle case final subtitle? when subtitle.isNotEmpty)
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: subtitleStyle,
+              ),
+          ],
         ],
       ),
     );

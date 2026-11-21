@@ -369,7 +369,15 @@ class UserPreferences extends ChangeNotifier {
   ///   default), replace it with the server's SubtitleLanguagePreference.
   /// - SubtitleMode: if the local pref has never been explicitly stored (empty
   ///   default), convert it to the closest Moonfin subtitle mode.
-  void initLanguagePrefs(UserConfiguration config) {
+  void initLanguagePrefs(
+    UserConfiguration config, {
+    String? expectedProfileScope,
+  }) {
+    final activeScope = _activeProfileScopeSuffix();
+    if (expectedProfileScope != null && expectedProfileScope != activeScope) {
+      return;
+    }
+
     final sysIso3 = toIso3Language(
       normalizeLanguage(ui.PlatformDispatcher.instance.locale.languageCode),
     );
@@ -399,7 +407,34 @@ class UserPreferences extends ChangeNotifier {
       };
       _setIfMissing(subtitleMode, mode);
     }
+
+    if (activeScope != null) {
+      seedHideWatchedFromServer(config, expectedProfileScope: activeScope);
+    }
   }
+
+  void seedHideWatchedFromServer(
+    UserConfiguration config, {
+    String? expectedProfileScope,
+  }) {
+    final activeScope = _activeProfileScopeSuffix();
+    if (expectedProfileScope != null && expectedProfileScope != activeScope) {
+      return;
+    }
+    if (!containsPreference(hideWatchedInRecentRows, scopedOnly: true) &&
+        config.hidePlayedInLatest) {
+      final scoped = _scopedPreference(hideWatchedInRecentRows);
+      if (scoped != null) {
+        _store.set(scoped, true);
+        notifyListeners();
+      } else if (expectedProfileScope == null) {
+        _store.set(hideWatchedInRecentRows, true);
+        notifyListeners();
+      }
+    }
+  }
+
+  String? activeProfileScopeSuffix() => _activeProfileScopeSuffix();
 
   String? _activeProfileScopeSuffix() {
     final serverId = (_store.getString(_lastServerIdPreferenceKey) ?? '')
@@ -573,6 +608,8 @@ class UserPreferences extends ChangeNotifier {
     'pref_hide_home_media_description',
     'pref_hide_home_watch_progress',
     'pref_hide_home_unwatched_count',
+    'pref_hide_library_watch_progress',
+    'pref_hide_library_unwatched_count',
     'pref_display_audio_rows',
     'pref_display_since_you_watched_rows',
     'pref_since_you_watched_source',
@@ -707,7 +744,9 @@ class UserPreferences extends ChangeNotifier {
     'pref_merge_continue_watching_next_up',
     'pref_next_up_max_days',
     'enable_multi_server_libraries',
+    'merge_libraries_by_type',
     'pref_merge_recent_rows_by_type',
+    'pref_hide_watched_in_recent_rows',
     'seasonal_surprise',
     'seasonal_density',
     'seasonal_follower',
@@ -722,6 +761,9 @@ class UserPreferences extends ChangeNotifier {
     'mediaBarItemCount',
     'mediaBarNewReleaseBanner',
     'mediaBarNewReleaseDays',
+    'mediaBarNewReleaseKinds',
+    'mediaBarNewMovieDays',
+    'mediaBarNewMovieDetail',
     'mediaBarOverlayOpacity',
     'mediaBarOverlayColor',
     'navbarOpacity',
@@ -953,7 +995,9 @@ class UserPreferences extends ChangeNotifier {
   bool containsPreference<T>(Preference<T> pref, {bool scopedOnly = false}) {
     if (_isScopedPreference(pref)) {
       final scoped = _scopedPreference(pref);
-      if (scoped == null) return false;
+      if (scoped == null) {
+        return !scopedOnly && _store.containsKey(pref.key);
+      }
       final hasScoped = _store.containsKey(scoped.key);
       if (scopedOnly) {
         return hasScoped;
@@ -1340,7 +1384,7 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_home_rows_style',
     defaultValue: PlatformDetection.useMobileUi
         ? HomeRowsStyle.v1
-        : HomeRowsStyle.v2,
+        : (PlatformDetection.isTV ? HomeRowsStyle.carousel : HomeRowsStyle.v2),
     values: HomeRowsStyle.values,
   );
 
@@ -2010,6 +2054,10 @@ class UserPreferences extends ChangeNotifier {
   bool get effectiveMergeContinueWatchingNextUp =>
       get(kidsModeEnabled) || get(mergeContinueWatchingNextUp);
 
+  /// Merging needs every server's libraries listed in the first place.
+  bool get effectiveMergeLibrariesByType =>
+      get(enableMultiServerLibraries) && get(mergeLibrariesByType);
+
   /// The online source is an outside catalog no parental rating reaches, so
   /// Kids Mode keeps recommendations inside the server's own library.
   RecommendationSystemSource get effectiveRecommendationSystemSource =>
@@ -2167,7 +2215,9 @@ class UserPreferences extends ChangeNotifier {
 
   static final navbarPosition = EnumPreference(
     key: 'pref_navbar_position',
-    defaultValue: NavbarPosition.top,
+    defaultValue: PlatformDetection.useMobileUi && !PlatformDetection.isWeb
+        ? NavbarPosition.bottom
+        : NavbarPosition.top,
     values: NavbarPosition.values,
   );
 
@@ -2199,8 +2249,19 @@ class UserPreferences extends ChangeNotifier {
     key: 'enable_multi_server_libraries',
     defaultValue: false,
   );
+  /// Shows every server's movie libraries as one Movies library and their
+  /// show libraries as one TV Shows library, with a title several servers
+  /// hold listed once.
+  static final mergeLibrariesByType = Preference(
+    key: 'merge_libraries_by_type',
+    defaultValue: false,
+  );
   static final mergeRecentRowsByType = Preference(
     key: 'pref_merge_recent_rows_by_type',
+    defaultValue: false,
+  );
+  static final hideWatchedInRecentRows = Preference(
+    key: 'pref_hide_watched_in_recent_rows',
     defaultValue: false,
   );
 
@@ -2267,6 +2328,17 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_hide_backdrops_in_libraries',
     defaultValue: false,
   );
+
+  static final hideLibraryWatchProgress = Preference(
+    key: 'pref_hide_library_watch_progress',
+    defaultValue: false,
+  );
+
+  static final hideLibraryUnwatchedCount = Preference(
+    key: 'pref_hide_library_unwatched_count',
+    defaultValue: false,
+  );
+
   static final maxBitrate = Preference(
     key: 'pref_max_bitrate',
     defaultValue: '120',
@@ -2728,7 +2800,10 @@ class UserPreferences extends ChangeNotifier {
 
   static final hardwareDecoding = Preference(
     key: 'hardware_decoding',
-    defaultValue: PlatformDetection.isAndroid || PlatformDetection.isIOS,
+    defaultValue:
+        PlatformDetection.isAndroid ||
+        PlatformDetection.isIOS ||
+        PlatformDetection.isWindows,
   );
 
   static final playbackEnginePreference = EnumPreference(
@@ -3012,6 +3087,12 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: 30000,
   );
 
+  static final appleTvClickpadSeekMode = EnumPreference(
+    key: 'appleTvClickpadSeekMode',
+    defaultValue: AppleTvClickpadSeekMode.always,
+    values: AppleTvClickpadSeekMode.values,
+  );
+
   static final controlsHideDelay = Preference(
     key: 'controlsHideDelay',
     defaultValue: 5000,
@@ -3201,6 +3282,32 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: 30,
   );
 
+  static const mediaBarNewSeries = 'newSeries';
+  static const mediaBarNewSeason = 'newSeason';
+  static const mediaBarNewEpisodes = 'newEpisodes';
+  static const mediaBarNewMovie = 'newMovie';
+
+  /// Which labels the banner puts on, comma separated. The banner switch above
+  /// still turns them all off, since older apps only read that.
+  static final mediaBarNewReleaseKinds = Preference(
+    key: 'mediaBarNewReleaseKinds',
+    defaultValue:
+        '$mediaBarNewSeries,$mediaBarNewSeason,$mediaBarNewEpisodes,$mediaBarNewMovie',
+  );
+
+  /// How many days after its release a movie stays new. Longer than for
+  /// series, since a cinema release reaches servers months after it opens.
+  static final mediaBarNewMovieDays = Preference(
+    key: 'mediaBarNewMovieDays',
+    defaultValue: 120,
+  );
+
+  /// Whether the new movie label shows the movie's tagline under it.
+  static final mediaBarNewMovieDetail = Preference(
+    key: 'mediaBarNewMovieDetail',
+    defaultValue: true,
+  );
+
   static final navbarOpacity = Preference(
     key: 'navbarOpacity',
     defaultValue: 50,
@@ -3240,7 +3347,7 @@ class UserPreferences extends ChangeNotifier {
 
   static final mediaBarTrailerPreview = Preference(
     key: 'mediaBarTrailerPreview',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static final compactBannerEnabled = Preference(
@@ -3632,7 +3739,8 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: false,
   );
 
-  /// Every TMDB home section, against the preference that turns it on.
+  /// Every TMDB home section, against its old switch, which older app versions
+  /// still read.
   static final Map<HomeSectionType, Preference<bool>> tmdbSectionEnabled = {
     HomeSectionType.tmdbPopularMovies: tmdbPopularMoviesEnabled,
     HomeSectionType.tmdbTopRatedMovies: tmdbTopRatedMoviesEnabled,
@@ -4062,6 +4170,11 @@ class UserPreferences extends ChangeNotifier {
   static final confirmExit = Preference(
     key: 'confirm_exit',
     defaultValue: true,
+  );
+
+  static final remoteMediaNotification = Preference(
+    key: 'remote_media_notification',
+    defaultValue: false,
   );
 
   static final updateNotificationsEnabled = Preference(

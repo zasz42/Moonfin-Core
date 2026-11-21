@@ -22,7 +22,25 @@ class ServerRepository {
   final List<Server> _servers = [];
   final _stateController = StreamController<ServerAdditionState>.broadcast();
 
-  ServerRepository(this._authStore, this._clientFactory, [this._certStore]);
+  ServerRepository(this._authStore, this._clientFactory, [this._certStore]) {
+    gIsOwnServerHost = _isOwnServerHost;
+  }
+
+  /// Hosts the user typed this session, which have no saved server yet while
+  /// they're being added.
+  final Set<String> _typedHosts = {};
+
+  /// Whether [host] belongs to a saved server at any address it's reached on,
+  /// or to one the user typed. Self-signed certificates are only accepted for
+  /// these.
+  bool _isOwnServerHost(String host) =>
+      _typedHosts.contains(host) ||
+      _servers.any(
+        (s) => [
+          s.address,
+          ...s.candidateAddresses,
+        ].any((a) => Uri.tryParse(a)?.host == host),
+      );
 
   List<Server> get servers => List.unmodifiable(_servers);
   Stream<ServerAdditionState> get additionState => _stateController.stream;
@@ -89,6 +107,8 @@ class ServerRepository {
     if (address.isEmpty) {
       return null;
     }
+    final typedHost = Uri.tryParse(address)?.host;
+    if (typedHost != null && typedHost.isNotEmpty) _typedHosts.add(typedHost);
 
     final candidates = _buildCandidates(address);
     _stateController.add(ServerConnecting(address: address));
@@ -219,6 +239,30 @@ class ServerRepository {
     _lastFailure = failure;
     _stateController.add(failure);
     return null;
+  }
+
+  /// [server] with its type checked against what its address reports now,
+  /// saved when it was stored as Jellyfin but is Emby or the other way round.
+  /// It waits at most two seconds and otherwise hands [server] back as it was,
+  /// though an answer that comes later is still saved for next time.
+  Future<Server> withCheckedType(Server server) => _checkedType(
+    server,
+  ).timeout(const Duration(seconds: 2), onTimeout: () => server);
+
+  Future<Server> _checkedType(Server server) async {
+    const switchable = {ServerType.jellyfin, ServerType.emby};
+    if (!switchable.contains(server.serverType)) return server;
+    try {
+      final (_, detected, _) = await _probeServer(server.address);
+      if (!switchable.contains(detected) || detected == server.serverType) {
+        return server;
+      }
+      final corrected = server.copyWith(serverType: detected);
+      await saveServer(corrected);
+      return corrected;
+    } catch (_) {
+      return server;
+    }
   }
 
   /// Adds [server] as is, or replaces the one with its id, for servers that

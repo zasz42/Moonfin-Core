@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../widgets/offline_aware_image.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -15,8 +16,10 @@ import '../../../data/models/aggregated_item.dart';
 import '../../../data/services/better_posters_service.dart';
 import '../../../data/utils/alphabet_bucket.dart';
 import '../../../data/repositories/mdblist_repository.dart';
+import '../../../data/repositories/multi_server_repository.dart';
 import '../../../data/services/background_service.dart';
 import '../../../data/services/media_server_client_factory.dart';
+import '../../../data/utils/merged_copies.dart';
 import '../../../data/viewmodels/library_browse_view_model.dart';
 import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
@@ -37,6 +40,7 @@ import '../../widgets/focus/context_menu_sheet.dart';
 import '../../widgets/focus/focusable_toolbar_button.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 import '../../widgets/media_card.dart';
+import '../../widgets/merged_copy_picker.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/quick_return_wrapper.dart';
 import '../../widgets/rating_display.dart';
@@ -90,8 +94,7 @@ typedef GridGeometry = ({
 /// coordinates.
 double gridLineStart(GridGeometry geometry, int index) =>
     geometry.leadingPad +
-    (index ~/ geometry.perLine) *
-        (geometry.lineExtent + geometry.lineSpacing);
+    (index ~/ geometry.perLine) * (geometry.lineExtent + geometry.lineSpacing);
 
 bool _isCompact(BuildContext context) =>
     !PlatformDetection.isTV &&
@@ -123,12 +126,10 @@ String _playedStatusLabel(
   AppLocalizations l10n,
 ) => switch (status) {
   PlayedStatusFilter.all => l10n.all,
-  PlayedStatusFilter.watched => vm.isBookLibrary
-      ? l10n.readStatus
-      : l10n.watched,
-  PlayedStatusFilter.unwatched => vm.isBookLibrary
-      ? l10n.unread
-      : l10n.unwatched,
+  PlayedStatusFilter.watched =>
+    vm.isBookLibrary ? l10n.readStatus : l10n.watched,
+  PlayedStatusFilter.unwatched =>
+    vm.isBookLibrary ? l10n.unread : l10n.unwatched,
   PlayedStatusFilter.inProgress => l10n.filterInProgress,
 };
 
@@ -192,6 +193,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     super.initState();
     final client = GetIt.instance<MediaServerClientFactory>()
         .clientForServerOrActive(widget.serverId);
+    final mergedType = mergedLibraryType(widget.libraryId);
     _vm = LibraryBrowseViewModel(
       libraryId: widget.libraryId,
       client: client,
@@ -202,6 +204,11 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       overrideName: widget.genreName ?? widget.studioName,
       includeItemTypes: widget.includeItemTypes,
       favoritesOnly: widget.favoritesOnly,
+      loadMergedLibrary: mergedType == null
+          ? null
+          : () => GetIt.instance<MultiServerRepository>().mergedLibrary(
+              mergedType,
+            ),
     );
     _vm.addListener(_onChanged);
     _vm.load();
@@ -310,10 +317,14 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
   // every focus move, so hold the answer until the items, the preferences or
   // the locale actually change.
   bool get _hasSubtitles => _hasSubtitlesCache ??= _vm.items.any(
-        (item) => (_cardSubtitle(item)?.isNotEmpty ?? false),
-      );
+    (item) => (_cardSubtitle(item)?.isNotEmpty ?? false),
+  );
 
   bool get _showCardTitles => _prefs.get(UserPreferences.libraryCardTitles);
+  bool get _hideWatchProgress =>
+      _prefs.get(UserPreferences.hideLibraryWatchProgress);
+  bool get _hideUnwatchedCount =>
+      _prefs.get(UserPreferences.hideLibraryUnwatchedCount);
 
   @override
   void didChangeDependencies() {
@@ -424,10 +435,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     setState(() => _isJumpingToLetter = !scrubbing);
 
     try {
-      await _vm.ensureItemsLoadedForPrefix(letter).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => false,
-      );
+      await _vm
+          .ensureItemsLoadedForPrefix(letter)
+          .timeout(const Duration(seconds: 15), onTimeout: () => false);
       if (!stillCurrent()) return;
       // The walk notifies once when it finishes, so wait for the frame that
       // lays those items out before measuring anything against them.
@@ -541,20 +551,22 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       return;
     }
 
-    context
-        .push(
-          Destinations.itemOrPhoto(
-            item.id,
-            serverId: item.serverId,
-            type: item.type,
-            channelId: item.channelId,
-          ),
-        )
-        .then((result) {
-          if (result == true && mounted) {
-            _vm.load();
-          }
-        });
+    openPickedCopy(context, item, (copy) {
+      context
+          .push(
+            Destinations.itemOrPhoto(
+              copy.id,
+              serverId: copy.serverId,
+              type: copy.type,
+              channelId: copy.channelId,
+            ),
+          )
+          .then((result) {
+            if (result == true && mounted) {
+              _vm.refresh();
+            }
+          });
+    });
   }
 
   double? _displayPlayedPercentage(AggregatedItem item) {
@@ -668,16 +680,15 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
   (String?, String?) _posterUrls(AggregatedItem item, {double? cellWidth}) {
     final server = _serverImageUrl(item, cellWidth: cellWidth);
     final external = BetterPostersService.posterUrlFor(item);
-    if (external != null &&
-        external.isNotEmpty &&
-        external != server) {
+    if (external != null && external.isNotEmpty && external != server) {
       return (external, server);
     }
     return (server, null);
   }
 
   String? _serverImageUrl(AggregatedItem item, {double? cellWidth}) {
-    final api = _vm.imageApi;
+    final api = _vm.imageApiFor(item);
+
     final width = cellWidth ?? _cardWidth();
     final posterMaxW = _requestWidthFor(width, ArtworkShape.poster);
     final landscapeMaxW = _requestWidthFor(width, ArtworkShape.landscape);
@@ -936,8 +947,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
   Widget build(BuildContext context) {
     Widget screen = QuickReturnWrapper(
       scrollController: _scrollController,
-      scrollDirection:
-          _vm.scrollDirection == LibraryScrollDirection.horizontal
+      scrollDirection: _vm.scrollDirection == LibraryScrollDirection.horizontal
           ? Axis.horizontal
           : Axis.vertical,
       // cleanupGridFocusNodes disposes node 0 once the list empties, and
@@ -953,10 +963,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         child: screen,
       );
     }
-    return RequestInitialFocus(
-      targetNode: _homeButtonFocusNode,
-      child: screen,
-    );
+    return RequestInitialFocus(targetNode: _homeButtonFocusNode, child: screen);
   }
 
   LibraryStyle get _libraryStyle =>
@@ -992,9 +999,8 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
   /// [base] everywhere but under the Docked bar, where the last row has to
   /// scroll clear of it.
-  double _gridBottomPadding(double base) => _usesDockedBar
-      ? math.max(base, _dockedBarInset(context) + 16)
-      : base;
+  double _gridBottomPadding(double base) =>
+      _usesDockedBar ? math.max(base, _dockedBarInset(context) + 16) : base;
 
   String _libraryTitle(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -1120,10 +1126,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       children: [
         Positioned.fill(
           right: railGap,
-          child: Focus(
-            focusNode: _gridAreaFocusNode,
-            child: _buildBody(),
-          ),
+          child: Focus(focusNode: _gridAreaFocusNode, child: _buildBody()),
         ),
         if (showRail)
           Positioned(
@@ -1144,8 +1147,8 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     final hideBackdrops = _prefs.get(UserPreferences.hideBackdropsInLibraries);
     final hasBackdrop = !isMobile && !hideBackdrops && _backdropUrl != null;
     final blurAmount = _prefs
-      .get(UserPreferences.browsingBackgroundBlurAmount)
-      .toDouble();
+        .get(UserPreferences.browsingBackgroundBlurAmount)
+        .toDouble();
     final style = _libraryStyle;
     final model = style == LibraryStyle.classic
         ? null
@@ -1346,11 +1349,13 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       final rawItems = (response['Items'] as List?) ?? [];
       final mapped = rawItems
           .whereType<Map>()
-          .map((raw) => AggregatedItem(
-                id: raw['Id']?.toString() ?? '',
-                serverId: client.baseUrl,
-                rawData: raw.cast<String, dynamic>(),
-              ))
+          .map(
+            (raw) => AggregatedItem(
+              id: raw['Id']?.toString() ?? '',
+              serverId: client.baseUrl,
+              rawData: raw.cast<String, dynamic>(),
+            ),
+          )
           .toList();
       if (mapped.isEmpty) return;
       final manager = GetIt.instance<PlaybackManager>();
@@ -1442,28 +1447,37 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         Expanded(
           child: switch (_vm.state) {
             LibraryBrowseState.loading => SkeletonLibraryGrid(
-                cardWidth: _cardWidth(),
-                aspectRatio: _gridBaseAspectRatio(),
-                isSongs: _isSongsBrowse,
-                isHorizontal: _vm.scrollDirection == LibraryScrollDirection.horizontal,
-              ),
+              cardWidth: _cardWidth(),
+              aspectRatio: _gridBaseAspectRatio(),
+              isSongs: _isSongsBrowse,
+              isHorizontal:
+                  _vm.scrollDirection == LibraryScrollDirection.horizontal,
+            ),
             LibraryBrowseState.error => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _vm.isNetworkError
-                          ? AppLocalizations.of(context).unableToConnectToServer
-                          : describeError(_vm.error!, AppLocalizations.of(context)),
-                      style: TextStyle(
-                        color: _vm.isBookLibrary ? const Color(0xFFF4E6D5) : Colors.white,
-                      ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _vm.isNetworkError
+                        ? AppLocalizations.of(context).unableToConnectToServer
+                        : describeError(
+                            _vm.error!,
+                            AppLocalizations.of(context),
+                          ),
+                    style: TextStyle(
+                      color: _vm.isBookLibrary
+                          ? const Color(0xFFF4E6D5)
+                          : Colors.white,
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(onPressed: _vm.load, child: Text(AppLocalizations.of(context).retry)),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _vm.load,
+                    child: Text(AppLocalizations.of(context).retry),
+                  ),
+                ],
               ),
+            ),
             LibraryBrowseState.ready =>
               _isSongsBrowse ? _buildSongsList() : _buildGrid(),
           },
@@ -1472,14 +1486,20 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     );
   }
 
+  /// A search still reading the rest of the library may find something yet,
+  /// so it shows a spinner until it has looked everywhere.
+  Widget _buildNothingFound() => Center(
+    child: _vm.searchFilling
+        ? CircularProgressIndicator(color: _jellyfinBlue)
+        : Text(
+            AppLocalizations.of(context).noItemsFound,
+            style: const TextStyle(color: Colors.white70),
+          ),
+  );
+
   Widget _buildSongsList() {
     if (_vm.items.isEmpty) {
-      return Center(
-        child: Text(
-          AppLocalizations.of(context).noItemsFound,
-          style: const TextStyle(color: Colors.white70),
-        ),
-      );
+      return _buildNothingFound();
     }
     final isMobile = _isCompact(context);
     final hPad = isMobile ? 16.0 : _horizontalPadding;
@@ -1518,12 +1538,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
   Widget _buildGrid() {
     if (_vm.items.isEmpty) {
-      return Center(
-        child: Text(
-          AppLocalizations.of(context).noItemsFound,
-          style: const TextStyle(color: Colors.white70),
-        ),
-      );
+      return _buildNothingFound();
     }
 
     if (_vm.scrollDirection == LibraryScrollDirection.horizontal) {
@@ -1589,11 +1604,8 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
         final focusColor = _vm.isFilterBrowse
             ? ThemeRegistry.active.borders.focusBorder.color
-            : Color(
-                _prefs.get(UserPreferences.focusColor).colorValue,
-              );
-        final isNeon =
-            ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
+            : Color(_prefs.get(UserPreferences.focusColor).colorValue);
+        final isNeon = ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
 
         // Grouping and the type checkboxes both move cards around, so focus
         // nodes key on a card's place in the full list to stay with it.
@@ -1636,7 +1648,12 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
             slivers.add(
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(gridPadding, topPadding, gridPadding, 16),
+                padding: EdgeInsets.fromLTRB(
+                  gridPadding,
+                  topPadding,
+                  gridPadding,
+                  16,
+                ),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
@@ -1644,53 +1661,50 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                     crossAxisSpacing: spacing,
                     childAspectRatio: childAspectRatio,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = categoryItems[index];
-                      final itemAspectRatio = _itemAspectRatio(item);
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = categoryItems[index];
+                    final itemAspectRatio = _itemAspectRatio(item);
 
-                      GridSectionCell? cell({required bool down}) =>
-                          gridSectionTarget(
-                            sectionLengths: sectionLengths,
-                            crossAxisCount: crossAxisCount,
-                            section: s,
-                            index: index,
-                            down: down,
-                          );
-                      VoidCallback? focusCell(GridSectionCell? target) {
-                        if (target == null) return null;
-                        final cards = groupEntries[target.section].value;
-                        final node = indexInItems[cards[target.index].id];
-                        if (node == null) return null;
-                        return () => getGridItemFocusNode(node).requestFocus();
-                      }
+                    GridSectionCell? cell({required bool down}) =>
+                        gridSectionTarget(
+                          sectionLengths: sectionLengths,
+                          crossAxisCount: crossAxisCount,
+                          section: s,
+                          index: index,
+                          down: down,
+                        );
+                    VoidCallback? focusCell(GridSectionCell? target) {
+                      if (target == null) return null;
+                      final cards = groupEntries[target.section].value;
+                      final node = indexInItems[cards[target.index].id];
+                      if (node == null) return null;
+                      return () => getGridItemFocusNode(node).requestFocus();
+                    }
 
-                      final upCell = cell(down: false);
-                      final onTvUp = upCell == null
-                          ? _focusAboveGrid
-                          : focusCell(upCell);
-                      // Nothing below leaves the bottom edge to the pagination
-                      // the card falls through to.
-                      final onTvDown = focusCell(cell(down: true));
+                    final upCell = cell(down: false);
+                    final onTvUp = upCell == null
+                        ? _focusAboveGrid
+                        : focusCell(upCell);
+                    // Nothing below leaves the bottom edge to the pagination
+                    // the card falls through to.
+                    final onTvDown = focusCell(cell(down: true));
 
-                      return _buildGridCard(
-                        item: item,
-                        index: indexInItems[item.id] ?? index,
-                        positionInSection: index,
-                        sectionCount: categoryItems.length,
-                        crossAxisCount: crossAxisCount,
-                        cellWidth: cellWidth,
-                        itemAspectRatio: itemAspectRatio,
-                        focusColor: focusColor,
-                        isNeon: isNeon,
-                        watchedBehavior: watchedBehavior,
-                        isMobile: isMobile,
-                        onTvUp: onTvUp,
-                        onTvDown: onTvDown,
-                      );
-                    },
-                    childCount: categoryItems.length,
-                  ),
+                    return _buildGridCard(
+                      item: item,
+                      index: indexInItems[item.id] ?? index,
+                      positionInSection: index,
+                      sectionCount: categoryItems.length,
+                      crossAxisCount: crossAxisCount,
+                      cellWidth: cellWidth,
+                      itemAspectRatio: itemAspectRatio,
+                      focusColor: focusColor,
+                      isNeon: isNeon,
+                      watchedBehavior: watchedBehavior,
+                      isMobile: isMobile,
+                      onTvUp: onTvUp,
+                      onTvDown: onTvDown,
+                    );
+                  }, childCount: categoryItems.length),
                 ),
               ),
             );
@@ -1710,7 +1724,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
           }
           if (_usesDockedBar) {
             slivers.add(
-              SliverToBoxAdapter(child: SizedBox(height: _gridBottomPadding(0))),
+              SliverToBoxAdapter(
+                child: SizedBox(height: _gridBottomPadding(0)),
+              ),
             );
           }
 
@@ -1724,8 +1740,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
           );
         }
 
-        final itemsToDisplay =
-            _vm.isGrouping ? _vm.currentCategoryItems : gridItems;
+        final itemsToDisplay = _vm.isGrouping
+            ? _vm.currentCategoryItems
+            : gridItems;
 
         final verticalScrollView = CustomScrollView(
           controller: _scrollController,
@@ -1847,13 +1864,13 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         animeMarkerItemId: item.id,
         posterBadgeItemId: item.id,
         recordingItemId: item.id,
+        imageOverlays: mergedServerCountOverlays(context, item),
         title: item.name,
         subtitle: _cardSubtitle(item),
         showLabel: _showCardTitles,
         imageUrl: posterUrls.$1,
         fallbackImageUrl: posterUrls.$2,
-        cacheManager:
-            BetterPostersService.cacheManagerForUrl(posterUrls.$1),
+        cacheManager: BetterPostersService.cacheManagerForUrl(posterUrls.$1),
         width: double.infinity,
         aspectRatio: itemAspectRatio,
         isBanner: _vm.imageType == ImageType.banner,
@@ -1863,8 +1880,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         suppressFocusGlow: isNeon,
         isPlayed: item.isPlayed,
         isFavorite: item.isFavorite,
-        unplayedCount: item.unplayedItemCount,
-        playedPercentage: _displayPlayedPercentage(item),
+        unplayedCount: _hideUnwatchedCount ? null : item.unplayedItemCount,
+        playedPercentage: _hideWatchProgress
+            ? null
+            : _displayPlayedPercentage(item),
         watchedBehavior: watchedBehavior,
         itemType: item.type,
         onFocus: isMobile
@@ -1955,19 +1974,16 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     Map<String, List<AggregatedItem>> categories,
   ) {
     if (categories.isEmpty) {
-      return Center(
-        child: Text(
-          AppLocalizations.of(context).noItemsFound,
-          style: const TextStyle(color: Colors.white70),
-        ),
-      );
+      return _buildNothingFound();
     }
 
     final cardWidth = _cardWidth() * _kGroupedRowCardScale;
     final isMobile = _isCompact(context);
     final gridPadding = isMobile ? 16.0 : _horizontalPadding;
     final ar = _gridBaseAspectRatio();
-    final watchedBehavior = _prefs.get(UserPreferences.watchedIndicatorBehavior);
+    final watchedBehavior = _prefs.get(
+      UserPreferences.watchedIndicatorBehavior,
+    );
     final desktopTextScale = MediaQuery.textScalerOf(context).scale(1.0);
     final textHeight = _showCardTitles
         ? (_hasSubtitles ? 42.0 : 24.0) * desktopTextScale
@@ -2037,7 +2053,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     }
     final items = _vm.visiblePlaylists;
     final cardFocusExpansion = _prefs.get(UserPreferences.cardFocusExpansion);
-    final watchedBehavior = _prefs.get(UserPreferences.watchedIndicatorBehavior);
+    final watchedBehavior = _prefs.get(
+      UserPreferences.watchedIndicatorBehavior,
+    );
     final focusColor = Color(_prefs.get(UserPreferences.focusColor).colorValue);
     final isNeon = ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
 
@@ -2063,11 +2081,13 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
         final availableHeight =
             constraints.maxHeight - vertPadding - bottomPadding;
-        final rawRows = (availableHeight + spacing) / (targetCellHeight + spacing);
-        final rowCount = (rawRows >= _kHorizontalRowRoundUpThreshold
-                ? rawRows.round()
-                : rawRows.floor())
-            .clamp(1, _kMaxHorizontalRows);
+        final rawRows =
+            (availableHeight + spacing) / (targetCellHeight + spacing);
+        final rowCount =
+            (rawRows >= _kHorizontalRowRoundUpThreshold
+                    ? rawRows.round()
+                    : rawRows.floor())
+                .clamp(1, _kMaxHorizontalRows);
 
         final double actualCellHeight;
         final double actualImageHeight;
@@ -2075,8 +2095,12 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
           actualCellHeight = targetCellHeight;
           actualImageHeight = targetImageHeight;
         } else {
-          actualCellHeight = (availableHeight - (rowCount - 1) * spacing) / rowCount;
-          actualImageHeight = (actualCellHeight - textHeight).clamp(40.0, 1000.0);
+          actualCellHeight =
+              (availableHeight - (rowCount - 1) * spacing) / rowCount;
+          actualImageHeight = (actualCellHeight - textHeight).clamp(
+            40.0,
+            1000.0,
+          );
         }
         final actualCellWidth = actualImageHeight * ar;
         final childAspectRatio = actualCellHeight / actualCellWidth;
@@ -2092,8 +2116,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
             if (signal is PointerScrollEvent && _scrollController.hasClients) {
               final pos = _scrollController.position;
               final newOffset =
-                  (_scrollController.offset + signal.scrollDelta.dy)
-                      .clamp(pos.minScrollExtent, pos.maxScrollExtent);
+                  (_scrollController.offset + signal.scrollDelta.dy).clamp(
+                    pos.minScrollExtent,
+                    pos.maxScrollExtent,
+                  );
               _scrollController.jumpTo(newOffset);
             }
           },
@@ -2108,7 +2134,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
             slivers: [
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
-                  horizPadding, vertPadding, horizPadding, bottomPadding,
+                  horizPadding,
+                  vertPadding,
+                  horizPadding,
+                  bottomPadding,
                 ),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -2117,75 +2146,75 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                     crossAxisSpacing: spacing,
                     childAspectRatio: childAspectRatio,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      // No childCount on this delegate, so returning null is
-                      // what tells the sliver where the list ends.
-                      if (index >= items.length) return null;
-                      final item = items[index];
-                      final posterUrls = _posterUrls(
-                        item,
-                        cellWidth: actualCellWidth,
-                      );
-                      return MediaCard(
-                        posterBadgeItemId: item.id,
-                        recordingItemId: item.id,
-                        title: item.name,
-                        subtitle: _cardSubtitle(item),
-                        showLabel: _showCardTitles,
-                        imageUrl: posterUrls.$1,
-                        fallbackImageUrl: posterUrls.$2,
-                        cacheManager:
-                            BetterPostersService.cacheManagerForUrl(
-                              posterUrls.$1,
-                            ),
-                        width: double.infinity,
-                        aspectRatio: _itemAspectRatio(item),
-                        focusColor: focusColor,
-                        focusNode: getGridItemFocusNode(index),
-                        cardFocusExpansion: cardFocusExpansion,
-                        suppressFocusGlow: isNeon,
-                        isPlayed: item.isPlayed,
-                        isFavorite: item.isFavorite,
-                        unplayedCount: item.unplayedItemCount,
-                        playedPercentage: _displayPlayedPercentage(item),
-                        watchedBehavior: watchedBehavior,
-                        itemType: item.type,
-                        onFocus: () => _onItemFocused(item),
-                        onHoverStart: () => _onItemFocused(item),
-                        onHoverEnd: () => _vm.setFocusedItem(null),
-                        onKeyEvent: (_, event) {
-                          if (event.isActionable &&
-                              event.logicalKey.isLeftKey &&
-                              index < rowCount &&
-                              _usesDockedPanel) {
-                            _focusDockedPanel();
-                            return KeyEventResult.handled;
-                          }
-                          if (!_vm.hasMore && !_vm.loadingMore) {
-                            return KeyEventResult.ignored;
-                          }
-                          if (!event.isActionable ||
-                              !event.logicalKey.isRightKey) {
-                            return KeyEventResult.ignored;
-                          }
-                          final col = index ~/ rowCount;
-                          final isLastCol =
-                              (col + 1) * rowCount >= items.length;
-                          if (!isLastCol) return KeyEventResult.ignored;
-                          _vm.loadMore();
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    // No childCount on this delegate, so returning null is
+                    // what tells the sliver where the list ends.
+                    if (index >= items.length) return null;
+                    final item = items[index];
+                    final posterUrls = _posterUrls(
+                      item,
+                      cellWidth: actualCellWidth,
+                    );
+                    return MediaCard(
+                      posterBadgeItemId: item.id,
+                      recordingItemId: item.id,
+                      imageOverlays: mergedServerCountOverlays(context, item),
+                      title: item.name,
+                      subtitle: _cardSubtitle(item),
+                      showLabel: _showCardTitles,
+                      imageUrl: posterUrls.$1,
+                      fallbackImageUrl: posterUrls.$2,
+                      cacheManager: BetterPostersService.cacheManagerForUrl(
+                        posterUrls.$1,
+                      ),
+                      width: double.infinity,
+                      aspectRatio: _itemAspectRatio(item),
+                      focusColor: focusColor,
+                      focusNode: getGridItemFocusNode(index),
+                      cardFocusExpansion: cardFocusExpansion,
+                      suppressFocusGlow: isNeon,
+                      isPlayed: item.isPlayed,
+                      isFavorite: item.isFavorite,
+                      unplayedCount: _hideUnwatchedCount
+                          ? null
+                          : item.unplayedItemCount,
+                      playedPercentage: _hideWatchProgress
+                          ? null
+                          : _displayPlayedPercentage(item),
+                      watchedBehavior: watchedBehavior,
+                      itemType: item.type,
+                      onFocus: () => _onItemFocused(item),
+                      onHoverStart: () => _onItemFocused(item),
+                      onHoverEnd: () => _vm.setFocusedItem(null),
+                      onKeyEvent: (_, event) {
+                        if (event.isActionable &&
+                            event.logicalKey.isLeftKey &&
+                            index < rowCount &&
+                            _usesDockedPanel) {
+                          _focusDockedPanel();
                           return KeyEventResult.handled;
-                        },
-                        onLongPress: () => showContextMenu(
-                          context,
-                          item,
-                          onChanged: () => setState(() {}),
-                        ),
-                        onTap: () => _onItemTap(item),
-                      );
-                    },
-                    childCount: items.length,
-                  ),
+                        }
+                        if (!_vm.hasMore && !_vm.loadingMore) {
+                          return KeyEventResult.ignored;
+                        }
+                        if (!event.isActionable ||
+                            !event.logicalKey.isRightKey) {
+                          return KeyEventResult.ignored;
+                        }
+                        final col = index ~/ rowCount;
+                        final isLastCol = (col + 1) * rowCount >= items.length;
+                        if (!isLastCol) return KeyEventResult.ignored;
+                        _vm.loadMore();
+                        return KeyEventResult.handled;
+                      },
+                      onLongPress: () => showContextMenu(
+                        context,
+                        item,
+                        onChanged: () => setState(() {}),
+                      ),
+                      onTap: () => _onItemTap(item),
+                    );
+                  }, childCount: items.length),
                 ),
               ),
               if (_vm.loadingMore)
@@ -2193,9 +2222,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Center(
-                      child: CircularProgressIndicator(
-                        color: _jellyfinBlue,
-                      ),
+                      child: CircularProgressIndicator(color: _jellyfinBlue),
                     ),
                   ),
                 ),
@@ -2374,7 +2401,11 @@ class _LibraryHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTitleAndSearch(context, isMobile: isMobile, desktopScale: desktopScale),
+          _buildTitleAndSearch(
+            context,
+            isMobile: isMobile,
+            desktopScale: desktopScale,
+          ),
           if (showMediaDetails && !isMobile) ...[
             const SizedBox(height: 2),
             _FocusedItemHud(
@@ -2510,11 +2541,13 @@ class _LibraryHeader extends StatelessWidget {
       return LayoutBuilder(
         builder: (context, constraints) {
           final desiredSearchWidth = 320 * desktopScale;
-          final maxSearchWidth = (constraints.maxWidth - 220 * desktopScale) / 2;
-          final searchWidth = (desiredSearchWidth < maxSearchWidth
-                  ? desiredSearchWidth
-                  : maxSearchWidth)
-              .clamp(160.0, 400.0);
+          final maxSearchWidth =
+              (constraints.maxWidth - 220 * desktopScale) / 2;
+          final searchWidth =
+              (desiredSearchWidth < maxSearchWidth
+                      ? desiredSearchWidth
+                      : maxSearchWidth)
+                  .clamp(160.0, 400.0);
 
           return Row(
             children: [
@@ -3251,7 +3284,8 @@ class _DialogRadioTile extends StatefulWidget {
   State<_DialogRadioTile> createState() => _DialogRadioTileState();
 }
 
-class _DialogRadioTileState extends State<_DialogRadioTile> with FocusStateMixin {
+class _DialogRadioTileState extends State<_DialogRadioTile>
+    with FocusStateMixin {
   @override
   Widget build(BuildContext context) {
     final effectiveAccent = widget.accent ?? AppColorScheme.accent;
@@ -3275,7 +3309,9 @@ class _DialogRadioTileState extends State<_DialogRadioTile> with FocusStateMixin
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            color: showActive ? focusColor.withValues(alpha: 0.12) : Colors.transparent,
+            color: showActive
+                ? focusColor.withValues(alpha: 0.12)
+                : Colors.transparent,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Row(
               children: [
@@ -3292,7 +3328,9 @@ class _DialogRadioTileState extends State<_DialogRadioTile> with FocusStateMixin
                         width: 2,
                       ),
                     ),
-                    color: widget.selected ? effectiveAccent : Colors.transparent,
+                    color: widget.selected
+                        ? effectiveAccent
+                        : Colors.transparent,
                   ),
                   child: widget.selected
                       ? Center(
@@ -3348,7 +3386,8 @@ class _DialogCheckboxTile extends StatefulWidget {
   State<_DialogCheckboxTile> createState() => _DialogCheckboxTileState();
 }
 
-class _DialogCheckboxTileState extends State<_DialogCheckboxTile> with FocusStateMixin {
+class _DialogCheckboxTileState extends State<_DialogCheckboxTile>
+    with FocusStateMixin {
   @override
   Widget build(BuildContext context) {
     final showActive = focused || hovered;
@@ -3371,7 +3410,9 @@ class _DialogCheckboxTileState extends State<_DialogCheckboxTile> with FocusStat
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            color: showActive ? focusColor.withValues(alpha: 0.12) : Colors.transparent,
+            color: showActive
+                ? focusColor.withValues(alpha: 0.12)
+                : Colors.transparent,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Row(
               children: [
@@ -3382,7 +3423,9 @@ class _DialogCheckboxTileState extends State<_DialogCheckboxTile> with FocusStat
                     borderRadius: AppRadius.circular(4),
                     border: Border.fromBorderSide(
                       ThemeRegistry.active.borders.focusBorder.copyWith(
-                        color: widget.checked ? widget.accent : color.withValues(alpha: 0.5),
+                        color: widget.checked
+                            ? widget.accent
+                            : color.withValues(alpha: 0.5),
                         width: 2,
                       ),
                     ),
@@ -3406,7 +3449,9 @@ class _DialogCheckboxTileState extends State<_DialogCheckboxTile> with FocusStat
                   widget.label,
                   style: TextStyle(
                     fontSize: 15,
-                    color: widget.checked ? color : color.withValues(alpha: 0.72),
+                    color: widget.checked
+                        ? color
+                        : color.withValues(alpha: 0.72),
                   ),
                 ),
               ],
@@ -3925,7 +3970,8 @@ class _GroupedCategoryRow extends StatefulWidget {
     required bool isMobile,
     VoidCallback? onCardFocused,
     bool paginateOnEdge,
-  }) buildGridCard;
+  })
+  buildGridCard;
   final double Function(AggregatedItem item) getItemAspectRatio;
 
   const _GroupedCategoryRow({
@@ -3975,7 +4021,12 @@ class _GroupedCategoryRowState extends State<_GroupedCategoryRow> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(widget.gridPadding, 12, widget.gridPadding, 8),
+          padding: EdgeInsets.fromLTRB(
+            widget.gridPadding,
+            12,
+            widget.gridPadding,
+            8,
+          ),
           child: Row(
             children: [
               Text(
@@ -4002,7 +4053,10 @@ class _GroupedCategoryRowState extends State<_GroupedCategoryRow> {
           child: ListView.builder(
             controller: _horizontalController,
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: widget.gridPadding, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.gridPadding,
+              vertical: 12,
+            ),
             itemCount: widget.items.length,
             // The row's own context is what ensureVisible below needs, so the
             // builder's is left unnamed rather than shadowing it.
@@ -4156,8 +4210,12 @@ class _CategoryChipState extends State<_CategoryChip> with FocusStateMixin {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: showActive
-                    ? (widget.isSelected ? accent : Colors.white.withValues(alpha: 0.28))
-                    : (widget.isSelected ? accent.withValues(alpha: 0.65) : Colors.white.withValues(alpha: 0.08)),
+                    ? (widget.isSelected
+                          ? accent
+                          : Colors.white.withValues(alpha: 0.28))
+                    : (widget.isSelected
+                          ? accent.withValues(alpha: 0.65)
+                          : Colors.white.withValues(alpha: 0.08)),
                 borderRadius: AppRadius.circular(16),
                 border: Border.all(
                   color: showActive
@@ -4168,7 +4226,8 @@ class _CategoryChipState extends State<_CategoryChip> with FocusStateMixin {
                 boxShadow: showActive
                     ? [
                         BoxShadow(
-                          color: (widget.isSelected ? accent : Colors.white).withValues(alpha: 0.4),
+                          color: (widget.isSelected ? accent : Colors.white)
+                              .withValues(alpha: 0.4),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -4179,7 +4238,9 @@ class _CategoryChipState extends State<_CategoryChip> with FocusStateMixin {
                 widget.label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: widget.isSelected || showActive ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: widget.isSelected || showActive
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                   color: Colors.white,
                 ),
               ),

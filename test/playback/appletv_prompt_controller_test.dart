@@ -303,7 +303,9 @@ void main() {
         async.elapse(const Duration(milliseconds: 7000));
         async.flushMicrotasks();
         expect(h.commands.count('advanceNext'), 0);
-        expect(h.commands.count('exitPlayback'), 1);
+        expect(h.commands.count('markPlayed'), 1);
+        expect(h.commands.count('exitPlayback:finished'), 1);
+        expect(h.commands.count('exitPlayback'), 0);
       });
     });
 
@@ -341,7 +343,9 @@ void main() {
       await h.controller.handleNextUpPlay();
 
       expect(h.commands.count('advanceNext'), 0);
-      expect(h.commands.count('exitPlayback'), 1);
+      expect(h.commands.count('markPlayed'), 1);
+      expect(h.commands.count('exitPlayback:finished'), 1);
+      expect(h.commands.count('exitPlayback'), 0);
     });
 
     test('rapid double play advances once', () async {
@@ -363,13 +367,16 @@ void main() {
       expect(h.commands.count('advanceNext'), 1);
     });
 
-    test('cancel exits playback', () async {
+    test('cancel marks played and exits playback as finished', () async {
       final h = _Harness(await testPrefs());
 
       h.tick(remainingMs: 900);
       h.controller.handleNextUpCancel();
 
-      expect(h.commands.count('exitPlayback'), 1);
+      expect(h.commands.count('markPlayed'), 1);
+      expect(h.commands.lastMarkedPlayedId, 'ep1');
+      expect(h.commands.count('exitPlayback:finished'), 1);
+      expect(h.commands.count('exitPlayback'), 0);
     });
   });
 
@@ -420,7 +427,9 @@ void main() {
 
       expect(h.commands.count('advanceNext'), 0);
       expect(h.commands.count('resume'), 0);
-      expect(h.commands.count('exitPlayback'), 1);
+      expect(h.commands.count('markPlayed'), 1);
+      expect(h.commands.count('exitPlayback:finished'), 1);
+      expect(h.commands.count('exitPlayback'), 0);
     });
 
     test('below the episode threshold no prompt shows', () async {
@@ -475,6 +484,43 @@ void main() {
       expect(h.commands.count('advanceNext'), 0);
       expect(h.commands.count('resume'), 0);
       expect(h.commands.count('exitPlayback'), 0);
+    });
+
+    test('stop after the queue moved under the prompt still exits, unmarked',
+        () async {
+      final h = await harnessAtThreshold();
+
+      h.tick(remainingMs: 900);
+      final play = h.controller.handleNextUpPlay();
+      await Future<void>.delayed(Duration.zero);
+
+      h.snapshot = _snapshot(currentId: 'ep_other');
+      h.controller.resolveStillWatching(shouldContinue: false);
+      await play;
+
+      expect(h.commands.count('markPlayed'), 0);
+      expect(h.commands.count('exitPlayback:finished'), 0);
+      expect(h.commands.count('exitPlayback'), 1);
+      expect(h.commands.count('advanceNext'), 0);
+      expect(h.commands.count('resume'), 0);
+    });
+
+    test('continue after the queue moved under the prompt does not advance '
+        'again', () async {
+      final h = await harnessAtThreshold();
+
+      h.tick(remainingMs: 900);
+      final play = h.controller.handleNextUpPlay();
+      await Future<void>.delayed(Duration.zero);
+
+      h.snapshot = _snapshot(currentId: 'ep_other');
+      h.controller.resolveStillWatching(shouldContinue: true);
+      await play;
+
+      expect(h.commands.count('advanceNext'), 0);
+      expect(h.commands.count('resume'), 0);
+      expect(h.commands.count('exitPlayback'), 0);
+      expect(h.controller.consecutiveEpisodes, 0);
     });
   });
 
@@ -791,6 +837,12 @@ void main() {
 
       expect(h.commands.count('showSkipSegment'), 0);
       expect(h.commands.count('showNextUp'), 1);
+
+      h.controller.handleNextUpCancel();
+      expect(h.commands.count('markPlayed'), 1);
+      expect(h.commands.lastMarkedPlayedId, 'ep1');
+      expect(h.commands.count('exitPlayback:finished'), 1);
+      expect(h.commands.count('exitPlayback'), 0);
     });
 
     test('outro deferral holds the card until the end threshold', () async {

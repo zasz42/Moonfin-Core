@@ -33,6 +33,7 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final servers = _servers;
+    final prefs = GetIt.instance<UserPreferences>();
     return Scaffold(
       appBar: buildSettingsAppBar(context, Text(l10n.libraries)),
       body: ListView(
@@ -87,6 +88,22 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
                   },
                   onChanged: _pushPersonalizationSync,
                 ),
+
+              // Rebuild on preference changes so this tile's enabled state
+              // follows the switch above, which writes through its own
+              // binding.
+              ListenableBuilder(
+                listenable: prefs,
+                builder: (context, _) => SwitchPreferenceTile(
+                  preference: UserPreferences.mergeLibrariesByType,
+                  title: l10n.mergeLibrariesByType,
+                  subtitle: l10n.mergeLibrariesByTypeDescription,
+                  icon: Icons.merge_type,
+                  enabled: prefs.get(
+                    UserPreferences.enableMultiServerLibraries,
+                  ),
+                ),
+              ),
               SwitchPreferenceTile(
                 preference: UserPreferences.showBookDiscoverTab,
                 title: l10n.showBookDiscoverTab,
@@ -222,6 +239,20 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
                 icon: Icons.subtitles,
                 onChanged: _pushPersonalizationSync,
               ),
+              SwitchPreferenceTile(
+                preference: UserPreferences.hideLibraryWatchProgress,
+                title: l10n.hideHomeWatchProgress,
+                subtitle: l10n.hideHomeWatchProgressSubtitle,
+                icon: Icons.linear_scale,
+                onChanged: _pushPersonalizationSync,
+              ),
+              SwitchPreferenceTile(
+                preference: UserPreferences.hideLibraryUnwatchedCount,
+                title: l10n.hideHomeUnwatchedCount,
+                subtitle: l10n.hideHomeUnwatchedCountSubtitle,
+                icon: Icons.filter_9_plus_outlined,
+                onChanged: _pushPersonalizationSync,
+              ),
             ],
           ),
         ],
@@ -229,3 +260,7 @@ class _LibrariesCategoryScreenState extends State<_LibrariesCategoryScreen> {
     );
   }
 }
+
+/// The page is otherwise only reachable inside the panel's private navigator.
+@visibleForTesting
+Widget librariesSettingsScreenForTesting() => const _LibrariesCategoryScreen();

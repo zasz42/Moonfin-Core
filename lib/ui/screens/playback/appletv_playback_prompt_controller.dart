@@ -112,6 +112,7 @@ class AppleTvPlaybackPromptController {
 
   bool _showNextUp = false;
   bool _nextUpDismissed = false;
+  bool _markedPlayed = false;
   bool _isNextUpAdvancing = false;
   int consecutiveEpisodes = 0;
   DateTime? _suppressSeekPromptsUntil;
@@ -277,7 +278,8 @@ class AppleTvPlaybackPromptController {
     _showNextUp = false;
     _nextUpDismissed = true;
     unawaited(_commands.hideNextUp());
-    unawaited(_commands.exitPlayback());
+    _markCurrentPlayed();
+    unawaited(_commands.exitPlayback(finished: true));
   }
 
   /// A viewer reaching for the remote has answered the prompt's question.
@@ -291,6 +293,7 @@ class AppleTvPlaybackPromptController {
     if (behavior == StillWatchingBehavior.disabled) return true;
     if (consecutiveEpisodes < behavior.episodes) return true;
 
+    final pendingItemId = _queueSnapshot().currentId;
     _commands.pause();
     final presented = await _commands.showStillWatching();
     if (_disposed) return false;
@@ -308,12 +311,18 @@ class AppleTvPlaybackPromptController {
     _stillWatchingCompleter = null;
     if (_disposed) return false;
 
+    // A group or remote can move the queue while the prompt is up. Stop still
+    // stops, but only the episode it asked about counts as finished, and
+    // continue doesn't advance a second time.
+    final sameItem = _queueSnapshot().currentId == pendingItemId;
     if (shouldContinue) {
       consecutiveEpisodes = 0;
+      if (!sameItem) return false;
       _commands.resume();
       return true;
     }
-    unawaited(_commands.exitPlayback());
+    if (sameItem) _markCurrentPlayed();
+    unawaited(_commands.exitPlayback(finished: sameItem));
     return false;
   }
 
@@ -330,6 +339,7 @@ class AppleTvPlaybackPromptController {
     _commands.setSuppressAutoNext(false);
     consecutiveEpisodes++;
     _nextUpDismissed = false;
+    _markedPlayed = false;
     _nextUpTimer?.cancel();
     _showNextUp = false;
     unawaited(_commands.hideNextUp());
@@ -427,6 +437,8 @@ class AppleTvPlaybackPromptController {
   // Skipping the credits counts as finishing, even when they start before the
   // server's own played threshold.
   void _markCurrentPlayed() {
+    if (_markedPlayed) return;
+    _markedPlayed = true;
     final currentId = _queueSnapshot().currentId;
     if (currentId != null && currentId.isNotEmpty) {
       _commands.markPlayed(currentId);

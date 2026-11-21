@@ -167,7 +167,7 @@ class AppLocalizationsSr extends AppLocalizations {
   }
 
   @override
-  String get accountActive => 'Active';
+  String get accountActive => 'Активно';
 
   @override
   String get addUser => 'Додај корисника';
@@ -482,7 +482,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get detailScreenStyleStage => 'Stage';
 
   @override
-  String get detailScreenStylePremiere => 'Premiere';
+  String get detailScreenStylePremiere => 'Премијера';
 
   @override
   String get detailScreenStyleQuickLook => 'Quick Look';
@@ -526,7 +526,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get recommendationSystemMoonfin => 'Мунфинове препоруке';
 
   @override
-  String get recommendationSystemJellyfin => 'Препоруке Џелифина (Jellyfin)';
+  String get recommendationSystemJellyfin => 'Препоруке сервера';
 
   @override
   String get recommendationSystemTmdb => 'Сличност према ТМДБ-у (TMDb)';
@@ -2690,7 +2690,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Which episodes should be recorded?';
 
   @override
-  String get seriesRecordingAllEpisodes => 'All Episodes';
+  String get seriesRecordingAllEpisodes => 'Све епизоде';
 
   @override
   String get seriesRecordingAllEpisodesDescription =>
@@ -3592,6 +3592,16 @@ class AppLocalizationsSr extends AppLocalizations {
   String get playerRecroppingBlackBars => 'Поновно исецање црних трака';
 
   @override
+  String get playerBlackBarsCropped => 'Black bars cropped';
+
+  @override
+  String get playerNoBlackBarsFound => 'No black bars found';
+
+  @override
+  String get playerBlackBarsNotDetected =>
+      'Couldn\'t detect black bars. Try again in a brighter scene';
+
+  @override
   String get stretch => 'Развуци';
 
   @override
@@ -3969,7 +3979,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get calendarReleaseCinema => 'Cinema';
 
   @override
-  String get calendarReleaseDigital => 'Digital';
+  String get calendarReleaseDigital => 'Дигитални';
 
   @override
   String get calendarReleasePhysical => 'Physical';
@@ -3979,10 +3989,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get upcomingCalendarsDescription =>
-      'Toggle Upcoming Calendars from Radarr/Sonarr.';
-
-  @override
-  String get enableRadarrCalendar => 'Enable Radarr\'s Upcoming Calendar';
+      'Choose what the Radarr and Sonarr rows show.';
 
   @override
   String get radarrCalendarShowCinema => 'Show Upcoming Cinema Releases';
@@ -3999,9 +4006,6 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get radarrCalendarHideDownloaded =>
       'Hide Movies Already on the Server';
-
-  @override
-  String get enableSonarrCalendar => 'Enable Sonarr\'s Upcoming Calendar';
 
   @override
   String get sonarrCalendarShowEpisodeInfo => 'Display Episode Information';
@@ -4883,7 +4887,6 @@ class AppLocalizationsSr extends AppLocalizations {
       'Прикажи библиотеке са свих повезаних сервера';
 
   @override
-  @override
   String get primaryServerForLocalMedia => 'Default Server for Local Media';
 
   @override
@@ -4903,6 +4906,38 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get mergeMediaBarLibrariesDescription =>
       'Libraries from multiple servers will be available as sources for the media bar';
+
+  @override
+  String get mergeLibrariesByType => 'Merge Movie and TV Show Libraries';
+
+  @override
+  String get mergeLibrariesByTypeDescription =>
+      'With multi-server libraries on, show one Movies library and one TV Shows library for all servers. A title several servers hold is listed once.';
+
+  @override
+  String mergedServerCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'On $count servers',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String mergedCopiesNotChanged(String servers) {
+    return 'Not changed on $servers';
+  }
+
+  @override
+  String get recentlyAddedAndReleased => 'Recently Added and Released';
+
+  @override
+  String get hideWatchedInRecentRows => 'Hide Watched';
+
+  @override
+  String get hideWatchedInRecentRowsDescription =>
+      'Hide watched content from Recently Added and Recently Released home rows.';
 
   @override
   String get mergeRecentRowsByType =>
@@ -4927,13 +4962,13 @@ class AppLocalizationsSr extends AppLocalizations {
       'Classic is the original header with icon buttons. Modern adds labeled sort, group and filter chips under the search. Docked keeps the controls in a bar at the bottom of the screen.';
 
   @override
-  String get libraryStyleClassic => 'Classic';
+  String get libraryStyleClassic => 'Класични';
 
   @override
-  String get libraryStyleModern => 'Modern';
+  String get libraryStyleModern => 'Модерни';
 
   @override
-  String get libraryStyleDocked => 'Docked';
+  String get libraryStyleDocked => 'Усидрена';
 
   @override
   String get bookLibraryStyle => 'Book Library Style';
@@ -4943,7 +4978,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Classic is the original shelves under a featured title. Reading Room leads with what you\'re reading on large cards. Bookstore browses the whole library in a grid.';
 
   @override
-  String get bookLibraryStyleClassic => 'Classic';
+  String get bookLibraryStyleClassic => 'Класични';
 
   @override
   String get bookLibraryStyleReadingRoom => 'Reading Room';
@@ -4959,7 +4994,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Classic is the original rows under a Jump Back In card. Quick Access starts with a grid of your recent albums and playlists. Immersive leads with the album you\'re listening to.';
 
   @override
-  String get musicLibraryStyleClassic => 'Classic';
+  String get musicLibraryStyleClassic => 'Класични';
 
   @override
   String get musicLibraryStyleQuickAccess => 'Quick Access';
@@ -5010,7 +5045,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get searchBooks => 'Search books';
 
   @override
-  String get libraryShowLabel => 'Show';
+  String get libraryShowLabel => 'Прикажи';
 
   @override
   String get libraryAToZ => 'A to Z';
@@ -5163,17 +5198,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get mediaBarSourceRandom => 'Насумично';
 
   @override
-  String get mediaBarSourceNewReleases => 'New Seasons & Episodes';
-
-  @override
   String get mediaBarNewReleaseBanner => 'New Release Banner';
-
-  @override
-  String get mediaBarNewReleaseBannerDescription =>
-      'Flag series with a new season or new episodes that aired recently.';
-
-  @override
-  String get mediaBarNewReleaseDays => 'New Release Window';
 
   @override
   String get mediaBarNewReleaseDaysDescription =>
@@ -5187,6 +5212,39 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get mediaBarNewEpisodes => 'New Episodes';
+
+  @override
+  String get mediaBarNewMovie => 'New Movie';
+
+  @override
+  String get mediaBarNewReleasesSection => 'New Releases';
+
+  @override
+  String get mediaBarSourceNewReleasesAll => 'New Releases';
+
+  @override
+  String get mediaBarNewReleaseBannerAllDescription =>
+      'Flag new series, seasons, episodes and movies.';
+
+  @override
+  String get mediaBarNewReleaseKinds => 'Labels';
+
+  @override
+  String get mediaBarNewEpisodeDays => 'New Episode Window';
+
+  @override
+  String get mediaBarNewMovieDays => 'New Movie Window';
+
+  @override
+  String get mediaBarNewMovieDaysDescription =>
+      'How long a movie stays new after it comes out. Theatrical movies often reach servers a while after their release, so give it longer than for episodes.';
+
+  @override
+  String get mediaBarNewMovieDetail => 'Show Tagline';
+
+  @override
+  String get mediaBarNewMovieDetailDescription =>
+      'Under New Movie, show the movie\'s tagline. With none, the label stays on its own.';
 
   @override
   String get moviesAndTvShows => 'Филмови и ТВ серије';
@@ -5371,7 +5429,10 @@ class AppLocalizationsSr extends AppLocalizations {
   String get homeRowsGenresAndStudios => 'Genres and Studios';
 
   @override
-  String get homeRowsExternalLists => 'External Lists';
+  String get homeRowsExternalLists => 'Спољне листе';
+
+  @override
+  String get homeRowsStreamingServices => 'Streaming Services';
 
   @override
   String get perRowSettings => 'Подешавања за сваки ред';
@@ -5609,10 +5670,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get mdblistWatchingNow => 'Watching on MDBList';
 
   @override
-  String get mdblistWatchingNowDescription =>
-      'Show what MDBList users are currently watching';
-
-  @override
   String watchingNowWatchersCount(int count) {
     return '$count watching';
   }
@@ -5839,6 +5896,48 @@ class AppLocalizationsSr extends AppLocalizations {
       'Све што се ново дода у библиотеку на серверу';
 
   @override
+  String get seerrTestNotification => 'Send Test Notification';
+
+  @override
+  String get seerrTestNotificationDesc =>
+      'Verify in-app and background push delivery';
+
+  @override
+  String seerrTestNotificationSentBody(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString devices',
+      one: '1 device',
+    );
+    return 'Dispatched to $_temp0.';
+  }
+
+  @override
+  String get seerrTestNotificationPushDisabled =>
+      'In-app notification sent. Server push is not enabled.';
+
+  @override
+  String get seerrTestNotificationFailed => 'Failed to send test notification';
+
+  @override
+  String get seerrPushServerStatus => 'Server Push';
+
+  @override
+  String get seerrPushDeviceStatus => 'Device Push';
+
+  @override
+  String get seerrPushDeviceRegistered => 'Registered';
+
+  @override
+  String get seerrPushDeviceNotRegistered => 'Not registered';
+
+  @override
   String loggedInAs(String username) {
     return 'Пријављени сте као: $username';
   }
@@ -6028,13 +6127,34 @@ class AppLocalizationsSr extends AppLocalizations {
   String get seerrDownloadStalled => 'Stalled';
 
   @override
-  String get seerrDownloadFailed => 'Download failed';
+  String get seerrDownloadFailed => 'Преузимање није успело';
 
   @override
   String get seerrImportBlocked => 'Import blocked';
 
   @override
   String get seerrNotFoundYet => 'Not found yet';
+
+  @override
+  String get seerrSearchingIndexers => 'Searching indexers';
+
+  @override
+  String seerrNotFoundYetSearched(String when) {
+    return 'Not found yet · searched $when';
+  }
+
+  @override
+  String get seerrNotAvailableYet => 'Not available yet';
+
+  @override
+  String seerrAvailableOn(String date) {
+    return 'Available $date';
+  }
+
+  @override
+  String seerrNextEpisodeOn(String date) {
+    return 'Next episode $date';
+  }
 
   @override
   String get seerrGetDifferentRelease => 'Get a different release';
@@ -6875,7 +6995,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'No channels yet. They show up here once a tuner is set up and the server has imported its channels.';
 
   @override
-  String get adminTranscodingHwaAdvanced => 'Advanced';
+  String get adminTranscodingHwaAdvanced => 'Напредно';
 
   @override
   String get adminTranscodingHwaHelp =>
@@ -7259,7 +7379,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminExternalIdTypePerson => 'Person';
 
   @override
-  String get adminExternalIdTypeArtist => 'Artist';
+  String get adminExternalIdTypeArtist => 'Извођач';
 
   @override
   String get adminExternalIdTypeAlbumArtist => 'Album Artist';
@@ -7271,7 +7391,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminExternalIdTypeReleaseGroup => 'Release Group';
 
   @override
-  String get adminExternalIdTypeBook => 'Book';
+  String get adminExternalIdTypeBook => 'Књига';
 
   @override
   String get adminPlaybackHwAccelWarning =>
@@ -7311,7 +7431,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminImageTypeDisc => 'Disc';
 
   @override
-  String get adminImageTypeMenu => 'Menu';
+  String get adminImageTypeMenu => 'Мени';
 
   @override
   String get adminActivityMediaDetails => 'Media details';
@@ -7327,13 +7447,13 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminMetadataFieldDateAdded => 'Date added';
 
   @override
-  String get adminMetadataFieldArtists => 'Artists';
+  String get adminMetadataFieldArtists => 'Извођачи';
 
   @override
   String get adminMetadataFieldAlbumArtists => 'Album artists';
 
   @override
-  String get adminMetadataFieldAlbum => 'Album';
+  String get adminMetadataFieldAlbum => 'Албум';
 
   @override
   String get adminMetadataFieldSeriesName => 'Series name';
@@ -7385,7 +7505,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Separate several names with a semicolon.';
 
   @override
-  String get adminMetadataSectionRatings => 'Ratings';
+  String get adminMetadataSectionRatings => 'Оцене';
 
   @override
   String get adminMetadataItemLocked =>
@@ -7477,7 +7597,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminLiveTvTabSources => 'Tuners and guide';
 
   @override
-  String get adminLiveTvTabRecordings => 'Recordings';
+  String get adminLiveTvTabRecordings => 'Снимци';
 
   @override
   String get adminLiveTvAddTuner => 'Add tuner device';
@@ -7645,7 +7765,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminLogLevelCritical => 'Critical';
 
   @override
-  String get adminLogLevelNone => 'None';
+  String get adminLogLevelNone => 'Ниједан';
 
   @override
   String get adminActivityAllUsers => 'All users';
@@ -7656,7 +7776,7 @@ class AppLocalizationsSr extends AppLocalizations {
   }
 
   @override
-  String get adminTaskResultFailed => 'Failed';
+  String get adminTaskResultFailed => 'Неуспешно';
 
   @override
   String get adminTaskResultCancelled => 'Cancelled';
@@ -7914,7 +8034,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get adminRestoreSucceeded => 'Restore completed';
 
   @override
-  String get adminLogWatch => 'Watch';
+  String get adminLogWatch => 'Гледај';
 
   @override
   String get adminLogStopWatching => 'Stop watching';
@@ -7927,16 +8047,16 @@ class AppLocalizationsSr extends AppLocalizations {
       'Installing a third party plugin carries risks. It may contain unstable or malicious code, and it can change at any time. Only install plugins from authors you trust, and know what they can do, such as query outside services, slow down library scans or add background work.';
 
   @override
-  String get adminGroupOverview => 'Overview';
+  String get adminGroupOverview => 'Преглед';
 
   @override
-  String get adminGroupLibrary => 'Library';
+  String get adminGroupLibrary => 'Библиотека';
 
   @override
-  String get adminGroupPlayback => 'Playback';
+  String get adminGroupPlayback => 'Репродукција';
 
   @override
-  String get adminGroupPeople => 'People';
+  String get adminGroupPeople => 'Особе';
 
   @override
   String get adminGroupSystem => 'System';
@@ -11166,7 +11286,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get syncPlayShuffleModeSorted => 'По реду';
 
   @override
-  String get syncPlayParticipantYou => 'You';
+  String get syncPlayParticipantYou => 'Ви';
 
   @override
   String syncPlayGroupSubtitle(String participants, String detail) {
@@ -11743,6 +11863,15 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get playerTooltipExitFloatOnTop =>
       'Искључи приказ изнад осталих прозора';
+
+  @override
+  String get playerTooltipPictureInPicture => 'Picture-in-picture';
+
+  @override
+  String get playerTooltipExitPictureInPicture => 'Exit picture-in-picture';
+
+  @override
+  String get playerPlayingInPictureInPicture => 'Playing in picture-in-picture';
 
   @override
   String get playerTooltipLockLandscape => 'Закључај положену оријентацију';
@@ -12646,6 +12775,9 @@ class AppLocalizationsSr extends AppLocalizations {
   String get homeRowsStyleModern => 'Модерни';
 
   @override
+  String get homeRowsStyleCarousel => 'Carousel';
+
+  @override
   String get homeRowsSection => 'Редови почетне странице';
 
   @override
@@ -12774,16 +12906,16 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get sinceYouWatchedSourceDescription =>
-      'Choose recommendation source (Moonfin Recommends custom local algorithm, Jellyfin Recommends server engine, or TMDb\'s similarity metrics. Note: Online recommendations require Seerr integration).';
+      'Choose recommendation source (Moonfin Recommends custom local algorithm, Server Recommends from your media server, or TMDb\'s similarity metrics. Note: Online recommendations require Seerr integration).';
 
   @override
-  String get sinceYouWatchedSourceLocal => 'Moonfin Recommends';
+  String get sinceYouWatchedSourceLocal => 'Мунфинове препоруке';
 
   @override
-  String get sinceYouWatchedSourceServer => 'Jellyfin Recommends';
+  String get sinceYouWatchedSourceServer => 'Препоруке сервера';
 
   @override
-  String get sinceYouWatchedSourceOnline => 'TMDb Similarity';
+  String get sinceYouWatchedSourceOnline => 'Сличност према ТМДБ-у (TMDb)';
 
   @override
   String get sinceYouWatchedSourceType => 'Source Type';
@@ -12941,10 +13073,10 @@ class AppLocalizationsSr extends AppLocalizations {
   String get externalRowSortDefault => 'Default (List Order)';
 
   @override
-  String get externalRowSortName => 'Name';
+  String get externalRowSortName => 'Име';
 
   @override
-  String get externalRowSortReleaseDate => 'Release Date';
+  String get externalRowSortReleaseDate => 'Датум изласка';
 
   @override
   String get externalRowSortRating => 'Rating';
@@ -12953,7 +13085,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get externalRowSortPopularity => 'Popularity';
 
   @override
-  String get externalRowSortShuffle => 'Shuffle';
+  String get externalRowSortShuffle => 'Насумично';
 
   @override
   String get audioPlaylists => 'Аудио-плејлисте';
@@ -13690,7 +13822,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get watchPartyBackToClose => 'Back to close';
 
   @override
-  String get watchPartyType => 'Type';
+  String get watchPartyType => 'Тип';
 
   @override
   String get watchPartyReplyHaha => 'Haha';
@@ -15814,6 +15946,10 @@ class AppLocalizationsSr extends AppLocalizations {
   String get setupRowsModernHint => 'Веће картице са насловима испод.';
 
   @override
+  String get setupRowsCarouselHint =>
+      'Posters with a large details panel underneath.';
+
+  @override
   String get setupDetailClassicHint => 'Сав садржај поређан у једном низу.';
 
   @override
@@ -15849,7 +15985,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'The poster up front, with play under it and the details beside it.';
 
   @override
-  String get setupStylePremiere => 'Premiere';
+  String get setupStylePremiere => 'Премијера';
 
   @override
   String get setupDetailPremiereHint =>
@@ -16535,7 +16671,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get skippingAndAutoplay => 'Skipping & Autoplay';
 
   @override
-  String get advancedPlayback => 'Advanced Playback';
+  String get advancedPlayback => 'Напредна репродукција';
 
   @override
   String get advancedPlaybackSubtitle =>
@@ -16610,25 +16746,19 @@ class AppLocalizationsSr extends AppLocalizations {
   String get settingsWatchTogetherSection => 'Watch Parties';
 
   @override
-  String get settingsAdvancedSection => 'Advanced';
+  String get settingsAdvancedSection => 'Напредно';
 
   @override
   String get settingsDecodingAndRenderingSection => 'Decoding & Rendering';
 
   @override
-  String get settingsAudioStreamSection => 'Audio Stream';
+  String get settingsAudioStreamSection => 'Аудио стрим';
 
   @override
-  String get settingsAudioOutputSection => 'Audio Output';
+  String get settingsAudioOutputSection => 'Аудио излаз';
 
   @override
   String get settingsPassthroughSettingsSection => 'Passthrough Settings';
-
-  @override
-  String get settingsImdbListsSection => 'IMDb Lists';
-
-  @override
-  String get settingsTmdbListsSection => 'TMDB Lists';
 
   @override
   String get settingsSeerrHomePageRowsSection => 'Seerr Home Page Rows';
@@ -16699,22 +16829,22 @@ class AppLocalizationsSr extends AppLocalizations {
   String get siloServerRowSubtitle => 'From your server';
 
   @override
-  String get playlistSortReleaseDate => 'Release Date';
+  String get playlistSortReleaseDate => 'Датум изласка';
 
   @override
   String get playlistSortCriticRating => 'Critic Rating';
 
   @override
-  String get playlistSortRuntime => 'Runtime';
+  String get playlistSortRuntime => 'Рунтиме';
 
   @override
-  String get playlistSortLastPlayed => 'Last Played';
+  String get playlistSortLastPlayed => 'Последње пуштено';
 
   @override
   String get playlistSortPlayCount => 'Play Count';
 
   @override
-  String get playlistSortRandom => 'Random';
+  String get playlistSortRandom => 'Насумично';
 
   @override
   String playlistFilterActiveCount(int count) {
@@ -16731,7 +16861,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get playlistNoMatchingTracks => 'No tracks match the active filters';
 
   @override
-  String get librarySortPlaylistOrder => 'Playlist Order';
+  String get librarySortPlaylistOrder => 'Редослед на листи за репродукцију';
 
   @override
   String get librarySortDateAdded => 'Date Added';
@@ -16740,25 +16870,25 @@ class AppLocalizationsSr extends AppLocalizations {
   String get librarySortDateEpisodeAdded => 'Date Episode Added';
 
   @override
-  String get librarySortParentalRating => 'Parental Rating';
+  String get librarySortParentalRating => 'Родитељска оцена';
 
   @override
-  String get librarySortMyRating => 'My Rating';
+  String get librarySortMyRating => 'Моја оцена';
 
   @override
   String get librarySortAlbumArtist => 'Album Artist';
 
   @override
-  String get librarySortAlbum => 'Album';
+  String get librarySortAlbum => 'Албум';
 
   @override
-  String get librarySortArtist => 'Artist';
+  String get librarySortArtist => 'Извођач';
 
   @override
   String get librarySortTrackNumber => 'Track Number';
 
   @override
-  String get librarySortGenre => 'Genre';
+  String get librarySortGenre => 'Жанр';
 
   @override
   String get librarySortFoldersFirst => 'Folders First';
@@ -16770,7 +16900,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get homeScreenBackdrop => 'Home Screen Backdrop';
 
   @override
-  String get homeScreenBackdropFullScreen => 'Full Screen';
+  String get homeScreenBackdropFullScreen => 'Цео екран';
 
   @override
   String get homeScreenBackdropCorner => 'Corner';
@@ -16785,16 +16915,16 @@ class AppLocalizationsSr extends AppLocalizations {
   String get detailsBackdropSize => 'Backdrop Size';
 
   @override
-  String get detailsBackdropFullScreen => 'Full Screen';
+  String get detailsBackdropFullScreen => 'Цео екран';
 
   @override
-  String get detailsBackdropFit => 'Fit';
+  String get detailsBackdropFit => 'Фит';
 
   @override
   String get libraryBackdrops => 'Library Backdrops';
 
   @override
-  String get playbackInfoChannel => 'Channel';
+  String get playbackInfoChannel => 'Канал';
 
   @override
   String get playbackInfoProgram => 'Program';
@@ -17101,7 +17231,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get playerTransportOnScreen => 'On screen';
 
   @override
-  String get playerTransportDocked => 'Docked';
+  String get playerTransportDocked => 'Усидрена';
 
   @override
   String get incompleteRecording => 'Incomplete';
@@ -17159,7 +17289,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Also record a future showing automatically once one is found, to get a complete recording?';
 
   @override
-  String get recordPromptNow => 'Now';
+  String get recordPromptNow => 'Сада';
 
   @override
   String get recordPromptLater => 'Future showing';
@@ -17192,7 +17322,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get recordPromptAlreadyScheduled => 'Already set to record';
 
   @override
-  String get recordPromptTomorrow => 'Tomorrow';
+  String get recordPromptTomorrow => 'Сутра';
 
   @override
   String get recordNowOnly => 'Record Now Only';
@@ -17266,7 +17396,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get siloApproveSignInHint => 'Code shown on the other device';
 
   @override
-  String get siloApproveSignInApprove => 'Approve';
+  String get siloApproveSignInApprove => 'Одобри';
 
   @override
   String get siloApproveSignInDone =>
@@ -17303,7 +17433,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String siloTooManyAttemptsWait(String wait) {
-    return 'Too many attempts. Try again in $wait.';
+    return 'Превише покушаја. Покушајте поново за $wait.';
   }
 
   @override
@@ -17565,7 +17695,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get libraryZToA => 'Z to A';
 
   @override
-  String get musicSortYear => 'Year';
+  String get musicSortYear => 'Година';
 
   @override
   String get musicFilter => 'Filter';
@@ -17859,7 +17989,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Style, filters and actions for the calendar';
 
   @override
-  String get calendarSettingsView => 'View';
+  String get calendarSettingsView => 'Погледај';
 
   @override
   String get calendarSettingsStyle => 'Calendar style';
@@ -17881,7 +18011,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get calendarSettingsWhatShows => 'What shows';
 
   @override
-  String get calendarSettingsScope => 'Show';
+  String get calendarSettingsScope => 'Прикажи';
 
   @override
   String get calendarSettingsScopeDescription =>
@@ -17901,7 +18031,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Also list episodes and movies Sonarr and Radarr aren\'t set to download';
 
   @override
-  String get calendarSettingsSpecials => 'Specials';
+  String get calendarSettingsSpecials => 'Специјалне епизоде';
 
   @override
   String get calendarSettingsSpecialsSubtitle =>
@@ -17922,7 +18052,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Type tells episodes from movies. Status shows what\'s in your library, coming up or missing.';
 
   @override
-  String get calendarSettingsColorByType => 'Type';
+  String get calendarSettingsColorByType => 'Тип';
 
   @override
   String get calendarSettingsImageType => 'Card image';
@@ -17939,7 +18069,7 @@ class AppLocalizationsSr extends AppLocalizations {
       'Hide episode titles and stills for shows you\'re behind on';
 
   @override
-  String get calendarSettingsActions => 'Actions';
+  String get calendarSettingsActions => 'Радње';
 
   @override
   String get calendarSettingsSelectAction => 'Selecting an item';
@@ -18011,7 +18141,7 @@ class AppLocalizationsSr extends AppLocalizations {
   }
 
   @override
-  String get afterHoursPlay => 'Play';
+  String get afterHoursPlay => 'Пусти';
 
   @override
   String get afterHoursLeaderboards => 'Leaderboards';
@@ -18152,7 +18282,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get afterHoursHowToPlay => 'How to play';
 
   @override
-  String get afterHoursStart => 'Start';
+  String get afterHoursStart => 'Почетак';
 
   @override
   String get afterHoursBackToGame => 'Back to the game';
@@ -18262,7 +18392,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get afterHoursCastTangleLine => 'Slowly chases your plug.';
 
   @override
-  String get afterHoursCastStatic => 'Static';
+  String get afterHoursCastStatic => 'Статични';
 
   @override
   String get afterHoursCastStaticLine =>
@@ -18367,4 +18497,30 @@ class AppLocalizationsSr extends AppLocalizations {
   @override
   String get afterHoursPixelPurgeCardRemote =>
       'Left and Right slide the scrubber.';
+
+  @override
+  String get remoteMediaNotificationTitle => 'Remote playback notification';
+
+  @override
+  String get remoteMediaNotificationSubtitle =>
+      'Show system media controls when watching on another device';
+
+  @override
+  String get remoteActivityWatching => 'Watching on Moonfin';
+
+  @override
+  String get remoteActivityListening => 'Listening on Moonfin';
+
+  @override
+  String get clickpadSeeking => 'Allow Clickpad Seeking';
+
+  @override
+  String get clickpadSeekingDescription =>
+      'When Left, Right and touchpad swipes can seek. Otherwise the first one brings up the controls.';
+
+  @override
+  String get clickpadSeekingControlsVisible => 'When controls are showing';
+
+  @override
+  String get clickpadSeekingPausedOnly => 'Only while paused';
 }

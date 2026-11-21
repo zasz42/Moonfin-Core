@@ -46,6 +46,7 @@ abstract class ItemsApi {
     bool? isHd,
     bool? is4K,
     bool? is3D,
+    bool? enableUserData,
   });
 
   /// The values a library actually holds for the facet filters, so the picker
@@ -121,6 +122,7 @@ abstract class ItemsApi {
     String? enableImageTypes,
     int? imageTypeLimit,
     bool recursive = false,
+    bool? hideWatched,
   });
 
   Future<Map<String, dynamic>> getSeasons(String seriesId, {String? fields});

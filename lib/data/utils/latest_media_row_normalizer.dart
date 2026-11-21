@@ -12,8 +12,9 @@ int latestMediaFetchLimitForCollection(
   String? collectionType, {
   required int defaultLimit,
   required int maxLimit,
+  bool hideWatched = false,
 }) {
-  if (_isTvCollectionType(collectionType)) {
+  if (_isTvCollectionType(collectionType) || hideWatched) {
     final expandedLimit = defaultLimit * 4;
     if (expandedLimit > maxLimit) {
       return maxLimit;
@@ -74,22 +75,53 @@ String genericDescriptorForCollectionType(
   };
 }
 
+int? _toNullableInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+bool isRawItemWatchedForRecentRow(Map<String, dynamic> rawData) {
+  final userData = rawData['UserData'];
+  if (userData is! Map) return false;
+  if (userData['Played'] == true) return true;
+  final type = rawData['Type']?.toString();
+  final unplayedCount = _toNullableInt(userData['UnplayedItemCount']);
+  final childCount = _toNullableInt(rawData['ChildCount']);
+  if ((type == 'Series' || type == 'Season') &&
+      unplayedCount != null &&
+      unplayedCount <= 0 &&
+      (childCount == null || childCount > 0)) {
+    return true;
+  }
+  return false;
+}
+
+bool _isItemWatchedForRecentRow(AggregatedItem item) =>
+    isRawItemWatchedForRecentRow(item.rawData);
+
 List<AggregatedItem> normalizeLatestMediaItems(
   List<AggregatedItem> items, {
   String? collectionType,
   required int limit,
   Set<String> remuxServerIds = const {},
+  bool hideWatched = false,
 }) {
+  final sourceItems = hideWatched
+      ? items.where((item) => !_isItemWatchedForRecentRow(item)).toList()
+      : items;
+
   // Paging asks without a collection type, so a row that opened with series
   // cards would start handing back seasons part way along.
   final shouldCollapse =
       _isTvCollectionType(collectionType) ||
       (collectionType == null &&
-          items.any((i) => i.type == 'Episode' || i.type == 'Season'));
+          sourceItems.any((i) => i.type == 'Episode' || i.type == 'Season'));
 
   final normalized = shouldCollapse
-      ? _collapseLatestTvItems(items, remuxServerIds: remuxServerIds)
-      : items;
+      ? _collapseLatestTvItems(sourceItems, remuxServerIds: remuxServerIds)
+      : sourceItems;
 
   if (normalized.length <= limit) {
     return normalized;
@@ -327,13 +359,9 @@ AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
   rawData['Name'] = seriesName;
   rawData.remove('IndexNumber');
   rawData.remove('ParentIndexNumber');
-  // An episode's provider ids identify the episode, never the show: left in
-  // place the card would build (and dedup by) a poster id that cannot
-  // resolve to series art. Seasons keep theirs (usable for per-season
-  // posters via the parent series id).
-  if (item.type == 'Episode') {
-    rawData.remove('ProviderIds');
-  }
+  // Episode and season provider ids identify the child, not the series card;
+  // retaining them would misidentify the series during cross-server folding.
+  rawData.remove('ProviderIds');
 
   // A season's parent is the series so its tag fits the id set below, but an
   // episode's parent is the season and that tag would not match the series.
@@ -375,6 +403,17 @@ AggregatedItem? _seriesCardForLatestTvItem(AggregatedItem item) {
     imageTags['Thumb'] = seriesThumbImageTag;
   } else {
     imageTags.remove('Thumb');
+  }
+
+  // The show's logo comes as the parent logo, so it only fits when the
+  // parent is the series.
+  final seriesLogoImageTag = item.parentLogoItemId == seriesId
+      ? item.seriesLogoImageTag
+      : null;
+  if (seriesLogoImageTag != null && seriesLogoImageTag.isNotEmpty) {
+    imageTags['Logo'] = seriesLogoImageTag;
+  } else {
+    imageTags.remove('Logo');
   }
 
   rawData['ImageTags'] = imageTags;
