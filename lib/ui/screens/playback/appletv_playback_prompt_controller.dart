@@ -62,6 +62,7 @@ abstract class AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   });
 
   Future<void> hideSkipSegment();
@@ -117,9 +118,15 @@ class AppleTvPlaybackPromptController {
   DateTime? _suppressSeekPromptsUntil;
   Timer? _nextUpTimer;
   Timer? _skipSegmentAutoHideTimer;
+  Timer? _autoSkipDelayTimer;
+  Duration? _autoSkipDeadline;
   bool _skipSegmentVisible = false;
   Duration? _skipTo;
   MediaSegmentType? _skipSegmentType;
+  String? _skipSegmentId;
+  Duration? _skipSegmentEnd;
+  String? _delayedSkipCancelledSegmentId;
+  Duration? _delayedSkipCancelledSegmentEnd;
   Completer<bool>? _stillWatchingCompleter;
   bool _disposed = false;
   Duration _duration = Duration.zero;
@@ -342,6 +349,13 @@ class AppleTvPlaybackPromptController {
     if (service == null) return;
 
     final result = service.checkPosition(position);
+    final cancelledEnd = _delayedSkipCancelledSegmentEnd;
+    if (_delayedSkipCancelledSegmentId != null &&
+        cancelledEnd != null &&
+        position >= cancelledEnd) {
+      _delayedSkipCancelledSegmentId = null;
+      _delayedSkipCancelledSegmentEnd = null;
+    }
     final replaceSkipOutroWithNextUp = _prefs.get(
       UserPreferences.replaceSkipOutroWithNextUp,
     );
@@ -378,6 +392,19 @@ class AppleTvPlaybackPromptController {
       return;
     }
 
+    if (result.isDelayedSkip &&
+        result.skipTo != null &&
+        result.segment != null) {
+      final pendingSame =
+          _autoSkipDelayTimer != null && _skipSegmentId == result.segment!.id;
+      final cancelledSame =
+          _delayedSkipCancelledSegmentId == result.segment!.id;
+      if (result.isNew && !pendingSame && !cancelledSame) {
+        _startDelayedAutoSkip(result.segment!, result.skipTo!, position);
+      }
+      return;
+    }
+
     if (result.shouldAsk && result.isNew && result.segment != null) {
       final isOutro = result.segment!.type == MediaSegmentType.outro;
       if (replaceSkipOutroWithNextUp && isOutro && _shouldShowNextUp()) {
@@ -387,6 +414,7 @@ class AppleTvPlaybackPromptController {
       _skipSegmentVisible = true;
       _skipTo = skipTo;
       _skipSegmentType = result.segment!.type;
+      _skipSegmentId = result.segment!.id;
       unawaited(
         _commands.showSkipSegment(
           result.segment!.type.displayName,
@@ -425,6 +453,11 @@ class AppleTvPlaybackPromptController {
 
   void handleSkipSegment() {
     if (_disposed) return;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
+    _delayedSkipCancelledSegmentId = null;
+    _delayedSkipCancelledSegmentEnd = null;
     _noteViewerActivity();
 
     final replaceSkipOutroWithNextUp = _prefs.get(
@@ -492,17 +525,83 @@ class AppleTvPlaybackPromptController {
     return _now().isBefore(until);
   }
 
-  void _clearSkipSegmentState() {
+  void _clearSkipSegmentState({bool preserveDelayedSkipCancellation = false}) {
+    final cancelledId = _delayedSkipCancelledSegmentId;
+    final cancelledEnd = _delayedSkipCancelledSegmentEnd;
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
     _skipSegmentVisible = false;
     _skipTo = null;
     _skipSegmentType = null;
+    _skipSegmentId = null;
+    _skipSegmentEnd = null;
+    _delayedSkipCancelledSegmentId = preserveDelayedSkipCancellation
+        ? cancelledId
+        : null;
+    _delayedSkipCancelledSegmentEnd = preserveDelayedSkipCancellation
+        ? cancelledEnd
+        : null;
   }
 
-  void _clearSkipSegment() {
-    _clearSkipSegmentState();
+  void _clearSkipSegment({bool preserveDelayedSkipCancellation = false}) {
+    _clearSkipSegmentState(
+      preserveDelayedSkipCancellation: preserveDelayedSkipCancellation,
+    );
     unawaited(_commands.hideSkipSegment());
+  }
+
+  void _startDelayedAutoSkip(
+    MediaSegment segment,
+    Duration skipTo,
+    Duration position,
+  ) {
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDeadline = segment.start + const Duration(seconds: 10);
+    final remainingDelay = _autoSkipDeadline! - position;
+    _delayedSkipCancelledSegmentId = null;
+    _delayedSkipCancelledSegmentEnd = null;
+    _skipSegmentVisible = true;
+    _skipTo = skipTo;
+    _skipSegmentType = segment.type;
+    _skipSegmentId = segment.id;
+    _skipSegmentEnd = segment.end;
+    unawaited(
+      _commands.showSkipSegment(
+        segment.type.displayName,
+        countdownStyle: _prefs.get(UserPreferences.mediaSegmentCountdown).name,
+        segmentStartMs: segment.start.inMilliseconds,
+        segmentEndMs: segment.end.inMilliseconds,
+        autoSkipDeadlineMs: _autoSkipDeadline!.inMilliseconds,
+      ),
+    );
+    _autoSkipDelayTimer = Timer(
+      remainingDelay.isNegative ? Duration.zero : remainingDelay,
+      () {
+        _autoSkipDelayTimer = null;
+        _autoSkipDeadline = null;
+        if (_disposed) return;
+        unawaited(_commands.seekTo(skipTo));
+        _clearSkipSegment();
+      },
+    );
+  }
+
+  /// Cancels the automatic seek but leaves the prompt available for manual skip.
+  void cancelDelayedAutoSkip() {
+    _delayedSkipCancelledSegmentId = _skipSegmentId;
+    _delayedSkipCancelledSegmentEnd = _skipSegmentEnd;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
+    _autoSkipDeadline = null;
+  }
+
+  /// Hides the prompt after native Menu/back is pressed a second time.
+  void dismissSkipSegment() {
+    if (_disposed) return;
+    _clearSkipSegment(preserveDelayedSkipCancellation: true);
   }
 
   void dispose() {
@@ -512,6 +611,8 @@ class AppleTvPlaybackPromptController {
     _nextUpTimer = null;
     _skipSegmentAutoHideTimer?.cancel();
     _skipSegmentAutoHideTimer = null;
+    _autoSkipDelayTimer?.cancel();
+    _autoSkipDelayTimer = null;
     final completer = _stillWatchingCompleter;
     if (completer != null && !completer.isCompleted) {
       // The awaiting code checks the disposed flag after this resolves, so

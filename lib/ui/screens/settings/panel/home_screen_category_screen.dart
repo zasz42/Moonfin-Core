@@ -238,6 +238,17 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
           _SectionHeader(l10n.settingsLooksSection),
           adaptiveListSection(
             children: [
+              SwitchPreferenceTile(
+                preference: UserPreferences.externalPostersEnabled,
+                title: 'External Posters',
+                subtitle: 'Use Better Posters artwork in supported rows and grids',
+                icon: Icons.image_outlined,
+                onChangedValue: (value) {
+                  BetterPostersService.setEnabled(value);
+                  _reloadHomeRows();
+                  if (mounted) setState(() {});
+                },
+              ),
               EnumPreferenceTile<HomeRowsStyle>(
                 preference: UserPreferences.homeRowsStyle,
                 title: l10n.rowsType,
@@ -287,6 +298,19 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
                   icon: Icons.hourglass_empty_rounded,
                 ),
               ],
+              if (rowsStyle == HomeRowsStyle.v1)
+                SwitchPreferenceTile(
+                  preference: UserPreferences.compactClassicHomeRowEnabled,
+                  title: 'Compact classic rows',
+                  subtitle: 'Reduce spacing in classic home rows on TV.',
+                  icon: Icons.density_small_outlined,
+                  onChanged: () {
+                    _pushPersonalizationSync();
+                    _reloadHomeRows();
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                ),
               SliderPreferenceTile(
                 preference: rowsStyle.usesModernCards
                     ? UserPreferences.modernHomeRowsPadding

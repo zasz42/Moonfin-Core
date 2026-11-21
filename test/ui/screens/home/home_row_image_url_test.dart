@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moonfin/data/models/aggregated_item.dart';
 import 'package:moonfin/data/repositories/tmdb_repository.dart';
+import 'package:moonfin/data/services/better_posters_service.dart';
 import 'package:moonfin/preference/preference_constants.dart';
 import 'package:moonfin/ui/screens/home/home_row_card_image.dart';
 import 'package:server_core/server_core.dart' show ImageApi;
@@ -280,6 +281,45 @@ void main() {
       serverId: 'seerr',
     ),
   ];
+
+  group('Better Posters poster resolution', () {
+    setUp(() => BetterPostersService.enabled = true);
+    tearDown(() => BetterPostersService.enabled = false);
+
+    test('uses btttr for IMDb-backed poster cards only', () {
+      final item = AggregatedItem(
+        id: 'movie-1',
+        serverId: 'srv',
+        rawData: {
+          'Id': 'movie-1',
+          'Type': 'Movie',
+          'ProviderIds': {'Imdb': 'tt1234567'},
+          'ImageTags': {'Primary': 'poster-tag'},
+        },
+      );
+
+      expect(
+        resolveRowImageUrl(item, api, 150, ImageType.poster, false, 1),
+        'https://btttr.cc/poster-qa/imdb/poster-default/tt1234567.jpg',
+      );
+      expect(
+        resolveRowImageUrl(item, api, 150, ImageType.thumb, false, 1),
+        'P/movie-1?w=480&t=poster-tag',
+      );
+      expect(
+        resolveRowImageUrl(
+          item,
+          api,
+          150,
+          ImageType.poster,
+          false,
+          1,
+          includeExternal: false,
+        ),
+        'P/movie-1?h=280&t=poster-tag',
+      );
+    });
+  });
 
   group('resolveRowImageUrl', () {
     for (final c in cases) {

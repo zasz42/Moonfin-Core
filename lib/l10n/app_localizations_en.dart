@@ -5034,6 +5034,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seconds => 'seconds';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
   String get mediaBarMode => 'Media Bar Style';
 
   @override
@@ -12100,6 +12106,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSkip => 'Skip';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
 
   @override
   String get settingsDoNothing => 'Do Nothing';

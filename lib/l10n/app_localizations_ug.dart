@@ -5054,6 +5054,15 @@ class AppLocalizationsUg extends AppLocalizations {
   String get seconds => 'سېكۇنت';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'مېدىيا بالدىقى ئۇسلۇبى';
 
   @override

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
+import 'package:moonfin/data/models/calendar_entry.dart';
 import 'package:moonfin/data/models/media_bar_slide_item.dart';
+import 'package:moonfin/data/repositories/calendar_repository.dart';
 import 'package:moonfin/data/models/media_bar_state.dart';
 import 'package:moonfin/data/viewmodels/media_bar_view_model.dart';
 import 'package:moonfin/l10n/app_localizations.dart';
@@ -9,6 +12,7 @@ import 'package:moonfin/preference/preference_constants.dart';
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:moonfin/ui/widgets/bounded_network_image.dart';
 import 'package:moonfin/ui/widgets/mediabar/banner_media_bar.dart';
+import 'package:moonfin/ui/widgets/mediabar/upcoming_releases_rail.dart';
 import 'package:moonfin/util/platform_detection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +32,23 @@ class _ViewModel extends ChangeNotifier implements MediaBarViewModel {
 
   @override
   Future<void> ensureRatings(String itemId) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _CalendarRepository implements CalendarRepository {
+  _CalendarRepository(this.entries);
+
+  final List<CalendarEntry> entries;
+
+  @override
+  Future<CalendarResult> load({
+    required DateTime start,
+    required DateTime end,
+    bool unmonitored = false,
+    bool refresh = false,
+  }) async => CalendarResult(entries);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -115,6 +136,42 @@ void main() {
 
     expect(imageUrls(tester), ['http://server/backdrop']);
     expect(find.text('The Film'), findsOneWidget);
+  });
+
+  testWidgets('compact TV banner shows eight upcoming releases', (
+    tester,
+  ) async {
+    PlatformDetection.setInterfaceLayout(InterfaceLayout.tv);
+    await prefs.set(UserPreferences.compactBannerEnabled, true);
+    await prefs.set(UserPreferences.compactBannerUpcomingReleases, true);
+    final entries = [
+      for (var i = 0; i < 9; i++)
+        CalendarEntry(
+          key: 'radarr:$i:digital',
+          kind: CalendarEntryKind.movie,
+          release: CalendarRelease.digital,
+          date: DateTime(2026, 11, 21 + i),
+          hasTime: false,
+          title: 'Release $i',
+        ),
+    ];
+    final getIt = GetIt.instance;
+    if (getIt.isRegistered<CalendarRepository>()) {
+      await getIt.unregister<CalendarRepository>();
+    }
+    getIt.registerSingleton<CalendarRepository>(_CalendarRepository(entries));
+    addTearDown(() async => getIt.reset());
+
+    await pumpBar(tester, withBanner);
+    await tester.pumpAndSettle();
+
+    expect(find.text('The Show'), findsOneWidget);
+    expect(find.byType(UpcomingReleasesRail), findsOneWidget);
+    expect(find.text('UPCOMING RELEASES'), findsOneWidget);
+    for (var i = 0; i < 8; i++) {
+      expect(find.text('Release $i'), findsOneWidget);
+    }
+    expect(find.text('Release 8'), findsNothing);
   });
 
   testWidgets('a phone keeps the backdrop even when there is a banner', (

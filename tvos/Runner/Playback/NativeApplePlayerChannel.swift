@@ -187,7 +187,8 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
                     label: (args["label"] as? String) ?? "Skip",
                     countdownStyle: (args["countdownStyle"] as? String) ?? "both",
                     segmentStartMs: (args["segmentStartMs"] as? NSNumber)?.intValue ?? 0,
-                    segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0)
+                    segmentEndMs: (args["segmentEndMs"] as? NSNumber)?.intValue ?? 0,
+                    autoSkipDeadlineMs: (args["autoSkipDeadlineMs"] as? NSNumber)?.intValue ?? 0)
             }
         case "hideSkipSegment":
             if (lastCinemaSkipState?["active"] as? Bool) != true {
@@ -408,6 +409,12 @@ final class NativeApplePlayerChannel: NSObject, FlutterStreamHandler {
         }
         vc.onSkipSegmentSelect = { [weak self] in
             self?.send(["event": "skipSegment"])
+        }
+        vc.onSkipSegmentAutoSkipCancelled = { [weak self] in
+            self?.send(["event": "skipSegmentAutoSkipCancelled"])
+        }
+        vc.onSkipSegmentDismiss = { [weak self] in
+            self?.send(["event": "skipSegmentDismiss"])
         }
         vc.onCinemaSkipAction = { [weak self] action, generation in
             self?.send([

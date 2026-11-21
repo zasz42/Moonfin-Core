@@ -230,6 +230,8 @@ class NativeApplePlayerBackend
       case 'nextUpCancel':
       case 'nextUpDismiss':
       case 'skipSegment':
+      case 'skipSegmentAutoSkipCancelled':
+      case 'skipSegmentDismiss':
       case 'cinemaSkipAction':
       case 'userSeeked':
       case 'searchSubtitles':
@@ -774,12 +776,14 @@ class NativeApplePlayerBackend
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   }) async {
     await _invoke<void>('showSkipSegment', {
       'label': label,
       'countdownStyle': countdownStyle,
       'segmentStartMs': segmentStartMs,
       'segmentEndMs': segmentEndMs,
+      'autoSkipDeadlineMs': ?autoSkipDeadlineMs,
     });
   }
 

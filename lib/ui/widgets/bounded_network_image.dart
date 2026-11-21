@@ -99,6 +99,7 @@ class BoundedNetworkImage extends StatelessWidget {
     double scale = 1.0,
     int minWidth = 64,
     int maxWidth = 1024,
+    BaseCacheManager? cacheManager,
     ImageFetchPriority priority = ImageFetchPriority.low,
   }) => ArtworkDecode.precache(
     context,
@@ -109,6 +110,7 @@ class BoundedNetworkImage extends StatelessWidget {
     scale: scale,
     minWidth: minWidth,
     maxWidth: maxWidth,
+    cacheManager: cacheManager,
     priority: priority,
   );
 

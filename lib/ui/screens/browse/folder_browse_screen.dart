@@ -5,6 +5,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/services/media_server_client_factory.dart';
 import '../../../data/viewmodels/folder_browse_view_model.dart';
 import '../../../preference/user_preferences.dart';
@@ -94,9 +95,17 @@ class _FolderBrowseScreenState extends State<FolderBrowseScreen> {
     super.dispose();
   }
 
-  String? _imageUrl(AggregatedItem item, {int? maxWidth}) {
+  String? _imageUrl(
+    AggregatedItem item, {
+    int? maxWidth,
+    bool includeExternal = true,
+  }) {
     final api = _vm.imageApi;
     final isFolder = _vm.isNavigableFolder(item);
+    if (includeExternal && !isFolder) {
+      final external = BetterPostersService.posterUrlFor(item);
+      if (external != null) return external;
+    }
 
     final imageTags = item.rawData['ImageTags'];
     if (imageTags is Map) {
@@ -423,11 +432,21 @@ class _FolderBrowseScreenState extends State<FolderBrowseScreen> {
                 ? 16 / 9
                 : MediaCard.aspectRatioForType(item.type);
 
+            final imageUrl = _imageUrl(item, maxWidth: cardWidth.toInt());
+            final fallbackImageUrl = BetterPostersService.isPosterUrl(imageUrl)
+                ? _imageUrl(
+                    item,
+                    maxWidth: cardWidth.toInt(),
+                    includeExternal: false,
+                  )
+                : null;
             return MediaCard(
               posterBadgeItemId: isFolder ? null : item.id,
               title: _vm.getItemDisplayName(item),
               subtitle: _subtitleText(item, isFolder),
-              imageUrl: _imageUrl(item, maxWidth: cardWidth.toInt()),
+              imageUrl: imageUrl,
+              fallbackImageUrl: fallbackImageUrl,
+              cacheManager: BetterPostersService.cacheManagerForUrl(imageUrl),
               width: double.infinity,
               aspectRatio: itemAr,
               itemType: isFolder ? 'Folder' : item.type,

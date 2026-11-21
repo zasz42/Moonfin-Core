@@ -87,6 +87,7 @@ void main() {
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     lookups.add((
       height: height,
@@ -258,7 +259,13 @@ void main() {
     });
 
     test('the panel takes the item backdrop, else its parent, else none', () {
-      final own = _item('m1', 'Movie', extra: {'BackdropImageTags': ['b1']});
+      final own = _item(
+        'm1',
+        'Movie',
+        extra: {
+          'BackdropImageTags': ['b1'],
+        },
+      );
       final episode = _item(
         'e1',
         'Episode',

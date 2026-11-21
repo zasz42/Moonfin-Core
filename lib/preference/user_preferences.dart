@@ -717,6 +717,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_home_rows_style',
     'pref_modern_home_rows_padding',
     'pref_classic_home_rows_padding',
+    'compactClassicHomeRowEnabled',
     'pref_modern_cards_my_media',
     'poster_size',
     'pref_display_favorites_rows',
@@ -771,6 +772,8 @@ class UserPreferences extends ChangeNotifier {
     'mediaBarIntervalMs',
     'mediaBarRowPeek',
     'mediaBarTrailerPreview',
+    'compactBannerEnabled',
+    'compactBannerUpcomingReleases',
     'mediaBarTrailerAudio',
     'trailerVolume',
     'mediaBarTrailerCaptions',
@@ -1395,6 +1398,12 @@ class UserPreferences extends ChangeNotifier {
   static final classicHomeRowsPadding = Preference<int>(
     key: 'pref_classic_home_rows_padding',
     defaultValue: 30,
+  );
+
+  /// Tightens the Classic home row layout without changing Modern rows.
+  static final compactClassicHomeRowEnabled = Preference<bool>(
+    key: 'compactClassicHomeRowEnabled',
+    defaultValue: false,
   );
 
   static final modernCardsOnMyMediaRow = Preference<bool>(
@@ -3234,6 +3243,26 @@ class UserPreferences extends ChangeNotifier {
   static final mediaBarEnabled = Preference(
     key: 'mediaBarEnabled',
     defaultValue: true,
+  );
+
+  /// Uses the narrower 16:9 banner frame on TV while retaining the existing
+  /// banner media-bar mode and its playback/navigation behavior.
+  /// Uses btttr.cc artwork in home rows, Upcoming Releases and browse grids.
+  /// Deliberately device-local so external artwork can be opted into per device.
+  static final externalPostersEnabled = Preference<bool>(
+    key: 'external_posters_enabled',
+    defaultValue: false,
+  );
+
+  static final compactBannerEnabled = Preference(
+    key: 'compactBannerEnabled',
+    defaultValue: false,
+  );
+
+  /// Shows the Radarr/Sonarr upcoming-release rail beside the compact banner.
+  static final compactBannerUpcomingReleases = Preference(
+    key: 'compactBannerUpcomingReleases',
+    defaultValue: false,
   );
 
   static final mediaBarMode = Preference(

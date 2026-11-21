@@ -468,12 +468,33 @@ jobs:
           certificate-required: 'true'
           asc-key-base64: ${{ secrets.APPLE_ASC_API_KEY_BASE64 }}
 
-      # The tool's own build stops before the app is signed, but by then it
-      # has written the project settings and the assets.
+      # flutter-tvos performs its own final Xcode build, which can fail on an
+      # unsigned runner after it has generated the Flutter project settings.
+      # Capture that output so earlier engine, AOT or CocoaPods failures are
+      # visible, then validate the artifacts required by the Xcode build below.
       - name: Prepare Flutter build settings
         run: |
-          flutter-tvos build tvos --release --no-tree-shake-icons --dart-define=MOONFIN_TVOS=true || true
-          test -f tvos/Flutter/Generated.xcconfig
+          LOG="$RUNNER_TEMP/flutter_tvos_prepare.log"
+          set +e
+          flutter-tvos build tvos --release --no-tree-shake-icons \
+            --dart-define=MOONFIN_TVOS=true > "$LOG" 2>&1
+          BUILD_STATUS=$?
+          set -e
+          if [ "$BUILD_STATUS" -ne 0 ]; then
+            # The Flutter fork runs a final Xcode build itself. On this
+            # unsigned runner that last phase is expected to fail, but an
+            # earlier Flutter/AOT/engine failure must still stop the job.
+            if grep -Eiq 'Signing for .* requires a development team|No signing certificate|Code signing is required|requires a provisioning profile|No profiles for .* were found' "$LOG"; then
+              echo "::warning::flutter-tvos reached the expected unsigned-runner code-signing failure (exit $BUILD_STATUS)."
+              tail -n 60 "$LOG"
+            else
+              echo "::error::flutter-tvos failed before a recognized code-signing limitation (exit $BUILD_STATUS)."
+              tail -n 100 "$LOG"
+              exit "$BUILD_STATUS"
+            fi
+          fi
+          test -s tvos/Flutter/Generated.xcconfig \
+            || { echo "::error::flutter-tvos did not produce Generated.xcconfig"; tail -n 80 "$LOG"; exit 1; }
           grep -q '^FLUTTER_ROOT=' tvos/Flutter/Generated.xcconfig \
             || echo "FLUTTER_ROOT=$HOME/flutter-tvos" >> tvos/Flutter/Generated.xcconfig
 
@@ -486,6 +507,9 @@ jobs:
         run: |
           python3 tvos/scripts/restore_tvos_plugins.py
           cd tvos && pod install
+          test -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist" \
+            && test -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-output-files.xcfilelist" \
+            || { echo "::error::pod install did not produce the Pods-Runner framework xcfilelists"; exit 1; }
 
       - name: Stage flutter_assets for the Xcode copy phase
         run: |

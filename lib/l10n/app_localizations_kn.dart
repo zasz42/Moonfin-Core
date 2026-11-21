@@ -5067,6 +5067,15 @@ class AppLocalizationsKn extends AppLocalizations {
   String get seconds => 'ಸೆಕೆಂಡುಗಳು';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'ಮೀಡಿಯಾ ಬಾರ್ ಶೈಲಿ';
 
   @override

@@ -5109,6 +5109,15 @@ class AppLocalizationsSr extends AppLocalizations {
   String get seconds => 'секунде';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'Стил медијске траке';
 
   @override

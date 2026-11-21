@@ -8890,6 +8890,18 @@ abstract class AppLocalizations {
   /// **'seconds'**
   String get seconds;
 
+  /// Use the compact 16:9 banner layout on TV.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact Banner'**
+  String get compactBannerEnabled;
+
+  /// Show Radarr and Sonarr upcoming releases beside the compact banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Releases Rail'**
+  String get compactBannerUpcomingReleases;
+
   /// Setting for choosing media bar style
   ///
   /// In en, this message translates to:
@@ -21399,6 +21411,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Skip'**
   String get settingsSkip;
+
+  /// No description provided for @settingsDelayedSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delayed Skip'**
+  String get settingsDelayedSkip;
 
   /// No description provided for @settingsDoNothing.
   ///

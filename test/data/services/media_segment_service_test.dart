@@ -93,6 +93,19 @@ void main() {
       expect(svc.checkPosition(const Duration(seconds: 40)).shouldSkip, isTrue);
     });
 
+    test('delayed skip is emitted once per segment entry', () async {
+      final svc = await service([intro], actions: 'intro:delayedSkip');
+      final first = svc.checkPosition(const Duration(seconds: 5));
+      expect(first.isDelayedSkip, isTrue);
+      expect(first.isNew, isTrue);
+      expect(first.skipTo, const Duration(milliseconds: 90001));
+
+      final again = svc.checkPosition(const Duration(seconds: 6));
+      expect(again.isDelayedSkip, isTrue);
+      expect(again.isNew, isFalse);
+      expect(svc.checkPosition(const Duration(seconds: 120)).isNone, isTrue);
+    });
+
     test('ask-to-skip prompts are unaffected', () async {
       final svc = await service([intro], actions: 'intro:askToSkip');
       final first = svc.checkPosition(const Duration(seconds: 5));

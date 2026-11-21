@@ -5075,6 +5075,15 @@ class AppLocalizationsSl extends AppLocalizations {
   String get seconds => 'sekund';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'Slog medijske vrstice';
 
   @override

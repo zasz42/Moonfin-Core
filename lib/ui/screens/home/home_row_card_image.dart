@@ -2,6 +2,7 @@ import 'package:server_core/server_core.dart' show ImageApi;
 
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/models/home_row.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/repositories/tmdb_repository.dart';
 import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
@@ -14,7 +15,7 @@ import '../../widgets/modern_row.dart';
 import 'home_view_model.dart';
 
 /// The artwork a home row card paints and the size it paints it at.
-typedef HomeRowCardImage = ({String? url, double width, double aspectRatio});
+typedef HomeRowCardImage = ({String? url, String? fallbackUrl, double width, double aspectRatio});
 
 /// Looks up a card's artwork url. [resolveRowImageUrl] by default; the home
 /// screen passes its cached lookup.
@@ -26,6 +27,7 @@ typedef HomeRowImageUrlResolver = String? Function(
   bool useSeriesThumbs,
   double requestScale, {
   bool isMyMediaRow,
+  bool includeExternal,
 });
 
 /// How much the rows scale on this platform. TV draws them at 0.8 of the
@@ -274,6 +276,7 @@ HomeRowCardImage homeRowCardImage(
     final height = posterSize.landscapeHeight.toDouble() * platformScale;
     return (
       url: item.rawData['BackdropPath'] as String?,
+      fallbackUrl: null,
       width: height * (16 / 9),
       aspectRatio: 16 / 9,
     );
@@ -281,16 +284,35 @@ HomeRowCardImage homeRowCardImage(
   if (isRowsV2 && !isModernMyMediaStatic) {
     final v2ImageHeight = modernImageHeight(posterSize, platformScale);
     final aspect = row.isAudio ? 1.0 : 2 / 3;
+    final posterSeriesThumbs = item.type == 'Episode' ? true : useSeriesThumbs;
     final url = resolveUrl(
       item,
       imageApi,
       v2ImageHeight,
       ImageType.poster,
-      item.type == 'Episode' ? true : useSeriesThumbs,
+      posterSeriesThumbs,
       requestScale,
       isMyMediaRow: isMyMediaRow,
+      includeExternal: true,
     );
-    return (url: url, width: v2ImageHeight * aspect, aspectRatio: aspect);
+    final fallbackUrl = BetterPostersService.isPosterUrl(url)
+        ? resolveUrl(
+            item,
+            imageApi,
+            v2ImageHeight,
+            ImageType.poster,
+            posterSeriesThumbs,
+            requestScale,
+            isMyMediaRow: isMyMediaRow,
+            includeExternal: false,
+          )
+        : null;
+    return (
+      url: url,
+      fallbackUrl: fallbackUrl,
+      width: v2ImageHeight * aspect,
+      aspectRatio: aspect,
+    );
   }
   if (isModernMyMediaStatic) {
     // Home draws these at the Modern height with the focused card's 16:9.
@@ -305,7 +327,12 @@ HomeRowCardImage homeRowCardImage(
       requestScale,
       isMyMediaRow: true,
     );
-    return (url: url, width: v2ImageHeight * 16 / 9, aspectRatio: 16 / 9);
+    return (
+      url: url,
+      fallbackUrl: null,
+      width: v2ImageHeight * 16 / 9,
+      aspectRatio: 16 / 9,
+    );
   }
   final ar = aspectRatioForRowItem(item, row, rowImageType);
   final height =
@@ -321,8 +348,21 @@ HomeRowCardImage homeRowCardImage(
     useSeriesThumbs,
     requestScale,
     isMyMediaRow: isMyMediaRow,
+    includeExternal: true,
   );
-  return (url: url, width: height * ar, aspectRatio: ar);
+  final fallbackUrl = BetterPostersService.isPosterUrl(url)
+      ? resolveUrl(
+          item,
+          imageApi,
+          height,
+          rowImageType,
+          useSeriesThumbs,
+          requestScale,
+          isMyMediaRow: isMyMediaRow,
+          includeExternal: false,
+        )
+      : null;
+  return (url: url, fallbackUrl: fallbackUrl, width: height * ar, aspectRatio: ar);
 }
 
 /// The aspect ratio a Classic card in [row] draws [item] at for [imageType].
@@ -372,12 +412,18 @@ String? resolveRowImageUrl(
   bool useSeriesThumbs,
   double requestScale, {
   bool isMyMediaRow = false,
+  bool includeExternal = true,
 }) {
   if (imageType == ImageType.poster && isMyMediaRow) {
     final primaryAr = item.rawData['PrimaryImageAspectRatio'] as num?;
     if (primaryAr != null && primaryAr >= 1.0) {
       return null;
     }
+  }
+
+  if (includeExternal && imageType == ImageType.poster) {
+    final externalPoster = BetterPostersService.posterUrlFor(item);
+    if (externalPoster != null) return externalPoster;
   }
 
   final studioLogo = item.rawData[studioLogoUrlKey];

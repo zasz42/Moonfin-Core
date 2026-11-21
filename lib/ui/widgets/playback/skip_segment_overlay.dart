@@ -28,6 +28,11 @@ class SkipSegmentOverlay extends StatefulWidget {
   /// stream tick arrives.
   final Duration? initialPosition;
 
+  /// When set, the countdown ring progress reflects the time remaining until
+  /// this deadline (e.g. 10-second auto-skip timer) rather than the segment
+  /// end. The timer text always reflects the full segment length.
+  final Duration? autoSkipDeadline;
+
   /// The item that will be played next, if any.
   final AggregatedItem? nextItem;
 
@@ -51,6 +56,7 @@ class SkipSegmentOverlay extends StatefulWidget {
     this.focusNode,
     this.positionStream,
     this.initialPosition,
+    this.autoSkipDeadline,
     this.nextItem,
     this.bottomInset = _fallbackBottomInset,
     this.rightInset = 24,
@@ -122,19 +128,32 @@ class _SkipSegmentOverlayState extends State<SkipSegmentOverlay> {
         GetIt.instance<UserPreferences>().get(
           UserPreferences.mediaSegmentCountdown,
         );
-    final showProgressBar = mediaSegmentCountdown == MediaSegmentCountdown.progressBar ||
+    final showProgressBar =
+        mediaSegmentCountdown == MediaSegmentCountdown.progressBar ||
         mediaSegmentCountdown == MediaSegmentCountdown.both;
-    final showTimer = mediaSegmentCountdown == MediaSegmentCountdown.timer ||
+    final showTimer =
+        mediaSegmentCountdown == MediaSegmentCountdown.timer ||
         mediaSegmentCountdown == MediaSegmentCountdown.both;
 
     final segmentDuration = widget.segment.duration;
     final elapsed = _currentPosition - widget.segment.start;
-    final progress = segmentDuration.inMilliseconds > 0
-        ? (1.0 - (elapsed.inMilliseconds / segmentDuration.inMilliseconds)).clamp(0.0, 1.0)
+    final deadline = widget.autoSkipDeadline;
+    final progress = deadline != null
+        ? (deadline - _currentPosition).inMilliseconds > 0
+              ? ((deadline - _currentPosition).inMilliseconds /
+                        (deadline - widget.segment.start).inMilliseconds)
+                    .clamp(0.0, 1.0)
+              : 0.0
+        : segmentDuration.inMilliseconds > 0
+        ? (1.0 - (elapsed.inMilliseconds / segmentDuration.inMilliseconds))
+              .clamp(0.0, 1.0)
         : 0.0;
 
     final remaining = widget.segment.end - _currentPosition;
-    final remainingSec = remaining.inSeconds.clamp(0, segmentDuration.inSeconds);
+    final remainingSec = remaining.inSeconds.clamp(
+      0,
+      segmentDuration.inSeconds,
+    );
 
     final int minutes = remainingSec ~/ 60;
     final int seconds = remainingSec % 60;

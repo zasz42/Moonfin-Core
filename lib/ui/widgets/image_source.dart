@@ -161,6 +161,7 @@ class ArtworkDecode {
     int minWidth = 64,
     int maxWidth = maxSourceWidth,
     Map<String, String>? headers,
+    BaseCacheManager? cacheManager,
     ImageFetchPriority priority = ImageFetchPriority.low,
   }) {
     final width = widthFor(
@@ -177,6 +178,7 @@ class ArtworkDecode {
         url,
         width: width,
         headers: artworkFetchHeaders(url, priority, headers: headers),
+        cacheManager: cacheManager,
       ),
       context,
     );

@@ -28,7 +28,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     setState(() {});
   }
 
-  /// The three choices for one segment type, each carrying the whole
+  /// The four choices for one segment type, each carrying the whole
   /// preference value.
   ///
   /// The selected action maps back to [current] verbatim rather than to a
@@ -47,6 +47,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
     return {
       valueFor(MediaSegmentAction.askToSkip): l10n.settingsPromptUser,
       valueFor(MediaSegmentAction.skip): l10n.settingsSkip,
+      valueFor(MediaSegmentAction.delayedSkip): l10n.settingsDelayedSkip,
       valueFor(MediaSegmentAction.nothing): l10n.settingsDoNothing,
     };
   }
@@ -54,19 +55,25 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final cinemaEnabled = _prefs.get(UserPreferences.cinemaModeEnabled) ||
+    final cinemaEnabled =
+        _prefs.get(UserPreferences.cinemaModeEnabled) ||
         _prefs.get(UserPreferences.cinemaModeEpisodesEnabled);
     final nextUpBehavior = _prefs.get(UserPreferences.nextUpBehavior);
     final mediaSegmentActions = _prefs.get(UserPreferences.mediaSegmentActions);
     final segmentActions = parseMediaSegmentActions(mediaSegmentActions);
     final promptsForAnySegment = segmentActions.values.any(
-      (action) => action == MediaSegmentAction.askToSkip,
+      (action) =>
+          action == MediaSegmentAction.askToSkip ||
+          // Delayed skip shows the same skip button with countdown/timer.
+          action == MediaSegmentAction.delayedSkip,
     );
     final showNextUpOptions = nextUpBehavior != NextUpBehavior.disabled;
     // Gated on the outro, since this replaces the Skip Outro button.
+    final outroAction = segmentActions[MediaSegmentType.outro];
     final showReplaceSkipOutroWithNextUp =
         showNextUpOptions &&
-        segmentActions[MediaSegmentType.outro] == MediaSegmentAction.askToSkip;
+        (outroAction == MediaSegmentAction.askToSkip ||
+            outroAction == MediaSegmentAction.delayedSkip);
 
     return Scaffold(
       appBar: buildSettingsAppBar(context, Text(l10n.skippingAndAutoplay)),

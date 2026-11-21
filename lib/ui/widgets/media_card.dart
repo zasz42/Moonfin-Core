@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_tvos/flutter_tvos.dart'
     show TvRemoteController, TvRemoteTouchEvent, TvRemoteTouchPhase;
 import 'package:moonfin_design/moonfin_design.dart';
@@ -101,6 +102,14 @@ class MediaCard extends StatefulWidget {
   final String? subtitle;
   final Widget? subtitleWidget;
   final String? imageUrl;
+
+  /// Server artwork shown underneath an external poster while it loads and
+  /// retained if that poster fails. Null preserves the normal single-image UI.
+  final String? fallbackImageUrl;
+
+  /// Long-lived disk cache for external poster bytes. Server fallback uses the
+  /// default artwork cache manager.
+  final BaseCacheManager? cacheManager;
   final double width;
   final double aspectRatio;
   final VoidCallback? onTap;
@@ -179,6 +188,8 @@ class MediaCard extends StatefulWidget {
     this.subtitle,
     this.subtitleWidget,
     this.imageUrl,
+    this.fallbackImageUrl,
+    this.cacheManager,
     this.width = 150,
     this.aspectRatio = 2 / 3,
     this.onTap,
@@ -471,6 +482,8 @@ class _MediaCardState extends State<MediaCard> with FocusStateMixin {
                         : Alignment.center,
                     child: _CardImage(
                       imageUrl: widget.imageUrl,
+                      fallbackImageUrl: widget.fallbackImageUrl,
+                      cacheManager: widget.cacheManager,
                       title: widget.title,
                       aspectRatio: widget.aspectRatio,
                       isFavorite: widget.isFavorite,
@@ -729,6 +742,8 @@ class _TvFocusParallaxState extends State<_TvFocusParallax>
 
 class _CardImage extends StatelessWidget {
   final String? imageUrl;
+  final String? fallbackImageUrl;
+  final BaseCacheManager? cacheManager;
   final String? title;
   final double aspectRatio;
   final bool isFavorite;
@@ -756,6 +771,8 @@ class _CardImage extends StatelessWidget {
 
   const _CardImage({
     this.imageUrl,
+    this.fallbackImageUrl,
+    this.cacheManager,
     this.title,
     required this.aspectRatio,
     required this.isFavorite,
@@ -852,25 +869,55 @@ class _CardImage extends StatelessWidget {
                       ? const EdgeInsets.all(8.0)
                       : EdgeInsets.zero,
                   child: imageUrl != null
-                      ? Stack(
+                      ? Builder(
+                          builder: (context) {
+                            final hasFallback =
+                                fallbackImageUrl != null &&
+                                fallbackImageUrl!.isNotEmpty &&
+                                fallbackImageUrl != imageUrl;
+                            return Stack(
                           fit: StackFit.expand,
                           children: [
+                            if (hasFallback)
+                              BoundedNetworkImage(
+                                imageUrl: fallbackImageUrl!,
+                                fit:
+                                    (itemType == 'Network' ||
+                                            itemType == 'Studio')
+                                        ? BoxFit.contain
+                                        : BoxFit.cover,
+                                fadeInDuration: Duration.zero,
+                                maxWidth: MediaCard.decodeMaxWidthFor(
+                                  imageSourceAspectRatio ?? aspectRatio,
+                                ),
+                                sourceAspectRatio: imageSourceAspectRatio,
+                                errorBuilder: (_, _, _) => _PlaceholderIcon(
+                                  itemType: itemType,
+                                  title: title,
+                                ),
+                              ),
                             BoundedNetworkImage(
                               imageUrl: imageUrl!,
                               fit:
                                   (itemType == 'Network' ||
-                                      itemType == 'Studio')
-                                  ? BoxFit.contain
-                                  : BoxFit.cover,
+                                          itemType == 'Studio')
+                                      ? BoxFit.contain
+                                      : BoxFit.cover,
                               fadeInDuration: Duration.zero,
                               maxWidth: MediaCard.decodeMaxWidthFor(
                                 imageSourceAspectRatio ?? aspectRatio,
                               ),
                               sourceAspectRatio: imageSourceAspectRatio,
-                              errorBuilder: (_, _, _) => _PlaceholderIcon(
-                                itemType: itemType,
-                                title: title,
-                              ),
+                              cacheManager: cacheManager,
+                              priority: hasFallback
+                                  ? ImageFetchPriority.low
+                                  : ImageFetchPriority.normal,
+                              errorBuilder: (_, _, _) => hasFallback
+                                  ? const SizedBox.shrink()
+                                  : _PlaceholderIcon(
+                                          itemType: itemType,
+                                          title: title,
+                                        ),
                             ),
                             ...imageUnderlays,
                             if (isGenreFallback) ...[
@@ -912,7 +959,9 @@ class _CardImage extends StatelessWidget {
                                 ),
                             ],
                           ],
-                        )
+                          );
+                        },
+                      )
                       : _PlaceholderIcon(itemType: itemType, title: title),
                 ),
                 if (isFavorite ||

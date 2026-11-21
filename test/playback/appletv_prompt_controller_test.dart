@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +20,7 @@ class _FakeCommands implements AppleTvPromptCommands {
   String? lastSkipCountdownStyle;
   int? lastSkipSegmentStartMs;
   int? lastSkipSegmentEndMs;
+  int? lastSkipAutoSkipDeadlineMs;
   Duration? lastSeekTarget;
   String? lastMarkedPlayedId;
   bool suppressAutoNext = false;
@@ -59,12 +59,14 @@ class _FakeCommands implements AppleTvPromptCommands {
     required String countdownStyle,
     required int segmentStartMs,
     required int segmentEndMs,
+    int? autoSkipDeadlineMs,
   }) async {
     calls.add('showSkipSegment');
     lastSkipLabel = segmentDisplayName;
     lastSkipCountdownStyle = countdownStyle;
     lastSkipSegmentStartMs = segmentStartMs;
     lastSkipSegmentEndMs = segmentEndMs;
+    lastSkipAutoSkipDeadlineMs = autoSkipDeadlineMs;
   }
 
   @override
@@ -867,4 +869,102 @@ void main() {
       expect(h.commands.count('showNextUp'), 1);
     });
   });
+
+
+  group('delayed auto-skip cancel', () {
+    Future<_Harness> delayedHarness() async {
+      final prefs = await testPrefs();
+      await prefs.set(UserPreferences.mediaSegmentActions, 'intro:delayedSkip');
+      final h = _Harness(prefs);
+      h.segmentService = await segmentServiceWith(prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      return h;
+    }
+
+    void tickIntro(_Harness h, int positionMs) {
+      h.controller.onPositionTick(
+        Duration(milliseconds: positionMs),
+        const Duration(minutes: 40),
+      );
+    }
+
+    test('fires 10s after segment start when not cancelled', () async {
+      final h = await delayedHarness();
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        expect(h.commands.count('showSkipSegment'), 1);
+        expect(h.commands.lastSkipAutoSkipDeadlineMs, 15000);
+        fake.elapse(const Duration(seconds: 9));
+        expect(h.commands.count('seekTo'), 1);
+        expect(h.commands.lastSeekTarget, const Duration(milliseconds: 65000));
+      });
+    });
+
+    test('manual skip takes priority over the pending auto-skip', () async {
+      final h = await delayedHarness();
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        h.controller.handleSkipSegment();
+        expect(h.commands.count('seekTo'), 1);
+        expect(h.commands.lastSeekTarget, const Duration(milliseconds: 65000));
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 1);
+      });
+    });
+
+    test('Menu cancellation leaves manual skip available', () async {
+      final h = await delayedHarness();
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        h.controller.cancelDelayedAutoSkip();
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 0);
+        expect(h.commands.count('hideSkipSegment'), 0);
+      });
+    });
+
+    test('dismissal after cancellation stays dismissed across reload', () async {
+      final h = await delayedHarness();
+      final reloaded = await segmentServiceWith(h.prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      final reentered = await segmentServiceWith(h.prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        h.controller.cancelDelayedAutoSkip();
+        h.controller.dismissSkipSegment();
+        expect(h.commands.count('hideSkipSegment'), 1);
+        h.segmentService = reloaded;
+        tickIntro(h, 8000);
+        expect(h.commands.count('showSkipSegment'), 1);
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 0);
+        tickIntro(h, 70000);
+        h.segmentService = reentered;
+        tickIntro(h, 8000);
+        expect(h.commands.count('showSkipSegment'), 2);
+      });
+    });
+
+    test('cancelled countdown does not restart for same segment after reload', () async {
+      final h = await delayedHarness();
+      final reloaded = await segmentServiceWith(h.prefs, [
+        segmentJson(id: 's1', type: 'Intro', startMs: 5000, endMs: 65000),
+      ]);
+      FakeAsync().run((fake) {
+        tickIntro(h, 6000);
+        h.controller.cancelDelayedAutoSkip();
+        tickIntro(h, 7000);
+        h.segmentService = reloaded;
+        tickIntro(h, 8000);
+        expect(h.commands.count('showSkipSegment'), 1);
+        fake.elapse(const Duration(seconds: 30));
+        expect(h.commands.count('seekTo'), 0);
+      });
+    });
+  });
+
 }

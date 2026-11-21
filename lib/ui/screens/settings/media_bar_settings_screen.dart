@@ -335,6 +335,24 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                   },
                 ),
                 if (!PlatformDetection.useMobileUi &&
+                    mode == UserPreferences.mediaBarModeBanner) ...[
+                  SwitchPreferenceTile(
+                    preference: UserPreferences.compactBannerEnabled,
+                    title: l10n.compactBannerEnabled,
+                    subtitle: 'Use a compact 16:9 banner frame on TV.',
+                    icon: Icons.crop_16_9,
+                    onChanged: _pushSyncAndRebuild,
+                  ),
+                  if (_prefs.get(UserPreferences.compactBannerEnabled))
+                    SwitchPreferenceTile(
+                      preference: UserPreferences.compactBannerUpcomingReleases,
+                      title: l10n.compactBannerUpcomingReleases,
+                      subtitle: 'Show Radarr and Sonarr upcoming releases beside the banner.',
+                      icon: Icons.calendar_month,
+                      onChanged: _pushSyncAndRebuild,
+                    ),
+                ],
+                if (!PlatformDetection.useMobileUi &&
                     UserPreferences.mediaBarModeAllowsRowPeek(
                       _prefs.get(UserPreferences.mediaBarMode),
                     ))

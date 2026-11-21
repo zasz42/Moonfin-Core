@@ -22,6 +22,7 @@ import 'package:server_core/server_core.dart' hide ImageType;
 import 'package:window_manager/window_manager.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/models/aggregated_library.dart';
 import '../../../data/models/home_row.dart';
 import '../../../data/repositories/mdblist_repository.dart';
@@ -764,6 +765,8 @@ class _ContentRowsState extends State<_ContentRows>
   static const double _kHomeRowLabelInset = 16.0;
   static const double _kHomeRowTrailingInset = 20.0;
   static const double _focusedRowExtraSpacing = 20.0;
+  static const double _tvCompactClassicRowSpacingTrim = 10.0;
+  static const double _compactClassicResumeBottomPadding = 0.0;
   static const Duration _focusedRowSpacingDuration = Duration(
     milliseconds: 200,
   );
@@ -1417,7 +1420,10 @@ class _ContentRowsState extends State<_ContentRows>
       currentTop += _mediaBarExtent();
     }
     final focusedRowSpacing =
-        PlatformDetection.isTV && !fullScreenRows && !showInfoOverlay
+        PlatformDetection.isTV &&
+            !fullScreenRows &&
+            !showInfoOverlay &&
+            !_isCompactClassicMode
         ? _focusedRowExtraSpacing * 2
         : 0.0;
 
@@ -4349,6 +4355,7 @@ class _ContentRowsState extends State<_ContentRows>
     bool useSeriesThumbs,
     double requestScale, {
     bool isMyMediaRow = false,
+    bool includeExternal = true,
   }) {
     // MediaType belongs in the key: a Seerr genre card takes the TMDB genre id
     // as its item id, and a genre in both the movie row and the series row has
@@ -4356,7 +4363,8 @@ class _ContentRowsState extends State<_ContentRows>
     final key =
         '${item.serverId}|${item.id}|${item.rawData['MediaType']}'
         '|${imageType.index}|${height.round()}'
-        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow';
+        '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow'
+        '|${BetterPostersService.enabled}|$includeExternal';
     final cached = _rowImageUrlCache[key];
     if (cached != null || _rowImageUrlCache.containsKey(key)) {
       return cached;
@@ -4372,6 +4380,7 @@ class _ContentRowsState extends State<_ContentRows>
       useSeriesThumbs,
       requestScale,
       isMyMediaRow: isMyMediaRow,
+      includeExternal: includeExternal,
     );
     _rowImageUrlCache[key] = url;
     return url;
@@ -4544,9 +4553,17 @@ class _ContentRowsState extends State<_ContentRows>
 
   /// Extra room the classic rows setting asks for. Library rows are left out,
   /// since their grid sizes itself and padding there overlaps the next row.
+  bool get _isCompactClassicMode =>
+      !widget.prefs.get(UserPreferences.homeRowsStyle).usesModernCards &&
+      widget.prefs.get(UserPreferences.compactClassicHomeRowEnabled);
+
   double _classicRowPadding(HomeRow row, UserPreferences prefs) {
     if (expandedHomeRows(prefs) || _isLibraryRow(row)) return 0.0;
-    return classicRowPadding(prefs);
+    final stored = classicRowPadding(prefs);
+    if (PlatformDetection.isTV && _isCompactClassicMode && stored == 30) {
+      return stored - _tvCompactClassicRowSpacingTrim;
+    }
+    return stored;
   }
 
   Widget _buildShiftedRow({
@@ -5172,6 +5189,7 @@ class _ContentRowsState extends State<_ContentRows>
                               vertical: (PlatformDetection.isTV &&
                                       !fullScreenRows &&
                                       !showInfoOverlay &&
+                                      !_isCompactClassicMode &&
                                       rowIndex == activeRowIndex)
                                   ? _focusedRowExtraSpacing
                                   : 0,
@@ -5812,10 +5830,13 @@ class _ContentRowsState extends State<_ContentRows>
           (classicCardCaptionHeight * metadataScale);
     }
 
-    final rowPadding = 5.0 * metadataScale;
+    final rowPadding = (_isCompactClassicMode ? 2.0 : 5.0) * metadataScale;
+    final bottomPadding = (_isCompactClassicMode && row.id == 'resume')
+        ? _compactClassicResumeBottomPadding
+        : rowPadding;
     final topPadding =
         rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
-    final lockedRowHeight = maxCardHeight + topPadding + rowPadding;
+    final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);
     final hasSubtitle = subtitle != null && subtitle.isNotEmpty;
@@ -6006,7 +6027,9 @@ class _ContentRowsState extends State<_ContentRows>
           late final double ar;
           late final double width;
           late final String? imageUrl;
+          String? fallbackImageUrl;
           String? v2PosterUrl;
+          String? v2PosterFallbackUrl;
           final canUseExpandedV2Card =
               isRowsV2 && v2Open > 0 && !row.isAudio && !isModernMyMediaStatic;
 
@@ -6032,15 +6055,30 @@ class _ContentRowsState extends State<_ContentRows>
               ar = !canUseExpandedV2Card
                   ? v2PortraitAspect
                   : (glide == null ? v2FocusedAspect : width / v2ImageHeight);
+              final posterSeriesThumbs =
+                  item.type == 'Episode' ? true : useSeriesThumbs;
               final posterUrl = v2PosterUrl = _cachedRowImageUrl(
                 item,
                 imageApi,
                 v2ImageHeight,
                 ImageType.poster,
-                item.type == 'Episode' ? true : useSeriesThumbs,
+                posterSeriesThumbs,
                 requestScale,
                 isMyMediaRow: row.rowType == HomeRowType.libraryTiles,
               );
+              final serverPosterUrl = BetterPostersService.isPosterUrl(posterUrl)
+                  ? _cachedRowImageUrl(
+                      item,
+                      imageApi,
+                      v2ImageHeight,
+                      ImageType.poster,
+                      posterSeriesThumbs,
+                      requestScale,
+                      isMyMediaRow: row.rowType == HomeRowType.libraryTiles,
+                      includeExternal: false,
+                    )
+                  : null;
+              v2PosterFallbackUrl = serverPosterUrl;
               imageUrl = canUseExpandedV2Card
                   ? (_resolveV2FocusedImageUrl(
                           item,
@@ -6051,6 +6089,7 @@ class _ContentRowsState extends State<_ContentRows>
                         ) ??
                         posterUrl)
                   : posterUrl;
+              if (imageUrl == posterUrl) fallbackImageUrl = serverPosterUrl;
             }
           } else {
             final image = _unfocusedCardImage(
@@ -6064,6 +6103,7 @@ class _ContentRowsState extends State<_ContentRows>
             ar = image.aspectRatio;
             width = image.width;
             imageUrl = image.url;
+            fallbackImageUrl = image.fallbackUrl;
           }
 
           final canPreview = _supportsPreview(
@@ -6226,13 +6266,38 @@ class _ContentRowsState extends State<_ContentRows>
                           width: v2PortraitWidth,
                           child: Opacity(
                             opacity: modernPosterOpacity(v2Open),
-                            child: BoundedNetworkImage(
-                              imageUrl: v2PosterUrl,
-                              fit: BoxFit.cover,
-                              fadeInDuration: Duration.zero,
-                              maxWidth: MediaCard.decodeMaxWidthFor(
-                                v2PortraitAspect,
-                              ),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (v2PosterFallbackUrl != null)
+                                  BoundedNetworkImage(
+                                    imageUrl: v2PosterFallbackUrl,
+                                    fit: BoxFit.cover,
+                                    fadeInDuration: Duration.zero,
+                                    maxWidth: MediaCard.decodeMaxWidthFor(
+                                      v2PortraitAspect,
+                                    ),
+                                  ),
+                                BoundedNetworkImage(
+                                  imageUrl: v2PosterUrl,
+                                  fit: BoxFit.cover,
+                                  fadeInDuration: Duration.zero,
+                                  maxWidth: MediaCard.decodeMaxWidthFor(
+                                    v2PortraitAspect,
+                                  ),
+                                  cacheManager:
+                                      BetterPostersService.cacheManagerForUrl(
+                                        v2PosterUrl,
+                                      ),
+                                  priority: v2PosterFallbackUrl != null
+                                      ? ImageFetchPriority.low
+                                      : ImageFetchPriority.normal,
+                                  errorBuilder: (_, _, _) =>
+                                      v2PosterFallbackUrl != null
+                                          ? const SizedBox.shrink()
+                                          : const Icon(Icons.movie_outlined),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -6243,6 +6308,8 @@ class _ContentRowsState extends State<_ContentRows>
                     subtitle: cardSubtitle,
                     subtitleWidget: cardSubtitleWidget,
                     imageUrl: imageUrl,
+                    fallbackImageUrl: fallbackImageUrl,
+                    cacheManager: BetterPostersService.cacheManagerForUrl(imageUrl),
                     width: width,
                     aspectRatio: ar,
                     // Safe to compare doubles here, since ar is assigned
@@ -7179,7 +7246,7 @@ class _ContentRowsState extends State<_ContentRows>
         row.rowType != HomeRowType.libraryTilesSmall &&
         !isGameHomeRow(row);
 
-    ({String? url, double width, double aspectRatio}) imageOf(
+    HomeRowCardImage imageOf(
       HomeRow row,
       AggregatedItem item,
     ) => _unfocusedCardImage(
@@ -7220,6 +7287,7 @@ class _ContentRowsState extends State<_ContentRows>
             url,
             layoutWidth: image.width,
             maxWidth: MediaCard.decodeMaxWidthFor(image.aspectRatio),
+            cacheManager: BetterPostersService.cacheManagerForUrl(url),
             priority: ImageFetchPriority.low,
           ).whenComplete(() => _rowPrefetchInFlight--).catchError((_) {
             _rowPrefetchedUrls.remove(url);

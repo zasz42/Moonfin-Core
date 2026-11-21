@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../offline_aware_image.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moonfin_design/moonfin_design.dart';
@@ -19,6 +20,7 @@ import '../bounded_network_image.dart';
 import '../rating_display.dart';
 import '../../util/error_message.dart';
 import 'media_bar_status_focus.dart';
+import 'upcoming_releases_rail.dart';
 import 'mobile_chrome_insets.dart';
 
 class BannerMediaBar extends StatefulWidget {
@@ -125,7 +127,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       if (event is KeyUpEvent) {
         final downTime = _keyDownTime;
         _keyDownTime = null;
-        final longPress = downTime != null &&
+        final longPress =
+            downTime != null &&
             DateTime.now().difference(downTime) >= _keyLongPressThreshold;
         if (longPress) {
           widget.onPlay(item);
@@ -229,9 +232,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                     message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColorScheme.onSurface,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColorScheme.onSurface),
                   ),
                 ),
                 TextButton(
@@ -259,9 +261,14 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       widget.height,
     ).top;
     // The left sidebar is drawn over the banner, so the banner starts past it.
-    final sidebarInset =
-        !isMobile && navbarPosition == NavbarPosition.left ? 56.0 : 0.0;
+    final sidebarInset = !isMobile && navbarPosition == NavbarPosition.left
+        ? 56.0
+        : 0.0;
     final showArrows = items.length > 1 && PlatformDetection.useDesktopUi;
+    final compactBanner =
+        PlatformDetection.isTV &&
+        widget.prefs.get(UserPreferences.compactBannerEnabled);
+    final compactBannerWidth = widget.height * (16 / 9);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -270,91 +277,166 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         _sideInset,
         8,
       ),
-      child: Focus(
-        focusNode: widget.focusNode,
-        autofocus: widget.focusNode == null && PlatformDetection.useLeanbackUi,
-        onFocusChange: (f) {
-          if (mounted) setState(() => _focused = f);
-        },
-        onKeyEvent: (node, event) => _handleKey(event, item),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.circular(16),
-            border: Border.all(
-              color: _focused
-                  ? AppColorScheme.accent
-                  : Colors.transparent,
-              width: 2.5,
+      child: Center(
+        child: Focus(
+          focusNode: widget.focusNode,
+          autofocus:
+              widget.focusNode == null && PlatformDetection.useLeanbackUi,
+          onFocusChange: (f) {
+            if (mounted) setState(() => _focused = f);
+          },
+          onKeyEvent: (node, event) => _handleKey(event, item),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.circular(16),
+              border: Border.all(
+                color: _focused ? AppColorScheme.accent : Colors.transparent,
+                width: 2.5,
+              ),
+              boxShadow: _focused
+                  ? [
+                      BoxShadow(
+                        color: AppColorScheme.accent.withValues(alpha: 0.4),
+                        blurRadius: 18,
+                      ),
+                    ]
+                  : null,
             ),
-            boxShadow: _focused
-                ? [
-                    BoxShadow(
-                      color: AppColorScheme.accent.withValues(alpha: 0.4),
-                      blurRadius: 18,
-                    ),
-                  ]
-                : null,
-          ),
-          child: ClipRRect(
-            borderRadius: AppRadius.circular(14),
-            child: SizedBox(
-              height: widget.height,
-              child: GestureDetector(
-                onTap: () => widget.onOpen(item),
-                onHorizontalDragEnd: items.length > 1
-                    ? (details) {
-                        final v = details.primaryVelocity ?? 0;
-                        if (v < -300) {
-                          _setIndex(_index + 1);
-                        } else if (v > 300) {
-                          _setIndex(_index == 0 ? items.length - 1 : _index - 1);
+            child: ClipRRect(
+              borderRadius: AppRadius.circular(14),
+              child: SizedBox(
+                width: compactBanner
+                    ? widget.height * (21 / 9)
+                    : double.infinity,
+                height: widget.height,
+                child: GestureDetector(
+                  onTap: () => widget.onOpen(item),
+                  onHorizontalDragEnd: items.length > 1
+                      ? (details) {
+                          final v = details.primaryVelocity ?? 0;
+                          if (v < -300) {
+                            _setIndex(_index + 1);
+                          } else if (v > 300) {
+                            _setIndex(
+                              _index == 0 ? items.length - 1 : _index - 1,
+                            );
+                          }
                         }
-                      }
-                    : null,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (bannerUrl != null)
-                      _banner(bannerUrl, item)
-                    else
-                      _backdrop(item),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [Color(0xE6000000), Color(0x00000000)],
+                      : null,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (compactBanner)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: compactBannerWidth,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (bannerUrl != null)
+                                _banner(bannerUrl, item)
+                              else
+                                _backdrop(item),
+                              const DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xE6000000),
+                                      Color(0x00000000),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: showArrows ? 72 : 20,
+                                right: 20,
+                                bottom: 16,
+                                child: _content(
+                                  context,
+                                  item,
+                                  // Compact mode keeps the official logo/title
+                                  // over the backdrop/banner instead of relying
+                                  // on text baked into the artwork.
+                                  showTitle: true,
+                                ),
+                              ),
+                              if (items.length > 1)
+                                Positioned(
+                                  top: 12,
+                                  right: 16,
+                                  child: _Dots(
+                                    count: items.length,
+                                    active: index,
+                                  ),
+                                ),
+                              if (showArrows)
+                                ...mediaBarNavArrows(
+                                  context,
+                                  onPrevious: index > 0
+                                      ? () => _setIndex(index - 1)
+                                      : null,
+                                  onNext: () => _setIndex(index + 1),
+                                ),
+                            ],
+                          ),
+                        )
+                      else ...[
+                        if (bannerUrl != null)
+                          _banner(bannerUrl, item)
+                        else
+                          _backdrop(item),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [Color(0xE6000000), Color(0x00000000)],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      // Leaves room for the previous arrow.
-                      left: showArrows ? 72 : 20,
-                      right: 20,
-                      bottom: 16,
-                      child: _content(
-                        context,
-                        item,
-                        // The banner carries the title already.
-                        showTitle: bannerUrl == null,
-                      ),
-                    ),
-                    if (items.length > 1)
-                      Positioned(
-                        top: 12,
-                        right: 16,
-                        child: _Dots(count: items.length, active: index),
-                      ),
-                    if (showArrows)
-                      ...mediaBarNavArrows(
-                        context,
-                        onPrevious: index > 0
-                            ? () => _setIndex(index - 1)
-                            : null,
-                        onNext: () => _setIndex(index + 1),
-                      ),
-                  ],
+                        Positioned(
+                          left: showArrows ? 72 : 20,
+                          right: 20,
+                          bottom: 16,
+                          child: _content(
+                            context,
+                            item,
+                            showTitle: bannerUrl == null,
+                          ),
+                        ),
+                        if (items.length > 1)
+                          Positioned(
+                            top: 12,
+                            right: 16,
+                            child: _Dots(count: items.length, active: index),
+                          ),
+                        if (showArrows)
+                          ...mediaBarNavArrows(
+                            context,
+                            onPrevious: index > 0
+                                ? () => _setIndex(index - 1)
+                                : null,
+                            onNext: () => _setIndex(index + 1),
+                          ),
+                      ],
+                      if (compactBanner &&
+                          widget.prefs.get(
+                            UserPreferences.compactBannerUpcomingReleases,
+                          ))
+                        Positioned(
+                          left: compactBannerWidth + 12,
+                          right: 12,
+                          top: 12,
+                          bottom: 12,
+                          child: const UpcomingReleasesRail(),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -408,7 +490,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   }) {
     final theme = Theme.of(context);
     final shadows = <Shadow>[
-      Shadow(blurRadius: 10, color: AppColorScheme.scrim.withValues(alpha: 0.8)),
+      Shadow(
+        blurRadius: 10,
+        color: AppColorScheme.scrim.withValues(alpha: 0.8),
+      ),
     ];
     final meta = <String>[
       if (item.year != null) '${item.year}',
@@ -486,7 +571,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     );
   }
 
-
   String _formatRuntime(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
@@ -503,7 +587,10 @@ class _Dots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = count > 7 ? 7 : count;
-    final start = (active - shown ~/ 2).clamp(0, count - shown < 0 ? 0 : count - shown);
+    final start = (active - shown ~/ 2).clamp(
+      0,
+      count - shown < 0 ? 0 : count - shown,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

@@ -6650,6 +6650,14 @@
   "@seconds": {
     "description": "Time unit label in seconds"
   },
+  "compactBannerEnabled": "Compact Banner",
+  "@compactBannerEnabled": {
+    "description": "Use the compact 16:9 banner layout on TV."
+  },
+  "compactBannerUpcomingReleases": "Upcoming Releases Rail",
+  "@compactBannerUpcomingReleases": {
+    "description": "Show Radarr and Sonarr upcoming releases beside the compact banner."
+  },
   "mediaBarMode": "Media Bar Style",
   "@mediaBarMode": {
     "description": "Setting for choosing media bar style"
@@ -11383,6 +11391,10 @@
   "settingsSkipButtonAutoHideDescription": "Automatically dismiss the skip intro and outro button after a few seconds.",
   "settingsPromptUser": "Prompt User",
   "settingsSkip": "Skip",
+  "settingsDelayedSkip": "Delayed Skip",
+  "@settingsDelayedSkip": {
+    "description": "Playback segment action that automatically skips after a 10-second delay"
+  },
   "settingsDoNothing": "Do Nothing",
   "settingsMaxBitrateDescription": "Cap the streaming bitrate. Content above this threshold will be transcoded to fit.",
   "settingsMaxResolutionDescription": "Limit the maximum resolution the player will request. Higher-resolution content will be transcoded down.",

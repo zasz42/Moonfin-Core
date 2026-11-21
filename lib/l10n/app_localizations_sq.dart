@@ -5074,6 +5074,15 @@ class AppLocalizationsSq extends AppLocalizations {
   String get seconds => 'sekonda';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'Stili i shiritit mediatik';
 
   @override

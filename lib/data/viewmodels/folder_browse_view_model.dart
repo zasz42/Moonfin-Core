@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:server_core/server_core.dart';
 
 import '../models/aggregated_item.dart';
+import '../services/better_posters_service.dart';
 import '../utils/blocked_ratings.dart';
 import '../utils/genre_browse_utils.dart';
 import '../utils/playlist_utils.dart';
@@ -32,7 +33,7 @@ class FolderBrowseViewModel extends ChangeNotifier {
 
   static const _pageSize = 100;
   static const _fields =
-      'Path,FileName,Type,ProductionYear,ImageTags,BackdropImageTags,ChildCount,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag';
+      'Path,FileName,Type,ProductionYear,ImageTags,BackdropImageTags,ChildCount,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,ProviderIds';
   // Cap image tags to one per type (server returns all by default)
   static const _imageTypes = 'Primary,Backdrop,Thumb,Banner';
   static const _imageTypeLimit = 1;
@@ -215,7 +216,11 @@ class FolderBrowseViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    final filtered = await _filterItemsForFolder(mapped);
+    final posterReady = await BetterPostersService.withSeriesProviderIds(
+      (_) => _client,
+      mapped,
+    );
+    final filtered = await _filterItemsForFolder(posterReady);
 
     // Directories all arrive with the first page and the rest follow by name a
     // page at a time, so pages only ever append.

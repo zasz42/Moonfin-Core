@@ -962,7 +962,7 @@ class _HomeFrame {
       final url = api == null
           ? null
           : resolvePrimaryImageUrl(item, api, maxWidth: 400);
-      return (url: url, width: _squareSide, aspectRatio: 1.0);
+      return (url: url, fallbackUrl: null, width: _squareSide, aspectRatio: 1.0);
     }
     final rowModern = isModern(row);
     if (rowModern && focused && !row.isAudio) {
@@ -992,7 +992,7 @@ class _HomeFrame {
       final width = phone
           ? math.min(height * 16 / 9, size.width - rowLeftInset - 32)
           : height * 16 / 9;
-      return (url: wide ?? poster, width: width, aspectRatio: width / height);
+      return (url: wide ?? poster, fallbackUrl: null, width: width, aspectRatio: width / height);
     }
     if (api == null) {
       final ar = rowModern
@@ -1002,7 +1002,7 @@ class _HomeFrame {
           ? modernHeight
           : (ar > 1 ? posterSize.landscapeHeight : posterSize.portraitHeight) *
                 platformScale;
-      return (url: null, width: height * ar, aspectRatio: ar);
+      return (url: null, fallbackUrl: null, width: height * ar, aspectRatio: ar);
     }
     return homeRowCardImage(
       row,

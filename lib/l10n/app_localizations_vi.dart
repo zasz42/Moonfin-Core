@@ -5051,6 +5051,15 @@ class AppLocalizationsVi extends AppLocalizations {
   String get seconds => 'giây';
 
   @override
+  String get compactBannerEnabled => 'Compact Banner';
+
+  @override
+  String get compactBannerUpcomingReleases => 'Upcoming Releases Rail';
+
+  @override
+  String get settingsDelayedSkip => 'Delayed Skip';
+
+  @override
   String get mediaBarMode => 'Kiểu thanh phương tiện';
 
   @override

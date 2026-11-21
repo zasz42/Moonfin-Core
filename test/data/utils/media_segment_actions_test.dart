@@ -41,12 +41,27 @@ void main() {
       expect(actions[MediaSegmentType.recap], MediaSegmentAction.skip);
     });
 
+    test('reads delayed skip as a distinct action', () {
+      final actions = parseMediaSegmentActions('intro:delayedSkip');
+
+      expect(actions[MediaSegmentType.intro], MediaSegmentAction.delayedSkip);
+    });
+
     test('an empty value yields no actions', () {
       expect(parseMediaSegmentActions(''), isEmpty);
     });
   });
 
   group('serializeMediaSegmentActions', () {
+    test('round trips delayed skip', () {
+      const value = 'intro:delayedSkip,outro:askToSkip';
+
+      expect(
+        serializeMediaSegmentActions(parseMediaSegmentActions(value)),
+        value,
+      );
+    });
+
     test('round trips the shipped default unchanged', () {
       const shippedDefault = 'intro:askToSkip,outro:askToSkip';
 
@@ -102,8 +117,11 @@ void main() {
 
     test('every action survives a write and read back', () {
       for (final action in MediaSegmentAction.values) {
-        final stored =
-            withMediaSegmentAction('', MediaSegmentType.recap, action);
+        final stored = withMediaSegmentAction(
+          '',
+          MediaSegmentType.recap,
+          action,
+        );
 
         expect(
           parseMediaSegmentActions(stored)[MediaSegmentType.recap],

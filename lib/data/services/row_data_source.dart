@@ -30,6 +30,7 @@ import '../../preference/seerr_preferences.dart';
 import '../viewmodels/seerr_discover_view_model.dart';
 import '../viewmodels/live_tv_guide_view_model.dart';
 import 'custom_external_lists_service.dart';
+import 'better_posters_service.dart';
 import 'plugin_sync_service.dart';
 
 /// What a home row's See All card opens: the library a Latest row comes from,
@@ -76,16 +77,16 @@ class RowDataSource {
       'ParentIndexNumber,IndexNumber,Status,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio';
+      'ParentLogoItemId,ParentLogoImageTag,PrimaryImageTag,PrimaryImageAspectRatio,ProviderIds';
   static const _fallbackFields =
       'DateCreated,Type,UserData,OfficialRating,RunTimeTicks,ProductionYear,SeriesName,'
       'ParentIndexNumber,IndexNumber,ImageTags,BackdropImageTags,'
       'ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,'
       'ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,'
-      'ParentLogoItemId,ParentLogoImageTag';
+      'ParentLogoItemId,ParentLogoImageTag,ProviderIds';
   static const _minimalFields =
       'Type,UserData,RunTimeTicks,ProductionYear,ImageTags,BackdropImageTags,'
-      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId';
+      'ParentBackdropItemId,ParentBackdropImageTags,SeriesId,ProviderIds';
 
   /// An album or track card names its artist under the title. An artist card
   /// has the name as its title, so those rows read neither of these.
@@ -230,12 +231,18 @@ class RowDataSource {
       startIndex: startIndex,
       limit: _defaultLimit,
     );
-    return _buildRow(
+    final row = _buildRow(
       id: 'resume',
       title: _l10n.continueWatching,
       response: response,
       serverId: serverId,
       rowType: HomeRowType.resume,
+    );
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        row.items,
+      ),
     );
   }
 
@@ -272,7 +279,11 @@ class RowDataSource {
       row.items,
       recentlyPlayed,
     );
-    return row.copyWith(items: enrichedItems);
+    final postersReady = await BetterPostersService.withSeriesProviderIds(
+      (_) => _client,
+      enrichedItems,
+    );
+    return row.copyWith(items: postersReady);
   }
 
   Future<HomeRow> loadResumeRelaxed(String serverId) async {
@@ -280,12 +291,18 @@ class RowDataSource {
       mediaTypes: 'Video',
       limit: _defaultLimit,
     );
-    return _buildRow(
+    final row = _buildRow(
       id: 'resume',
       title: _l10n.continueWatching,
       response: response,
       serverId: serverId,
       rowType: HomeRowType.resume,
+    );
+    return row.copyWith(
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        row.items,
+      ),
     );
   }
 
@@ -304,7 +321,11 @@ class RowDataSource {
       row.items,
       recentlyPlayed,
     );
-    return row.copyWith(items: enrichedItems);
+    final postersReady = await BetterPostersService.withSeriesProviderIds(
+      (_) => _client,
+      enrichedItems,
+    );
+    return row.copyWith(items: postersReady);
   }
 
   bool? get _hideWatchedInRecentRowsOrNull {
@@ -449,7 +470,10 @@ class RowDataSource {
     return HomeRow(
       id: 'latest_$parentId',
       title: _l10n.latestLibraryName(libraryName),
-      items: page.items,
+      items: await BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        page.items,
+      ),
       rowType: HomeRowType.latestMedia,
       totalCount: _firstRecentPageTotal(page),
       isAudio: collectionType == 'music',
@@ -483,11 +507,14 @@ class RowDataSource {
     );
     final items = _parseItems(response, serverId);
     if (isTv) {
-      return normalizeLatestMediaItems(
-        items,
-        collectionType: 'tvshows',
-        limit: limit,
-        hideWatched: hideWatched,
+      return BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        normalizeLatestMediaItems(
+          items,
+          collectionType: 'tvshows',
+          limit: limit,
+          hideWatched: hideWatched,
+        ),
       );
     }
     if (hideWatched) {
@@ -531,11 +558,14 @@ class RowDataSource {
     );
     final items = _parseItems(response, serverId);
     if (isTv) {
-      return normalizeLatestMediaItems(
-        items,
-        collectionType: 'tvshows',
-        limit: limit,
-        hideWatched: hideWatched,
+      return BetterPostersService.withSeriesProviderIds(
+        (_) => _client,
+        normalizeLatestMediaItems(
+          items,
+          collectionType: 'tvshows',
+          limit: limit,
+          hideWatched: hideWatched,
+        ),
       );
     }
     if (hideWatched) {
@@ -2049,10 +2079,17 @@ class RowDataSource {
                 : null,
           )
         : _parseItems(response, serverId);
+    final posterReadyItems =
+        row.rowType == HomeRowType.resume || row.rowType == HomeRowType.nextUp
+        ? await BetterPostersService.withSeriesProviderIds(
+            (_) => _client,
+            newItems,
+          )
+        : newItems;
     final totalCount =
         response['TotalRecordCount'] as int? ??
-        (row.items.length + newItems.length);
-    return ([...row.items, ...newItems], totalCount);
+        (row.items.length + posterReadyItems.length);
+    return ([...row.items, ...posterReadyItems], totalCount);
   }
 
   /// The collection type of library [libraryId] from the libraries list,
@@ -2358,6 +2395,7 @@ class RowDataSource {
     required HomeRowType rowType,
   }) {
     final items = _parseItems(response, serverId);
+    BetterPostersService.registerAll(items);
     final totalCount = response['TotalRecordCount'] as int? ?? items.length;
     return HomeRow(
       id: id,

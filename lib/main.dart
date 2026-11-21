@@ -17,6 +17,7 @@ import 'app.dart';
 import 'data/models/aggregated_item.dart';
 import 'background/watch_next_background.dart' as watch_next_bg;
 import 'data/services/carplay_service.dart';
+import 'data/services/better_posters_service.dart';
 import 'data/services/cast/airplay_command_bridge.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -998,6 +999,9 @@ void main() async {
   }
 
   final prefs = GetIt.instance<UserPreferences>();
+  BetterPostersService.setEnabled(
+    prefs.get(UserPreferences.externalPostersEnabled),
+  );
   _bindScrollSensitivity(prefs);
   WidgetsBinding.instance.addObserver(_PreferenceWriteFlushObserver(prefs));
   WidgetsBinding.instance.addObserver(_ImageCacheSweepObserver(prefs));

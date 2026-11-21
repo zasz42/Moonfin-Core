@@ -12,6 +12,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import 'package:playback_core/playback_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/services/better_posters_service.dart';
 import '../../../data/utils/alphabet_bucket.dart';
 import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/multi_server_repository.dart';
@@ -675,9 +676,19 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         shape,
       );
 
-  String? _imageUrl(AggregatedItem item, {double? cellWidth}) {
+  String? _imageUrl(
+    AggregatedItem item, {
+    double? cellWidth,
+    bool includeExternal = true,
+  }) {
     final api = _vm.imageApiFor(item);
     final width = cellWidth ?? _cardWidth();
+    if (includeExternal &&
+        _vm.imageType == ImageType.poster &&
+        !_vm.isNavigableFolder(item)) {
+      final external = BetterPostersService.posterUrlFor(item);
+      if (external != null) return external;
+    }
     final posterMaxW = _requestWidthFor(width, ArtworkShape.poster);
     final landscapeMaxW = _requestWidthFor(width, ArtworkShape.landscape);
 
@@ -1842,6 +1853,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         (_vm.isPlaylistBrowse && _vm.groupByType) || _vm.isGrouping;
 
     Widget card(BuildContext? revealContext) {
+      final imageUrl = _imageUrl(item, cellWidth: cellWidth);
+      final fallbackImageUrl = BetterPostersService.isPosterUrl(imageUrl)
+          ? _imageUrl(item, cellWidth: cellWidth, includeExternal: false)
+          : null;
       return MediaCard(
         animeMarkerItemId: item.id,
         posterBadgeItemId: item.id,
@@ -1850,7 +1865,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         title: item.name,
         subtitle: _cardSubtitle(item),
         showLabel: _showCardTitles,
-        imageUrl: _imageUrl(item, cellWidth: cellWidth),
+        imageUrl: imageUrl,
+        fallbackImageUrl: fallbackImageUrl,
+        cacheManager: BetterPostersService.cacheManagerForUrl(imageUrl),
         width: double.infinity,
         aspectRatio: itemAspectRatio,
         isBanner: _vm.imageType == ImageType.banner,
@@ -2116,6 +2133,19 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                       // what tells the sliver where the list ends.
                       if (index >= items.length) return null;
                       final item = items[index];
+                      final imageUrl = _imageUrl(
+                        item,
+                        cellWidth: actualCellWidth,
+                      );
+                      final fallbackImageUrl = BetterPostersService.isPosterUrl(
+                        imageUrl,
+                      )
+                          ? _imageUrl(
+                              item,
+                              cellWidth: actualCellWidth,
+                              includeExternal: false,
+                            )
+                          : null;
                       return MediaCard(
                         posterBadgeItemId: item.id,
                         recordingItemId: item.id,
@@ -2123,7 +2153,11 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                         title: item.name,
                         subtitle: _cardSubtitle(item),
                         showLabel: _showCardTitles,
-                        imageUrl: _imageUrl(item, cellWidth: actualCellWidth),
+                        imageUrl: imageUrl,
+                        fallbackImageUrl: fallbackImageUrl,
+                        cacheManager: BetterPostersService.cacheManagerForUrl(
+                          imageUrl,
+                        ),
                         width: double.infinity,
                         aspectRatio: _itemAspectRatio(item),
                         focusColor: focusColor,

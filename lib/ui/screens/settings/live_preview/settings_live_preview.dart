@@ -809,10 +809,13 @@ class SettingsPlayerPreview extends StatelessWidget {
     final skipSegment = switch (moment) {
       _PlayerMoment.intro
           when introAction == MediaSegmentAction.askToSkip ||
+              introAction == MediaSegmentAction.delayedSkip ||
               focusedKey == UserPreferences.mediaSegmentCountdown.key =>
         _sampleIntro,
       _PlayerMoment.outro
-          when !outroNextUp && outroAction == MediaSegmentAction.askToSkip =>
+          when !outroNextUp &&
+              (outroAction == MediaSegmentAction.askToSkip ||
+                  outroAction == MediaSegmentAction.delayedSkip) =>
         _sampleOutro,
       _ => null,
     };
