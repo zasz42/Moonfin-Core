@@ -107,7 +107,11 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
 
   void _startAutoAdvance() {
     _autoAdvance?.cancel();
-    if (widget.externallyPaused) return;
+    if (widget.externallyPaused &&
+        !(PlatformDetection.isTV &&
+            widget.prefs.get(UserPreferences.compactBannerEnabled))) {
+      return;
+    }
     if (!widget.prefs.get(UserPreferences.mediaBarAutoAdvance)) return;
     final intervalMs = widget.prefs.get(UserPreferences.mediaBarIntervalMs);
     _autoAdvance = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
@@ -279,13 +283,14 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
         widget.prefs.get(UserPreferences.compactBannerEnabled);
     // Allocate one third of the available media-bar width to the banner;
     // the upcoming rail uses the remaining two thirds.
-    final compactBannerWidth =
-        (MediaQuery.sizeOf(context).width - _sideInset * 2 - sidebarInset) / 3;
+    final compactBannerHeight = widget.height * (2 / 3);
+    final compactBannerWidth = compactBannerHeight * (16 / 9);
+    final railHeight = widget.height * (3 / 4);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
         _sideInset + sidebarInset,
-        topInset,
+        compactBanner ? 0 : topInset,
         _sideInset,
         8,
       ),
@@ -323,6 +328,27 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
+                      if (compactBanner &&
+                          navbarPosition == NavbarPosition.left &&
+                          _showClock)
+                        Positioned(
+                          top: 0,
+                          right: 8,
+                          child: IgnorePointer(
+                            child: Text(
+                              _clockText,
+                              textDirection: TextDirection.ltr,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w500,
+                                shadows: const [
+                                  Shadow(color: Colors.black54, blurRadius: 8),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       if (compactBanner)
                         Positioned(
                           left: 0,
@@ -369,28 +395,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                                     child: _Dots(
                                       count: items.length,
                                       active: index,
-                                    ),
-                                  ),
-                                if (_showClock)
-                                  Positioned(
-                                    top: 12,
-                                    right: 16,
-                                    child: Text(
-                                      _clockText,
-                                      textDirection: TextDirection.ltr,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w500,
-                                        shadows: const [
-                                          Shadow(
-                                            color: Colors.black54,
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                   ),
                                 if (showArrows)
@@ -481,9 +485,16 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                         Positioned(
                           left: compactBannerWidth + 12,
                           right: 12,
-                          top: 12,
-                          bottom: 12,
-                          child: const UpcomingReleasesRail(),
+                          bottom: 0,
+                          height: railHeight,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              top: navbarPosition == NavbarPosition.top
+                                  ? 76
+                                  : 0,
+                            ),
+                            child: const UpcomingReleasesRail(),
+                          ),
                         ),
                     ],
                   ),
