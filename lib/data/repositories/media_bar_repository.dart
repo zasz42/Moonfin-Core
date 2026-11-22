@@ -76,6 +76,17 @@ class MediaBarRepository {
       _splitCsv(UserPreferences.mediaBarExternalLists),
       includeTypes,
     );
+    // MF-01: External source exclusively uses configured external lists.
+    if (_prefs.get(UserPreferences.mediaBarSourceType) ==
+        UserPreferences.mediaBarSourceExternal) {
+      final slides = await _mixInExternal(
+        const [], externalPool, maxItems, excludedGenres,
+      );
+      return slides.isEmpty
+          ? const MediaBarError('No external list items available')
+          : MediaBarReady(slides);
+    }
+
     // Lists picked on their own fill the bar alone. When they come back empty
     // the bar falls back to the libraries the same way it does with no picks.
     if (externalPool.isNotEmpty &&

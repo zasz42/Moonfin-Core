@@ -16,6 +16,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
+import '../../../util/clock_format.dart';
 import '../bounded_network_image.dart';
 import '../rating_display.dart';
 import '../../util/error_message.dart';
@@ -56,6 +57,8 @@ class BannerMediaBar extends StatefulWidget {
 class _BannerMediaBarState extends State<BannerMediaBar> {
   static const _keyLongPressThreshold = Duration(milliseconds: 500);
   Timer? _autoAdvance;
+  Timer? _clockTimer;
+  String _clockText = '';
   int _index = 0;
   bool _focused = false;
   DateTime? _keyDownTime;
@@ -66,6 +69,11 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     widget.viewModel.addListener(_onChanged);
     widget.prefs.addListener(_onChanged);
     _startAutoAdvance();
+    _updateClock();
+    _clockTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _updateClock(),
+    );
     _ensureRatingsForCurrent();
   }
 
@@ -80,6 +88,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   @override
   void dispose() {
     _autoAdvance?.cancel();
+    _clockTimer?.cancel();
     widget.viewModel.removeListener(_onChanged);
     widget.prefs.removeListener(_onChanged);
     super.dispose();
@@ -306,9 +315,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
             child: ClipRRect(
               borderRadius: AppRadius.circular(14),
               child: SizedBox(
-                width: compactBanner
-                    ? widget.height * (21 / 9)
-                    : double.infinity,
+                width: double.infinity,
                 height: widget.height,
                 child: GestureDetector(
                   onTap: () => widget.onOpen(item),
@@ -336,10 +343,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (bannerUrl != null)
-                                _banner(bannerUrl, item)
-                              else
-                                _backdrop(item),
+                              // MF-01 compact uses clean backdrop art; title/logo
+                              // is a separate overlay beneath it.
+                              _backdrop(item),
                               const DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -367,11 +373,33 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                               ),
                               if (items.length > 1)
                                 Positioned(
-                                  top: 12,
+                                  top: 52,
                                   right: 16,
                                   child: _Dots(
                                     count: items.length,
                                     active: index,
+                                  ),
+                                ),
+                              if (_showClock)
+                                Positioned(
+                                  top: 12,
+                                  right: 16,
+                                  child: Text(
+                                    _clockText,
+                                    textDirection: TextDirection.ltr,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w500,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black54,
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               if (showArrows)
@@ -447,6 +475,20 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
   }
 
   double get _sideInset => PlatformDetection.useMobileUi ? 16 : 24;
+
+  bool get _showClock {
+    final behavior = widget.prefs.get(UserPreferences.clockBehavior);
+    return behavior == ClockBehavior.always ||
+        behavior == ClockBehavior.inMenus;
+  }
+
+  void _updateClock() {
+    final next = formatClockTime(
+      DateTime.now(),
+      use24Hour: widget.prefs.get(UserPreferences.use24HourClock),
+    );
+    if (mounted && next != _clockText) setState(() => _clockText = next);
+  }
 
   Widget _backdrop(MediaBarSlideItem item) {
     final url = item.backdropUrl;

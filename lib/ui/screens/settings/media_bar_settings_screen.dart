@@ -387,6 +387,7 @@ class _MediaBarSettingsScreenState extends State<MediaBarSettingsScreen> {
                         l10n.recentlyReleased,
                     UserPreferences.mediaBarSourceNewReleases:
                         l10n.mediaBarSourceNewReleasesAll,
+                    UserPreferences.mediaBarSourceExternal: 'External',
                   },
                   onChanged: _pushSync,
                 ),

@@ -62,6 +62,7 @@ void main() {
     String contentType = 'both',
     String libraryIds = '',
     String blocked = '',
+    String sourceType = UserPreferences.mediaBarSourceRandom,
     Map<String, Map<String, dynamic>> details = const {},
   }) async {
     SharedPreferences.setMockInitialValues({});
@@ -70,6 +71,7 @@ void main() {
     final prefs = UserPreferences(store);
     await prefs.set(UserPreferences.pluginSyncEnabled, false);
     await prefs.set(UserPreferences.mediaBarItemCount, '10');
+    await prefs.set(UserPreferences.mediaBarSourceType, sourceType);
     await prefs.set(UserPreferences.mediaBarContentType, contentType);
     await prefs.set(UserPreferences.mediaBarExternalLists, lists.keys.join(','));
     await prefs.set(UserPreferences.mediaBarLibraryIds, libraryIds);
@@ -167,6 +169,15 @@ void main() {
     final state = await repo.loadItems();
     return (state as MediaBarReady).items;
   }
+
+  test('External source returns only configured external list items', () async {
+    final slides = await load(
+      sourceType: UserPreferences.mediaBarSourceExternal,
+      lists: {'imdb_top_250_movies': [_title('9')]},
+    );
+    expect(slides, hasLength(1));
+    expect(slides.single.isExternal, isTrue);
+  });
 
   test('fills an outside slide in from TMDB', () async {
     final slides = await load(

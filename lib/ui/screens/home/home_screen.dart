@@ -3360,6 +3360,10 @@ class _ContentRowsState extends State<_ContentRows>
   double? _restingOffsetForRow(int rowIndex) {
     if (!_scrollController.hasClients) return null;
     if (rowIndex < 0 || rowIndex >= _rowTopOffsets.length) return null;
+    // MF-02: hold the first two rows below the Media Bar in place.
+    if (PlatformDetection.isTV && _isCompactClassicMode && rowIndex < 2) {
+      return 0.0;
+    }
     final useTvBand = expandedHomeRows(widget.prefs);
     final targetTop = useTvBand
         ? _tvTargetTopForRow(rowIndex)
@@ -3775,10 +3779,14 @@ class _ContentRowsState extends State<_ContentRows>
                 .localToGlobal(Offset.zero, ancestor: viewportObj)
                 .dy;
             final targetOffset =
-                (_scrollController.offset +
-                        rowTopInViewport -
-                        _desktopRowFocusTargetTop())
-                    .clamp(0.0, _scrollController.position.maxScrollExtent);
+                PlatformDetection.isTV &&
+                    _isCompactClassicMode &&
+                    target < 2
+                ? 0.0
+                : (_scrollController.offset +
+                          rowTopInViewport -
+                          _desktopRowFocusTargetTop())
+                      .clamp(0.0, _scrollController.position.maxScrollExtent);
             _scrollController
                 .animateTo(
                   targetOffset,
@@ -4360,11 +4368,18 @@ class _ContentRowsState extends State<_ContentRows>
     // MediaType belongs in the key: a Seerr genre card takes the TMDB genre id
     // as its item id, and a genre in both the movie row and the series row has
     // the same id in each, so the second row would reuse the first row's image.
+    // MF-05: async Better Posters lookup/index results can arrive after the
+    // first Home paint. Include the resolved URL to avoid pinning stale art.
+    final externalPosterKey = imageType == ImageType.poster && includeExternal
+        ? BetterPostersService.posterUrlFor(item) ??
+              BetterPostersService.urlForId(item.seriesId ?? '') ??
+              ''
+        : '';
     final key =
         '${item.serverId}|${item.id}|${item.rawData['MediaType']}'
         '|${imageType.index}|${height.round()}'
         '|$useSeriesThumbs|${requestScale.toStringAsFixed(2)}|$isMyMediaRow'
-        '|${BetterPostersService.enabled}|$includeExternal';
+        '|${BetterPostersService.enabled}|$includeExternal|$externalPosterKey';
     final cached = _rowImageUrlCache[key];
     if (cached != null || _rowImageUrlCache.containsKey(key)) {
       return cached;
@@ -5835,7 +5850,9 @@ class _ContentRowsState extends State<_ContentRows>
         ? _compactClassicResumeBottomPadding
         : rowPadding;
     final topPadding =
-        rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
+        rowPadding +
+        _focusHeadroom(maxImageHeight, cardExpansion) +
+        (_isCompactClassicMode ? 5.0 : 0.0);
     final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);

@@ -123,11 +123,13 @@ class UserPreferences extends ChangeNotifier {
   // Series with episodes that aired lately, found from the episodes rather than
   // the series, whose own date is its first season's.
   static const mediaBarSourceNewReleases = 'newReleases';
+  static const mediaBarSourceExternal = 'external';
   static const mediaBarSourceTypeValues = <String>{
     mediaBarSourceRandom,
     mediaBarSourceRecentlyAdded,
     mediaBarSourceRecentlyReleased,
     mediaBarSourceNewReleases,
+    mediaBarSourceExternal,
   };
 
   // What a focused home card plays. episodePreviewEnabled says whether it
