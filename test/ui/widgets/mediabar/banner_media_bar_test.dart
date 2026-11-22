@@ -167,6 +167,20 @@ void main() {
 
     expect(find.text('The Show'), findsOneWidget);
     expect(find.byType(UpcomingReleasesRail), findsOneWidget);
+    final compactImageRect = tester.getRect(
+      find.byType(BoundedNetworkImage).first,
+    );
+    expect(
+      compactImageRect.width / compactImageRect.height,
+      closeTo(16 / 9, 0.001),
+    );
+    expect(
+      find.ancestor(
+        of: find.byType(BoundedNetworkImage).first,
+        matching: find.byType(ClipRRect),
+      ),
+      findsWidgets,
+    );
     expect(find.text('UPCOMING RELEASES'), findsOneWidget);
     for (var i = 0; i < 8; i++) {
       expect(find.text('Release $i'), findsOneWidget);

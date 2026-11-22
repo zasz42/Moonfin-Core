@@ -291,7 +291,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
       padding: EdgeInsets.fromLTRB(
         _sideInset + sidebarInset,
         compactBanner ? 0 : topInset,
-        _sideInset,
+        compactBanner ? 0 : _sideInset,
         8,
       ),
       child: Center(
@@ -352,60 +352,63 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                       if (compactBanner)
                         Positioned(
                           left: 0,
-                          top: 0,
-                          bottom: 0,
+                          top: (widget.height - compactBannerHeight) / 2,
                           width: compactBannerWidth,
+                          height: compactBannerHeight,
                           child: GestureDetector(
                             onTap: () => widget.onOpen(item),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                // MF-01 compact uses clean backdrop art; title/logo
-                                // is a separate overlay beneath it.
-                                _backdrop(item),
-                                const DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [
-                                        Color(0xE6000000),
-                                        Color(0x00000000),
-                                      ],
+                            child: ClipRRect(
+                              borderRadius: AppRadius.circular(14),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // MF-01 compact uses clean backdrop art; title/logo
+                                  // is a separate overlay beneath it.
+                                  _backdrop(item),
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          Color(0xE6000000),
+                                          Color(0x00000000),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Positioned(
-                                  left: showArrows ? 72 : 20,
-                                  right: 20,
-                                  bottom: 16,
-                                  child: _content(
-                                    context,
-                                    item,
-                                    // Compact mode keeps the official logo/title
-                                    // over the backdrop/banner instead of relying
-                                    // on text baked into the artwork.
-                                    showTitle: true,
-                                  ),
-                                ),
-                                if (items.length > 1)
                                   Positioned(
-                                    top: 52,
-                                    right: 16,
-                                    child: _Dots(
-                                      count: items.length,
-                                      active: index,
+                                    left: showArrows ? 72 : 20,
+                                    right: 20,
+                                    bottom: 16,
+                                    child: _content(
+                                      context,
+                                      item,
+                                      // Compact mode keeps the official logo/title
+                                      // over the backdrop/banner instead of relying
+                                      // on text baked into the artwork.
+                                      showTitle: true,
                                     ),
                                   ),
-                                if (showArrows)
-                                  ...mediaBarNavArrows(
-                                    context,
-                                    onPrevious: index > 0
-                                        ? () => _setIndex(index - 1)
-                                        : null,
-                                    onNext: () => _setIndex(index + 1),
-                                  ),
-                              ],
+                                  if (items.length > 1)
+                                    Positioned(
+                                      top: 52,
+                                      right: 16,
+                                      child: _Dots(
+                                        count: items.length,
+                                        active: index,
+                                      ),
+                                    ),
+                                  if (showArrows)
+                                    ...mediaBarNavArrows(
+                                      context,
+                                      onPrevious: index > 0
+                                          ? () => _setIndex(index - 1)
+                                          : null,
+                                      onNext: () => _setIndex(index + 1),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         )
@@ -451,9 +454,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                       if (compactBanner)
                         Positioned(
                           left: 0,
-                          top: 0,
-                          bottom: 0,
+                          top: (widget.height - compactBannerHeight) / 2,
                           width: compactBannerWidth,
+                          height: compactBannerHeight,
                           child: IgnorePointer(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
@@ -484,7 +487,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           ))
                         Positioned(
                           left: compactBannerWidth + 12,
-                          right: 12,
+                          right: 0,
                           bottom: 0,
                           height: railHeight,
                           child: Padding(
