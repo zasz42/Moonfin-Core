@@ -281,18 +281,22 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     final compactBanner =
         PlatformDetection.isTV &&
         widget.prefs.get(UserPreferences.compactBannerEnabled);
-    // Allocate one third of the available media-bar width to the banner;
-    // the upcoming rail uses the remaining two thirds.
-    final compactBannerHeight = widget.height * (2 / 3);
+    // MF-01 keeps the compact image's previous lower edge fixed while
+    // expanding it upward to a 20px inset from the top of the screen.
+    const compactBannerTop = 20.0;
+    final compactBannerHeight = (widget.height - compactBannerTop).clamp(
+      0.0,
+      double.infinity,
+    );
     final compactBannerWidth = compactBannerHeight * (16 / 9);
-    final railHeight = widget.height * (3 / 4);
+    final railHeight = compactBannerHeight;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
         _sideInset + sidebarInset,
         compactBanner ? 0 : topInset,
         compactBanner ? 0 : _sideInset,
-        8,
+        compactBanner ? 0 : 8,
       ),
       child: Center(
         child: Focus(
@@ -352,7 +356,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                       if (compactBanner)
                         Positioned(
                           left: 0,
-                          top: (widget.height - compactBannerHeight) / 2,
+                          top: compactBannerTop,
                           width: compactBannerWidth,
                           height: compactBannerHeight,
                           child: GestureDetector(
@@ -454,7 +458,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                       if (compactBanner)
                         Positioned(
                           left: 0,
-                          top: (widget.height - compactBannerHeight) / 2,
+                          top: compactBannerTop,
                           width: compactBannerWidth,
                           height: compactBannerHeight,
                           child: IgnorePointer(
@@ -488,16 +492,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                         Positioned(
                           left: compactBannerWidth + 12,
                           right: 0,
-                          bottom: 0,
+                          top: compactBannerTop,
                           height: railHeight,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              top: navbarPosition == NavbarPosition.top
-                                  ? 76
-                                  : 0,
-                            ),
-                            child: const UpcomingReleasesRail(),
-                          ),
+                          child: const UpcomingReleasesRail(),
                         ),
                     ],
                   ),

@@ -56,18 +56,11 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
               const gap = 8.0;
               const headerHeight = 24.0;
               const textHeight = 34.0;
-              final availableWidth = (constraints.maxWidth - gap * 7).clamp(
-                0.0,
-                double.infinity,
-              );
-              final widthFromRail = availableWidth / 8;
-              final widthFromHeight =
-                  ((constraints.maxHeight - headerHeight - textHeight - 8)
-                      .clamp(0.0, double.infinity)) /
-                  1.5;
-              final posterWidth = widthFromRail < widthFromHeight
-                  ? widthFromRail
-                  : widthFromHeight;
+              final posterHeight =
+                  (constraints.maxHeight - headerHeight - textHeight - 8).clamp(
+                    0.0,
+                    double.infinity,
+                  );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -91,9 +84,11 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
                     children: [
                       for (var i = 0; i < entries.length; i++) ...[
                         if (i > 0) const SizedBox(width: gap),
-                        SizedBox(
-                          width: posterWidth,
-                          child: _ReleasePoster(entry: entries[i]),
+                        Expanded(
+                          child: _ReleasePoster(
+                            entry: entries[i],
+                            posterHeight: posterHeight,
+                          ),
                         ),
                       ],
                     ],
@@ -109,9 +104,10 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
 }
 
 class _ReleasePoster extends StatelessWidget {
-  const _ReleasePoster({required this.entry});
+  const _ReleasePoster({required this.entry, required this.posterHeight});
 
   final CalendarEntry entry;
+  final double posterHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -134,8 +130,8 @@ class _ReleasePoster extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AspectRatio(
-          aspectRatio: 2 / 3,
+        SizedBox(
+          height: posterHeight,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(5),
             child: Stack(

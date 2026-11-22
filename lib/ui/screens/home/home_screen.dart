@@ -2638,9 +2638,17 @@ class _ContentRowsState extends State<_ContentRows>
 
   /// The media bar's slot in the list. A peeking first row starts higher up,
   /// over the bottom of the bar.
-  double _mediaBarExtent() => _rowPeek > 0
-      ? MediaQuery.sizeOf(context).height - _rowPeek
-      : _mediaBarHeight();
+  double _mediaBarExtent() {
+    if (_rowPeek > 0) {
+      return MediaQuery.sizeOf(context).height - _rowPeek;
+    }
+    final height = _mediaBarHeight();
+    final compactBannerLayout =
+        PlatformDetection.isTV &&
+        _isBannerMode() &&
+        widget.prefs.get(UserPreferences.compactBannerEnabled);
+    return compactBannerLayout ? height * (5 / 6) : height;
+  }
 
   /// Places the middle of the first row's artwork on the bottom edge of the
   /// screen when Peek Home Rows is on. MakD off TV starts the rows at 65%
@@ -4812,11 +4820,23 @@ class _ContentRowsState extends State<_ContentRows>
     final mediaBarUnderRows =
         mediaBarMode == UserPreferences.mediaBarModeMoonfin ||
         mediaBarMode == UserPreferences.mediaBarModeMakd;
-    final mediaBarHeight = _rowPeek == 0
+    final baseMediaBarHeight = _rowPeek == 0
         ? _mediaBarHeight()
         : mediaBarUnderRows
         ? MediaQuery.sizeOf(context).height
         : MediaQuery.sizeOf(context).height - _rowPeekCover;
+    // MF-01 compact TV mode ends the media-bar slot at the compact image's
+    // existing lower edge (five-sixths of the original 320px bar). The image
+    // can then grow upward to a 20px top inset without moving that lower edge,
+    // and the first Home row starts immediately beneath the compact bar.
+    final compactBannerLayout =
+        _rowPeek == 0 &&
+        PlatformDetection.isTV &&
+        bannerMode &&
+        prefs.get(UserPreferences.compactBannerEnabled);
+    final mediaBarHeight = compactBannerLayout
+        ? baseMediaBarHeight * (5 / 6)
+        : baseMediaBarHeight;
     final mediaBarRowPeek = mediaBarUnderRows ? _rowPeekCover : 0.0;
     // The peeking row steps aside with the navbar while a trailer fills the
     // screen.
