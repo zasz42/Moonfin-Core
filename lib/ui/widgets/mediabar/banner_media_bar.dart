@@ -277,7 +277,10 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     final compactBanner =
         PlatformDetection.isTV &&
         widget.prefs.get(UserPreferences.compactBannerEnabled);
-    final compactBannerWidth = widget.height * (16 / 9);
+    // Allocate one third of the available media-bar width to the banner;
+    // the upcoming rail uses the remaining two thirds.
+    final compactBannerWidth =
+        (MediaQuery.sizeOf(context).width - _sideInset * 2 - sidebarInset) / 3;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -297,29 +300,15 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
           onKeyEvent: (node, event) => _handleKey(event, item),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.circular(16),
-              border: Border.all(
-                color: _focused ? AppColorScheme.accent : Colors.transparent,
-                width: 2.5,
-              ),
-              boxShadow: _focused
-                  ? [
-                      BoxShadow(
-                        color: AppColorScheme.accent.withValues(alpha: 0.4),
-                        blurRadius: 18,
-                      ),
-                    ]
-                  : null,
-            ),
+            decoration: const BoxDecoration(),
             child: ClipRRect(
               borderRadius: AppRadius.circular(14),
               child: SizedBox(
                 width: double.infinity,
                 height: widget.height,
                 child: GestureDetector(
-                  onTap: () => widget.onOpen(item),
-                  onHorizontalDragEnd: items.length > 1
+                  onTap: compactBanner ? null : () => widget.onOpen(item),
+                  onHorizontalDragEnd: !compactBanner && items.length > 1
                       ? (details) {
                           final v = details.primaryVelocity ?? 0;
                           if (v < -300) {
@@ -340,77 +329,80 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           top: 0,
                           bottom: 0,
                           width: compactBannerWidth,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // MF-01 compact uses clean backdrop art; title/logo
-                              // is a separate overlay beneath it.
-                              _backdrop(item),
-                              const DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      Color(0xE6000000),
-                                      Color(0x00000000),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                left: showArrows ? 72 : 20,
-                                right: 20,
-                                bottom: 16,
-                                child: _content(
-                                  context,
-                                  item,
-                                  // Compact mode keeps the official logo/title
-                                  // over the backdrop/banner instead of relying
-                                  // on text baked into the artwork.
-                                  showTitle: true,
-                                ),
-                              ),
-                              if (items.length > 1)
-                                Positioned(
-                                  top: 52,
-                                  right: 16,
-                                  child: _Dots(
-                                    count: items.length,
-                                    active: index,
-                                  ),
-                                ),
-                              if (_showClock)
-                                Positioned(
-                                  top: 12,
-                                  right: 16,
-                                  child: Text(
-                                    _clockText,
-                                    textDirection: TextDirection.ltr,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w500,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Colors.black54,
-                                          blurRadius: 8,
-                                        ),
+                          child: GestureDetector(
+                            onTap: () => widget.onOpen(item),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                // MF-01 compact uses clean backdrop art; title/logo
+                                // is a separate overlay beneath it.
+                                _backdrop(item),
+                                const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Color(0xE6000000),
+                                        Color(0x00000000),
                                       ],
                                     ),
                                   ),
                                 ),
-                              if (showArrows)
-                                ...mediaBarNavArrows(
-                                  context,
-                                  onPrevious: index > 0
-                                      ? () => _setIndex(index - 1)
-                                      : null,
-                                  onNext: () => _setIndex(index + 1),
+                                Positioned(
+                                  left: showArrows ? 72 : 20,
+                                  right: 20,
+                                  bottom: 16,
+                                  child: _content(
+                                    context,
+                                    item,
+                                    // Compact mode keeps the official logo/title
+                                    // over the backdrop/banner instead of relying
+                                    // on text baked into the artwork.
+                                    showTitle: true,
+                                  ),
                                 ),
-                            ],
+                                if (items.length > 1)
+                                  Positioned(
+                                    top: 52,
+                                    right: 16,
+                                    child: _Dots(
+                                      count: items.length,
+                                      active: index,
+                                    ),
+                                  ),
+                                if (_showClock)
+                                  Positioned(
+                                    top: 12,
+                                    right: 16,
+                                    child: Text(
+                                      _clockText,
+                                      textDirection: TextDirection.ltr,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w500,
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            blurRadius: 8,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                if (showArrows)
+                                  ...mediaBarNavArrows(
+                                    context,
+                                    onPrevious: index > 0
+                                        ? () => _setIndex(index - 1)
+                                        : null,
+                                    onNext: () => _setIndex(index + 1),
+                                  ),
+                              ],
+                            ),
                           ),
                         )
                       else ...[
@@ -452,6 +444,36 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                             onNext: () => _setIndex(index + 1),
                           ),
                       ],
+                      if (compactBanner)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: compactBannerWidth,
+                          child: IgnorePointer(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              decoration: BoxDecoration(
+                                borderRadius: AppRadius.circular(14),
+                                border: Border.all(
+                                  color: _focused
+                                      ? AppColorScheme.accent
+                                      : Colors.transparent,
+                                  width: 2.5,
+                                ),
+                                boxShadow: _focused
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColorScheme.accent
+                                              .withValues(alpha: 0.4),
+                                          blurRadius: 18,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
                       if (compactBanner &&
                           widget.prefs.get(
                             UserPreferences.compactBannerUpcomingReleases,

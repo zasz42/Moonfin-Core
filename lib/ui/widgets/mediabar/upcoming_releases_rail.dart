@@ -8,6 +8,8 @@ import '../../../data/services/better_posters_service.dart';
 import '../bounded_network_image.dart';
 
 /// Eight upcoming-release poster cards in the compact media-bar side rail.
+/// This is a passive rail: all eight cards are visible and it cannot receive
+/// focus or scroll independently of the banner.
 class UpcomingReleasesRail extends StatefulWidget {
   const UpcomingReleasesRail({super.key});
 
@@ -31,80 +33,85 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColorScheme.surface.withValues(alpha: 0.94),
-        borderRadius: AppRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'UPCOMING RELEASES',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
+    return IgnorePointer(
+      child: FutureBuilder<CalendarResult>(
+        future: _entries,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final entries = (snapshot.data?.entries ?? const <CalendarEntry>[])
+              .take(8)
+              .toList(growable: false);
+          if (entries.isEmpty) {
+            return Center(
+              child: Text(
+                'No upcoming releases',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: FutureBuilder<CalendarResult>(
-                future: _entries,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final entries =
-                      snapshot.data?.entries ?? const <CalendarEntry>[];
-                  if (entries.isEmpty) {
-                    return Center(
+            );
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 8.0;
+              const headerHeight = 24.0;
+              const textHeight = 34.0;
+              final availableWidth = (constraints.maxWidth - gap * 7).clamp(
+                0.0,
+                double.infinity,
+              );
+              final widthFromRail = availableWidth / 8;
+              final widthFromHeight =
+                  ((constraints.maxHeight - headerHeight - textHeight - 8)
+                      .clamp(0.0, double.infinity)) /
+                  1.5;
+              final posterWidth = widthFromRail < widthFromHeight
+                  ? widthFromRail
+                  : widthFromHeight;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: headerHeight,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
-                        'No upcoming releases',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    );
-                  }
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final tileWidth = (constraints.maxWidth / 8).clamp(
-                        34.0,
-                        110.0,
-                      );
-                      return ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: entries.length.clamp(0, 8),
-                        separatorBuilder: (_, _) => const SizedBox(width: 5),
-                        itemBuilder: (context, index) => _ReleasePoster(
-                          entry: entries[index],
-                          width: tileWidth,
-                          height: constraints.maxHeight,
+                        'UPCOMING RELEASES',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < entries.length; i++) ...[
+                        if (i > 0) const SizedBox(width: gap),
+                        SizedBox(
+                          width: posterWidth,
+                          child: _ReleasePoster(entry: entries[i]),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
 class _ReleasePoster extends StatelessWidget {
-  const _ReleasePoster({
-    required this.entry,
-    required this.width,
-    required this.height,
-  });
+  const _ReleasePoster({required this.entry});
 
   final CalendarEntry entry;
-  final double width;
-  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -124,71 +131,65 @@ class _ReleasePoster extends StatelessWidget {
         : days <= 7
         ? '$days ${days == 1 ? 'day' : 'days'}'
         : '${entry.date.month}/${entry.date.day}';
-    final posterHeight = (height * 0.66).clamp(30.0, 150.0);
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: posterHeight,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (external != null && entry.posterUrl != null)
-                    BoundedNetworkImage(
-                      imageUrl: entry.posterUrl!,
-                      fit: BoxFit.cover,
-                      maxWidth: 220,
-                    ),
-                  if (url != null && url.isNotEmpty)
-                    BoundedNetworkImage(
-                      imageUrl: url,
-                      fit: BoxFit.cover,
-                      maxWidth: 220,
-                      cacheManager: BetterPostersService.cacheManagerForUrl(
-                        url,
-                      ),
-                      errorBuilder: (_, _, _) => external != null
-                          ? const SizedBox.shrink()
-                          : const ColoredBox(
-                              color: Colors.black12,
-                              child: Icon(Icons.movie_outlined, size: 16),
-                            ),
-                    )
-                  else
-                    const ColoredBox(
-                      color: Colors.black12,
-                      child: Icon(Icons.movie_outlined, size: 16),
-                    ),
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AspectRatio(
+          aspectRatio: 2 / 3,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (external != null && entry.posterUrl != null)
+                  BoundedNetworkImage(
+                    imageUrl: entry.posterUrl!,
+                    fit: BoxFit.cover,
+                    maxWidth: 220,
+                  ),
+                if (url != null && url.isNotEmpty)
+                  BoundedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    maxWidth: 220,
+                    cacheManager: BetterPostersService.cacheManagerForUrl(url),
+                    errorBuilder: (_, _, _) => external != null
+                        ? const SizedBox.shrink()
+                        : const ColoredBox(
+                            color: Colors.black12,
+                            child: Icon(Icons.movie_outlined, size: 16),
+                          ),
+                  )
+                else
+                  const ColoredBox(
+                    color: Colors.black12,
+                    child: Icon(Icons.movie_outlined, size: 16),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            entry.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-              color: AppColorScheme.onSurface,
-            ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          entry.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 10,
+            color: AppColorScheme.onSurface,
           ),
-          Text(
-            releaseText,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontSize: 9,
-              color: AppColorScheme.onSurface.withValues(alpha: 0.7),
-            ),
+        ),
+        Text(
+          releaseText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontSize: 9,
+            color: AppColorScheme.onSurface.withValues(alpha: 0.7),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -2853,6 +2853,11 @@ class RowDataSource {
         rawData: data,
       );
     }).toList();
+    // Register provider IDs as soon as any home-row response is parsed.
+    // Several rows (notably Continue Watching and Next Up) bypass _buildRow;
+    // without this, their btttr.cc artwork only becomes available after
+    // another screen happens to register the same media item.
+    BetterPostersService.registerAll(items);
     return withoutBlockedItems(items);
   }
 
