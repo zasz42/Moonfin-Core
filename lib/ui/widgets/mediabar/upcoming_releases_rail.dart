@@ -54,42 +54,21 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
           return LayoutBuilder(
             builder: (context, constraints) {
               const gap = 8.0;
-              const headerHeight = 24.0;
               final posterWidth = (constraints.maxWidth - gap * 7) / 8;
               final posterHeight = posterWidth * 1.5;
-              return Column(
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    height: headerHeight,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'UPCOMING RELEASES',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                        ),
+                  for (var i = 0; i < entries.length; i++) ...[
+                    if (i > 0) const SizedBox(width: gap),
+                    SizedBox(
+                      width: posterWidth,
+                      child: _ReleasePoster(
+                        entry: entries[i],
+                        posterHeight: posterHeight,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var i = 0; i < entries.length; i++) ...[
-                        if (i > 0) const SizedBox(width: gap),
-                        SizedBox(
-                          width: posterWidth,
-                          child: _ReleasePoster(
-                            entry: entries[i],
-                            posterHeight: posterHeight,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                  ],
                 ],
               );
             },

@@ -189,7 +189,7 @@ void main() {
       ),
       findsWidgets,
     );
-    expect(find.text('UPCOMING RELEASES'), findsOneWidget);
+    expect(find.text('UPCOMING RELEASES'), findsNothing);
     for (var i = 0; i < 8; i++) {
       expect(find.text('Release $i'), findsOneWidget);
     }

@@ -3283,8 +3283,12 @@ class _ContentRowsState extends State<_ContentRows>
             row.rowType != HomeRowType.watchParties &&
             row.rowType != HomeRowType.libraryTilesSmall &&
             !isGameHomeRow(row));
-    final headerPaddingTop = homeRowHeaderTop(isRowsV2);
-    final headerPaddingBottom = (row.id == 'mdblist_watching_now') ? 12.0 : (isRowsV2 ? 1.0 : 4.0);
+    final headerPaddingTop = _isCompactClassicMode
+        ? 4.0
+        : homeRowHeaderTop(isRowsV2);
+    final headerPaddingBottom = row.id == 'mdblist_watching_now'
+        ? 12.0
+        : (isRowsV2 ? 1.0 : (_isCompactClassicMode ? 2.0 : 4.0));
     final titleHeight = 20.0 * metadataScale;
     final subtitleHeight = hasSubtitle ? ((row.id == 'mdblist_watching_now' ? 26.0 : 18.0) * metadataScale) : 0.0;
     final headerHeight = headerPaddingTop + headerPaddingBottom + titleHeight + subtitleHeight;
@@ -4582,11 +4586,13 @@ class _ContentRowsState extends State<_ContentRows>
 
   double _classicRowPadding(HomeRow row, UserPreferences prefs) {
     if (expandedHomeRows(prefs) || _isLibraryRow(row)) return 0.0;
-    final stored = classicRowPadding(prefs);
+    final stored = prefs.get(UserPreferences.classicHomeRowsPadding);
     if (PlatformDetection.isTV && _isCompactClassicMode && stored == 30) {
       return stored - _tvCompactClassicRowSpacingTrim;
     }
-    return stored;
+    final padding = stored.toDouble();
+    if (PlatformDetection.useMobileUi) return padding;
+    return (padding - 10).clamp(0.0, double.infinity);
   }
 
   Widget _buildShiftedRow({
@@ -5870,9 +5876,7 @@ class _ContentRowsState extends State<_ContentRows>
         ? _compactClassicResumeBottomPadding
         : rowPadding;
     final topPadding =
-        rowPadding +
-        _focusHeadroom(maxImageHeight, cardExpansion) +
-        (_isCompactClassicMode ? 5.0 : 0.0);
+        rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
     final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);
@@ -6741,9 +6745,13 @@ class _ContentRowsState extends State<_ContentRows>
           Padding(
             padding: EdgeInsets.fromLTRB(
               _kHomeRowLabelInset,
-              homeRowHeaderTop(isRowsV2),
+              _isCompactClassicMode
+                  ? 4.0
+                  : homeRowHeaderTop(isRowsV2),
               8,
-              isWatchingNow ? 12.0 : (isRowsV2 ? 1 : 4),
+              isWatchingNow
+                  ? 12.0
+                  : (isRowsV2 ? 1 : (_isCompactClassicMode ? 2.0 : 4)),
             ),
             child: Row(
               children: [
