@@ -711,6 +711,8 @@ class UserPreferences extends ChangeNotifier {
     'blocked_series_ids',
     'pref_navbar_position',
     'pref_bottom_navbar_style',
+    'pref_top_navbar_style',
+    'pref_sidebar_style',
     'pref_bottom_navbar_tabs',
     'focus_color',
     'pref_watched_indicator_behavior',
@@ -2228,6 +2230,18 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_bottom_navbar_style',
     defaultValue: BottomNavbarStyle.dock,
     values: BottomNavbarStyle.values,
+  );
+
+  static final topNavbarStyle = EnumPreference(
+    key: 'pref_top_navbar_style',
+    defaultValue: TopNavbarStyle.classic,
+    values: TopNavbarStyle.values,
+  );
+
+  static final sidebarStyle = EnumPreference(
+    key: 'pref_sidebar_style',
+    defaultValue: SidebarStyle.classic,
+    values: SidebarStyle.values,
   );
 
   /// Comma separated [BottomNavTab] names pinned between Home and You. Empty
