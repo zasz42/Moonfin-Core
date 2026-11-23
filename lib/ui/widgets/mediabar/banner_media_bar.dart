@@ -284,7 +284,9 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     // MF-01 keeps the compact image's previous lower edge fixed while
     // expanding it upward to a 20px inset from the top of the screen.
     const compactBannerTop = 20.0;
-    final compactBannerHeight = (widget.height - compactBannerTop) * 0.9;
+    const compactBannerBottomGap = 6.0;
+    final compactBannerHeight =
+        widget.height - compactBannerTop - compactBannerBottomGap;
     final compactBannerWidth = compactBannerHeight * (16 / 9);
 
     return Padding(
@@ -488,7 +490,7 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                         Positioned(
                           left: compactBannerWidth + 12,
                           right: 0,
-                          top: compactBannerTop,
+                          bottom: compactBannerBottomGap,
                           child: const UpcomingReleasesRail(),
                         ),
                     ],

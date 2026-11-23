@@ -2647,7 +2647,7 @@ class _ContentRowsState extends State<_ContentRows>
         PlatformDetection.isTV &&
         _isBannerMode() &&
         widget.prefs.get(UserPreferences.compactBannerEnabled);
-    return compactBannerLayout ? height * (5 / 6) : height;
+    return compactBannerLayout ? (height * (5 / 6)) - 24.0 : height;
   }
 
   /// Places the middle of the first row's artwork on the bottom edge of the
@@ -4835,7 +4835,7 @@ class _ContentRowsState extends State<_ContentRows>
         bannerMode &&
         prefs.get(UserPreferences.compactBannerEnabled);
     final mediaBarHeight = compactBannerLayout
-        ? baseMediaBarHeight * (5 / 6)
+        ? (baseMediaBarHeight * (5 / 6)) - 24.0
         : baseMediaBarHeight;
     final mediaBarRowPeek = mediaBarUnderRows ? _rowPeekCover : 0.0;
     // The peeking row steps aside with the navbar while a trailer fills the
