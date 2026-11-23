@@ -5875,8 +5875,16 @@ class _ContentRowsState extends State<_ContentRows>
     final bottomPadding = (_isCompactClassicMode && row.id == 'resume')
         ? _compactClassicResumeBottomPadding
         : rowPadding;
+    // Classic poster focus borders extend beyond the artwork bounds. Keep
+    // enough room above the row even when card expansion is disabled, so the
+    // top edge is not clipped by the horizontal list viewport.
+    final focusBorderHeadroom = isRowsV2 ? 0.0 : 4.0;
     final topPadding =
-        rowPadding + _focusHeadroom(maxImageHeight, cardExpansion);
+        rowPadding +
+        math.max(
+          focusBorderHeadroom,
+          _focusHeadroom(maxImageHeight, cardExpansion),
+        );
     final lockedRowHeight = maxCardHeight + topPadding + bottomPadding;
 
     final subtitle = _rowSubtitle(row, l10n);
@@ -6746,7 +6754,7 @@ class _ContentRowsState extends State<_ContentRows>
             padding: EdgeInsets.fromLTRB(
               _kHomeRowLabelInset,
               _isCompactClassicMode
-                  ? 4.0
+                  ? 2.0
                   : homeRowHeaderTop(isRowsV2),
               8,
               isWatchingNow

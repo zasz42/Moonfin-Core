@@ -11,7 +11,7 @@ const double tvTopNavbarRowInset = 16.0;
 
 /// Room above a row's title. Classic rows on mobile keep a wider gap.
 double homeRowHeaderTop(bool modern) =>
-    modern || !PlatformDetection.useMobileUi ? 6.0 : 16.0;
+    modern || !PlatformDetection.useMobileUi ? 2.0 : 16.0;
 
 /// Expanded Rows gives each row a screen of its own. Phones keep their rows
 /// together.

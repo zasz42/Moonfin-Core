@@ -1399,7 +1399,7 @@ class UserPreferences extends ChangeNotifier {
 
   static final classicHomeRowsPadding = Preference<int>(
     key: 'pref_classic_home_rows_padding',
-    defaultValue: 30,
+    defaultValue: 20,
   );
 
   /// Tightens the Classic home row layout without changing Modern rows.
