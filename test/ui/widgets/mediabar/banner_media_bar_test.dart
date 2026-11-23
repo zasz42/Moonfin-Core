@@ -177,10 +177,9 @@ void main() {
     // The test's Scaffold vertically centers the bar in the 1080px body;
     // within the bar itself the image starts 20px down and ends at its edge.
     expect(compactImageRect.top, 440);
-    expect(compactImageRect.height, 220);
+    expect(compactImageRect.height, 198);
     final railRect = tester.getRect(find.byType(UpcomingReleasesRail));
     expect(railRect.top, compactImageRect.top);
-    expect(railRect.bottom, compactImageRect.bottom);
     expect(railRect.right, 1920);
     expect(railRect.left, compactImageRect.right + 12);
     expect(

@@ -55,12 +55,8 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
             builder: (context, constraints) {
               const gap = 8.0;
               const headerHeight = 24.0;
-              const textHeight = 34.0;
-              final posterHeight =
-                  (constraints.maxHeight - headerHeight - textHeight - 8).clamp(
-                    0.0,
-                    double.infinity,
-                  );
+              final posterWidth = (constraints.maxWidth - gap * 7) / 8;
+              final posterHeight = posterWidth * 1.5;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -84,7 +80,8 @@ class _UpcomingReleasesRailState extends State<UpcomingReleasesRail> {
                     children: [
                       for (var i = 0; i < entries.length; i++) ...[
                         if (i > 0) const SizedBox(width: gap),
-                        Expanded(
+                        SizedBox(
+                          width: posterWidth,
                           child: _ReleasePoster(
                             entry: entries[i],
                             posterHeight: posterHeight,

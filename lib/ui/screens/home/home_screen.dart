@@ -3284,7 +3284,7 @@ class _ContentRowsState extends State<_ContentRows>
             row.rowType != HomeRowType.libraryTilesSmall &&
             !isGameHomeRow(row));
     final headerPaddingTop = homeRowHeaderTop(isRowsV2);
-    final headerPaddingBottom = (row.id == 'mdblist_watching_now') ? 12.0 : (isRowsV2 ? 1.0 : 8.0);
+    final headerPaddingBottom = (row.id == 'mdblist_watching_now') ? 12.0 : (isRowsV2 ? 1.0 : 4.0);
     final titleHeight = 20.0 * metadataScale;
     final subtitleHeight = hasSubtitle ? ((row.id == 'mdblist_watching_now' ? 26.0 : 18.0) * metadataScale) : 0.0;
     final headerHeight = headerPaddingTop + headerPaddingBottom + titleHeight + subtitleHeight;
@@ -6743,7 +6743,7 @@ class _ContentRowsState extends State<_ContentRows>
               _kHomeRowLabelInset,
               homeRowHeaderTop(isRowsV2),
               8,
-              isWatchingNow ? 12.0 : (isRowsV2 ? 1 : 8),
+              isWatchingNow ? 12.0 : (isRowsV2 ? 1 : 4),
             ),
             child: Row(
               children: [

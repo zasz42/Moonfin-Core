@@ -284,12 +284,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
     // MF-01 keeps the compact image's previous lower edge fixed while
     // expanding it upward to a 20px inset from the top of the screen.
     const compactBannerTop = 20.0;
-    final compactBannerHeight = (widget.height - compactBannerTop).clamp(
-      0.0,
-      double.infinity,
-    );
+    final compactBannerHeight = (widget.height - compactBannerTop) * 0.9;
     final compactBannerWidth = compactBannerHeight * (16 / 9);
-    final railHeight = compactBannerHeight;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -396,8 +392,8 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                                   ),
                                   if (items.length > 1)
                                     Positioned(
-                                      top: 52,
-                                      right: 16,
+                                      top: 8,
+                                      right: 8,
                                       child: _Dots(
                                         count: items.length,
                                         active: index,
@@ -493,7 +489,6 @@ class _BannerMediaBarState extends State<BannerMediaBar> {
                           left: compactBannerWidth + 12,
                           right: 0,
                           top: compactBannerTop,
-                          height: railHeight,
                           child: const UpcomingReleasesRail(),
                         ),
                     ],
