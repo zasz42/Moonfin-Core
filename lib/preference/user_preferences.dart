@@ -115,8 +115,8 @@ class UserPreferences extends ChangeNotifier {
   ];
 
   // Where the bar draws its titles from. Every source still passes through the
-  // library, collection, content type and genre filters, and still picks its
-  // slides at random out of what comes back.
+  // library, collection, content type and genre filters. Random shuffles what
+  // comes back, and the others take the newest from each library in turn.
   static const mediaBarSourceRandom = 'random';
   static const mediaBarSourceRecentlyAdded = 'recentlyAdded';
   static const mediaBarSourceRecentlyReleased = 'recentlyReleased';
@@ -505,7 +505,6 @@ class UserPreferences extends ChangeNotifier {
     'imdb_most_popular_tv_shows_enabled',
     'imdb_top_250_movies_enabled',
     'imdb_top_250_tv_shows_enabled',
-    'imdb_top_english_movies_enabled',
     'live_tv_channel_sort_by',
     'live_tv_last_channel_id',
     'music_playback_time_display',
@@ -2750,6 +2749,12 @@ class UserPreferences extends ChangeNotifier {
     values: AudioPassthroughOutput.values,
   );
 
+  /// Linux only: decode a passthrough track when the output plays it silently.
+  static final passthroughSilentFallback = Preference(
+    key: 'pref_passthrough_silent_fallback',
+    defaultValue: true,
+  );
+
   static final downmixToStereo = Preference(
     key: 'pref_downmix_to_stereo',
     defaultValue: false,
@@ -3666,11 +3671,6 @@ class UserPreferences extends ChangeNotifier {
 
   static final imdbLowestRatedMoviesEnabled = Preference(
     key: 'imdb_lowest_rated_movies_enabled',
-    defaultValue: false,
-  );
-
-  static final imdbTopEnglishMoviesEnabled = Preference(
-    key: 'imdb_top_english_movies_enabled',
     defaultValue: false,
   );
 
